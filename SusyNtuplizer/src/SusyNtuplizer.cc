@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 //
 //
 
@@ -1002,7 +1002,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       }// for it
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << "reco::CaloJet is not available!!! " << e.what();
+      edm::LogError(name()) << caloJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
     }
 
     susyEvent_->caloJets[key] = jetCollection;
@@ -1078,23 +1078,23 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
 	// accessing Jet ID information
-	const reco::JetID& jetID = (*jetIDH)[jetRef];
-	jet.fHPD                          = jetID.fHPD;
-	jet.fRBX                          = jetID.fRBX;
-	jet.n90Hits                       = jetID.n90Hits;
-	jet.fSubDetector1                 = jetID.fSubDetector1;
-	jet.fSubDetector2                 = jetID.fSubDetector2;
-	jet.fSubDetector3                 = jetID.fSubDetector3;
-	jet.fSubDetector4                 = jetID.fSubDetector4;
-	jet.restrictedEMF                 = jetID.restrictedEMF;
-	jet.nHCALTowers                   = jetID.nHCALTowers;
-	jet.nECALTowers                   = jetID.nECALTowers;
-	jet.approximatefHPD               = jetID.approximatefHPD;
-	jet.approximatefRBX               = jetID.approximatefRBX;
-	jet.hitsInN90                     = jetID.hitsInN90;
-	jet.numberOfHits2RPC              = jetID.numberOfHits2RPC;
-	jet.numberOfHits3RPC              = jetID.numberOfHits3RPC;
-	jet.numberOfHitsRPC               = jetID.numberOfHitsRPC;
+// 	const reco::JetID& jetID = (*jetIDH)[jetRef];
+// 	jet.fHPD                          = jetID.fHPD;
+// 	jet.fRBX                          = jetID.fRBX;
+// 	jet.n90Hits                       = jetID.n90Hits;
+// 	jet.fSubDetector1                 = jetID.fSubDetector1;
+// 	jet.fSubDetector2                 = jetID.fSubDetector2;
+// 	jet.fSubDetector3                 = jetID.fSubDetector3;
+// 	jet.fSubDetector4                 = jetID.fSubDetector4;
+// 	jet.restrictedEMF                 = jetID.restrictedEMF;
+// 	jet.nHCALTowers                   = jetID.nHCALTowers;
+// 	jet.nECALTowers                   = jetID.nECALTowers;
+// 	jet.approximatefHPD               = jetID.approximatefHPD;
+// 	jet.approximatefRBX               = jetID.approximatefRBX;
+// 	jet.hitsInN90                     = jetID.hitsInN90;
+// 	jet.numberOfHits2RPC              = jetID.numberOfHits2RPC;
+// 	jet.numberOfHits3RPC              = jetID.numberOfHits3RPC;
+// 	jet.numberOfHitsRPC               = jetID.numberOfHitsRPC;
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1102,7 +1102,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       }// for it
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << "reco::Jet is not available!!! " << e.what();
+      edm::LogError(name()) << pfJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
     }
 
     susyEvent_->pfJets[key] = jetCollection;
@@ -1163,7 +1163,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       }// for it
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << "reco::Jet is not available!!! " << e.what();
+      edm::LogError(name()) << jptJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
     }
 
     susyEvent_->jptJets[key] = jetCollection;
