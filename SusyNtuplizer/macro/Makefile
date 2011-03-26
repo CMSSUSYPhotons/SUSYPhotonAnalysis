@@ -1,5 +1,5 @@
 # Original Author:  Dongwook Jang
-# $Id: Makefile,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+# $Id: Makefile,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 
 #--------------------------------------------------
 # Change file names for your need
@@ -20,6 +20,15 @@ DICTS   = Event_dict
 ARCH         := $(shell root-config --arch)
 #
 ifeq ($(ARCH),linuxx8664gcc)
+# Linux with egcs, gcc 2.9x, gcc 3.x (>= RedHat 5.2)
+CXX           = g++
+CXXFLAGS      = -O2 -Wall -fPIC
+LD            = g++
+LDFLAGS       = -O2
+SOFLAGS       = -shared
+endif
+
+ifeq ($(ARCH),macosx64)
 # Linux with egcs, gcc 2.9x, gcc 3.x (>= RedHat 5.2)
 CXX           = g++
 CXXFLAGS      = -O2 -Wall -fPIC
