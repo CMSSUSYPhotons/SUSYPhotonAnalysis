@@ -31,6 +31,8 @@
 <use name="Geometry/CaloTopology"/>
 <use name="Calibration/IsolatedParticles"/>
 
+<use name="JetMETCorrections/Objects"/>
+
 <use name="root"/>
 
 <flags EDM_PLUGIN="1"/>

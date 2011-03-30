@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -295,27 +295,49 @@ void SusyEventAnalyzer::Loop() {
 
     }// for photon
 
+    if(printLevel > 2) {
 
-    std::cout << "Jet Collection Names ------------------------ " << std::endl;
-    for(std::map<TString, susy::CaloJetCollection>::iterator it = event->caloJets.begin();
-	it != event->caloJets.end(); it++){
-      std::cout << it->first << ", size : " << it->second.size() << std::endl;
-      if(it->second.size() > 0)
-	std::cout << "momentum pt : " << it->second.begin()->momentum.Pt() << std::endl;
-    }
-    std::cout << std::endl;
+      std::cout << "L1 Info ----------" << std::endl;
+      for(susy::TriggerMap::iterator it = event->l1Map.begin(); it != event->l1Map.end(); it++) {
+	std::cout << it->first << " => " << it->second.first << ", " << Int_t(it->second.second) << std::endl;
+      }
+      std::cout << std::endl;
 
-    std::cout << "Met Collection Names ------------------------- " << std::endl;
-    for(std::map<TString, susy::MET>::iterator it = event->metMap.begin();
-	it != event->metMap.end(); it++) {
-      std::cout << it->first << ", met : " << it->second.met()  
-		<< ", mEtCorr size : " << it->second.mEtCorr.size() << std::endl;
-    }
-    std::cout << std::endl;
+      std::cout << "HLT Info ----------" << std::endl;
+      for(susy::TriggerMap::iterator it = event->hltMap.begin(); it != event->hltMap.end(); it++) {
+	std::cout << it->first << " => " << it->second.first << ", " << Int_t(it->second.second) << std::endl;
+      }
+      std::cout << std::endl;
+      
+      std::cout << "Jet Collection Names ------------------------ " << std::endl;
+      for(std::map<TString, susy::CaloJetCollection>::iterator it = event->caloJets.begin();
+	  it != event->caloJets.end(); it++){
+	std::cout << it->first << ", size : " << it->second.size() << std::endl;
+	if(it->second.size() > 0){
+	  std::cout << "momentum pt : " << it->second.begin()->momentum.Pt() << std::endl;
+	  std::cout << "jecMap : " ;
+	  for(std::map<TString,Float_t>::iterator mit = it->second.begin()->jecMap.begin();
+	      mit != it->second.begin()->jecMap.end(); mit++) {
+	    std::cout << mit->first << " => " << mit->second << std::endl;
+	  }
+	}
+      }
+      std::cout << std::endl;
+      
+      std::cout << "Met Collection Names ------------------------- " << std::endl;
+      for(std::map<TString, susy::MET>::iterator it = event->metMap.begin();
+	  it != event->metMap.end(); it++) {
+	std::cout << it->first << ", met : " << it->second.met()  
+		  << ", mEtCorr size : " << it->second.mEtCorr.size() << std::endl;
+      }
+      std::cout << std::endl;
+      
+      
+    } // if(debugLevel
 
 
     if(printLevel > 0) std::cout << "Find loose and tight jets in the event." << std::endl;
-
+      
     std::map<TString,susy::CaloJetCollection>::iterator jetColl_it = event->caloJets.find("ak5");
     if(jetColl_it == event->caloJets.end()){
       std::cout << "JetCollection is not available!!!" << std::endl;
@@ -372,10 +394,10 @@ void SusyEventAnalyzer::Loop() {
 
     if(printLevel > 0) std::cout << "Apply trigger selection in the event." << std::endl;
 
-    std::map<TString,UChar_t>::iterator it = event->hltMap.find(hltName);
+    susy::TriggerMap::iterator it = event->hltMap.find(hltName);
     bool passHLT = false;
     if(!useTrigger) passHLT = true; 
-    else if(it != event->hltMap.end() && it->second == 1) passHLT = true;
+    else if(it != event->hltMap.end() && it->second.second == 1) passHLT = true;
 
 
     if(printLevel > 0) std::cout << "Select which met will be used in the event." << std::endl;

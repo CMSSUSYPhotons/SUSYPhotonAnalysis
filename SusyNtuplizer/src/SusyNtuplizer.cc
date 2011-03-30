@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.2 2011/03/25 16:39:29 dwjang Exp $
 //
 //
 
@@ -59,6 +59,8 @@
 #include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectronFwd.h"
+#include "DataFormats/EgammaCandidates/interface/Conversion.h"
+#include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
 #include "DataFormats/MuonReco/interface/Muon.h"
 #include "DataFormats/MuonReco/interface/MuonFwd.h"
 #include "DataFormats/JetReco/interface/CaloJet.h"
@@ -102,6 +104,9 @@
 #include "Geometry/CaloEventSetup/interface/CaloTopologyRecord.h"
 #include "Calibration/IsolatedParticles/interface/eECALMatrix.h"
 
+// Jet Energy Correction
+#include "JetMETCorrections/Objects/interface/JetCorrector.h"
+
 
 // system include files
 #include <memory>
@@ -139,7 +144,7 @@ private:
   void fillCluster(const reco::SuperClusterRef& in, susy::SuperCluster& out, int& basicClusterIndex); // basicClusterIndex will be incremented here
   void fillParticle(const reco::GenParticle* in, susy::Particle& out, int igen);
   void fillParticle(const reco::PFCandidateRef& in, susy::Particle& out);
-  void fillExtrapolations(const reco::TrackRef& ttk, std::map<TString,TVector3>& positions);
+  void fillExtrapolations(const reco::Track* ttk, std::map<TString,TVector3>& positions);
   bool sameGenParticles(const reco::GenParticle* gp, const reco::GenParticle* gp2);
 
   // ----------member data ---------------------------
@@ -299,7 +304,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   int clusterIndex = 0;
   int superClusterIndex = 0;
 
-  if(recoMode_){
+  if(recoMode_) {
     try {
       iSetup.get<IdealMagneticFieldRecord>().get(magneticField_);
     }
@@ -313,10 +318,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     catch(cms::Exception& e) {
       edm::LogError(name()) << "TransientTrackRecord is not available!!! " << e.what();
     }
-
+  
     propagator_ = new PropagatorWithMaterial(alongMomentum,0.000511,&*magneticField_);
   }
 
+  // initialize susyEvent object
   susyEvent_->Init();
 
   if(debugLevel_ > 0) std::cout << name() << ", fill event info" << std::endl;
@@ -324,18 +330,22 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   susyEvent_->isRealData = iEvent.isRealData() ? 1 : 0;
   susyEvent_->runNumber = iEvent.id().run();
   susyEvent_->eventNumber = iEvent.id().event();
-  susyEvent_->luminosityBlockNumber = iEvent.getLuminosityBlock().luminosityBlock();
+  susyEvent_->luminosityBlockNumber = iEvent.luminosityBlock();
+  susyEvent_->bunchCrossing = iEvent.bunchCrossing();
 
-//   edm::Handle<LumiSummary> lsH;
+  const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
+  edm::Handle<LumiSummary> lsH;
 
-//   try {
-//     iEvent.getByLabel(lumiSummaryTag_, lsH);
-//     susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
-//     susyEvent_->intgRecLumi = lsH->intgRecLumi();
-//   }
-//   catch(cms::Exception& e) {
-//     edm::LogError(name()) << "LumiSummary is not available!!! " << e.what();
-//   }
+  try {
+    lumiBlock.getByLabel(lumiSummaryTag_, lsH);
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "LumiSummary is not available!!! " << e.what();
+  }
+
+  susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
+  susyEvent_->intgRecLumi = lsH->intgRecLumi();
+
 
   if(debugLevel_ > 1) std::cout << name() << ", run " << iEvent.id().run()
 				<< ", event " << iEvent.id().event()
@@ -356,9 +366,12 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     std::vector<L1GlobalTriggerObjectMap>::const_iterator iter_begin = gtOMRec->gtObjectMap().begin();
     std::vector<L1GlobalTriggerObjectMap>::const_iterator iter_end = gtOMRec->gtObjectMap().end();
     std::vector<L1GlobalTriggerObjectMap>::const_iterator iter = iter_begin;
-
+    // loop over L1 triggers
     for( ; iter != iter_end; iter++) {
-      susyEvent_->l1Map[TString(iter->algoName().c_str())] = UChar_t(dWord[iter->algoBitNumber()]);
+      // get prescale from LumiSummary
+      Int_t prescale = lsH->l1info(iter->algoName()).prescale;
+      // check L1 bit
+      susyEvent_->l1Map[TString(iter->algoName().c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(dWord[iter->algoBitNumber()]));
       if(debugLevel_ > 1) std::cout << iter->algoName() << " : " << dWord[iter->algoBitNumber()] << std::endl;
     }
   }
@@ -375,8 +388,12 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     int nHlt = hltH->size();
     const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
     if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
+    // loop over hlt paths
     for(int i=0; i<nHlt; i++) {
-      susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = UChar_t(hltH->accept(i));
+      // get prescale from LumiSummary
+      Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
+      // check hlt bit
+      susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
       if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
     }
   }
@@ -436,11 +453,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   edm::ESHandle<CaloTopology> ctH;
   const CaloTopology* caloTopology = 0;
 
+    
+  if(debugLevel_ > 0) std::cout << name() << ", get ecal rechits" << std::endl;
+    
   if(recoMode_) {
-    
-    if(debugLevel_ > 0) std::cout << name() << ", get ecal rechits" << std::endl;
-    
-    
     try {
       iEvent.getByLabel("ecalRecHit","EcalRecHitsEB",barrelRecHitsHandle);
       iEvent.getByLabel("ecalRecHit","EcalRecHitsEE",endcapRecHitsHandle);
@@ -448,7 +464,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     catch(cms::Exception& e) {
       edm::LogError(name()) << "EcalRecHitCollection is not available!!! " << e.what();
     }
-    
     
     if(debugLevel_ > 0) std::cout << name() << ", get calo geometry record." << std::endl;
     
@@ -470,9 +485,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     catch(cms::Exception& e) {
       edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
     }
-
-  }// if(recoMode_
-
+  }
 
   if(debugLevel_ > 0) std::cout << name() << ", fill all kinds of met collections" << std::endl;
 
@@ -624,9 +637,15 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       }// for id
 
       // conversion ID
-      pho.dist   = 0;
-      pho.dcot   = 0;
-      pho.radius = 0;
+      if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
+	pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
+	pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
+	pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
+	pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
+	pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
+			      it->conversions()[0]->conversionVertex().y(),
+			      it->conversions()[0]->conversionVertex().z());
+      }
 
       susyEvent_->photons.push_back(pho);
 
@@ -914,6 +933,37 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
 
+  // JEC naming scheme in JetMETCorrections/Configuration/python/DefaultJEC_cff.py
+  //
+  // For CaloJets
+  //
+  // ak5CaloJetsL2L3
+  // ak7CaloJetsL2L3
+  // kt4CaloJetsL2L3
+  // kt6CaloJetsL2L3
+  // ak5CaloJetsL2L3Residual
+  // ak7CaloJetsL2L3Residual
+  // kt4CaloJetsL2L3Residual
+  // kt6CaloJetsL2L3Residual
+  //
+  // For PFJets
+  //
+  // ak5PFJetsL2L3
+  // ak7PFJetsL2L3
+  // kt4PFJetsL2L3
+  // kt6PFJetsL2L3
+  // ak5PFJetsL2L3Residual
+  // ak7PFJetsL2L3Residual
+  // kt4PFJetsL2L3Residual
+  // kt6PFJetsL2L3Residual
+  //
+  // For JPTJets
+  //
+  // ak5JPTJetsL2L3
+  // ak5JPTJetsL2L3Residual
+  //
+
+
   int nJetColl = caloJetCollectionTags_.size();
 
   for(int iJetC=0; iJetC < nJetColl; iJetC++) {
@@ -927,6 +977,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     catch(cms::Exception& e) {
       edm::LogError(name()) << caloJetCollectionTags_[iJetC] << " of JetID is not available!!! " << e.what();
     }
+
+    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
+    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
 
     edm::Handle<reco::CaloJetCollection> jetH;
     try {
@@ -977,6 +1030,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.detectorP4.SetXYZT(it->detectorP4().px(),it->detectorP4().py(),
 			       it->detectorP4().pz(),it->detectorP4().energy());
 
+	jet.jecMap["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecMap["L2L3Residual"] = corrL2L3R->correction(it->p4());
+
 	// accessing Jet ID information
 	const reco::JetID& jetID = (*jetIDH)[jetRef];
 	jet.fHPD                          = jetID.fHPD;
@@ -1018,13 +1074,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     susy::PFJetCollection jetCollection;
     TString key = TString(pfJetCollectionTags_[iJetC].c_str()).ReplaceAll("PFJets","");
 
-    edm::Handle<edm::ValueMap<reco::JetID> > jetIDH;
-    try {
-      iEvent.getByLabel((key+"JetID").Data(), jetIDH);
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << pfJetCollectionTags_[iJetC] << " of JetID is not available!!! " << e.what();
-    }
+    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3").Data(),iSetup);
+    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
+
     edm::Handle<reco::PFJetCollection> jetH;
     try {
       iEvent.getByLabel(edm::InputTag(pfJetCollectionTags_[iJetC]),jetH);
@@ -1077,24 +1129,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.chargedMultiplicity = it->chargedMultiplicity();
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
-	// accessing Jet ID information
-// 	const reco::JetID& jetID = (*jetIDH)[jetRef];
-// 	jet.fHPD                          = jetID.fHPD;
-// 	jet.fRBX                          = jetID.fRBX;
-// 	jet.n90Hits                       = jetID.n90Hits;
-// 	jet.fSubDetector1                 = jetID.fSubDetector1;
-// 	jet.fSubDetector2                 = jetID.fSubDetector2;
-// 	jet.fSubDetector3                 = jetID.fSubDetector3;
-// 	jet.fSubDetector4                 = jetID.fSubDetector4;
-// 	jet.restrictedEMF                 = jetID.restrictedEMF;
-// 	jet.nHCALTowers                   = jetID.nHCALTowers;
-// 	jet.nECALTowers                   = jetID.nECALTowers;
-// 	jet.approximatefHPD               = jetID.approximatefHPD;
-// 	jet.approximatefRBX               = jetID.approximatefRBX;
-// 	jet.hitsInN90                     = jetID.hitsInN90;
-// 	jet.numberOfHits2RPC              = jetID.numberOfHits2RPC;
-// 	jet.numberOfHits3RPC              = jetID.numberOfHits3RPC;
-// 	jet.numberOfHitsRPC               = jetID.numberOfHitsRPC;
+	jet.jecMap["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecMap["L2L3Residual"] = corrL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1117,6 +1153,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   for(int iJetC=0; iJetC < nJetColl; iJetC++) {
     susy::JPTJetCollection jetCollection;
     TString key(jptJetCollectionTags_[iJetC].c_str());
+
+    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector("ak5JPTL2L3",iSetup);
+    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector("ak5JPTL2L3Residual",iSetup);
 
     edm::Handle<reco::JPTJetCollection> jetH;
     try {
@@ -1158,6 +1197,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.elecMultiplicity    = it->elecMultiplicity();
 	jet.getZSPCor           = it->getZSPCor();
 
+	jet.jecMap["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecMap["L2L3Residual"] = corrL2L3R->correction(it->p4());
+
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
       }// for it
@@ -1186,7 +1228,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 
   // end of event cleaning procedure - delete any variables created by "new" operator in this procedure
-  //  if(recoMode_ && propagator_) delete propagator_;
+  if(recoMode_ && propagator_) delete propagator_;
 
 }
 
@@ -1203,21 +1245,16 @@ void SusyNtuplizer::fillTrack(const reco::TrackRef& in, susy::Track& out) {
     out.ndof = in->ndof();
     out.charge = in->charge();
     for(int i=0; i<reco::Track::dimension; i++) out.error[i] = in->error(i);
+    out.numberOfValidHits        = in->hitPattern().numberOfValidHits();
+    out.numberOfValidTrackerHits = in->hitPattern().numberOfValidTrackerHits();
+    out.numberOfValidMuonHits    = in->hitPattern().numberOfValidMuonHits();
+    out.numberOfValidPixelHits   = in->hitPattern().numberOfValidPixelHits();
+    out.numberOfValidStripHits   = in->hitPattern().numberOfValidStripHits();
     out.vertex.SetXYZ(in->vx(),in->vy(),in->vz());
     out.momentum.SetXYZT(in->px(),in->py(),in->pz(),in->p());
 
-    out.statusCode = 0x0; // normal track flag
-
-    if(recoMode_){
-      out.statusCode |= ((in->innerOk() ? 0x1 : 0) << 1);
-      out.statusCode |= ((in->outerOk() ? 0x1 : 0) << 2);
-
-      out.nHits = in->numberOfValidHits();
-      out.hitPositions["inner"] = TVector3(in->innerPosition().x(),in->innerPosition().y(),in->innerPosition().z());
-      out.hitPositions["outer"] = TVector3(in->outerPosition().x(),in->outerPosition().y(),in->outerPosition().z());
-      out.extrapolatedPositions.clear();
-      fillExtrapolations(in,out.extrapolatedPositions);
-    }// if(recoMode_)
+    out.extrapolatedPositions.clear();
+    if(recoMode_) fillExtrapolations(&*in,out.extrapolatedPositions);
 
   }// try
   catch(cms::Exception& e) {
@@ -1239,20 +1276,16 @@ void SusyNtuplizer::fillTrack(const reco::GsfTrackRef& in, susy::Track& out) {
     out.ndof = in->ndof();
     out.charge = in->chargeMode();
     for(int i=0; i<reco::GsfTrack::dimensionMode; i++) out.error[i] = in->errorMode(i);
+    out.numberOfValidHits        = in->hitPattern().numberOfValidHits();
+    out.numberOfValidTrackerHits = in->hitPattern().numberOfValidTrackerHits();
+    out.numberOfValidMuonHits    = in->hitPattern().numberOfValidMuonHits();
+    out.numberOfValidPixelHits   = in->hitPattern().numberOfValidPixelHits();
+    out.numberOfValidStripHits   = in->hitPattern().numberOfValidStripHits();
     out.vertex.SetXYZ(in->vx(),in->vy(),in->vz());
     out.momentum.SetXYZT(in->pxMode(),in->pyMode(),in->pzMode(),in->pMode());
 
-    out.statusCode = 0x1; // gsfTrack flag
-
-    if(recoMode_){
-      out.statusCode |= ((in->innerOk() ? 0x1 : 0) << 1);
-      out.statusCode |= ((in->outerOk() ? 0x1 : 0) << 2);
-
-      out.nHits = in->numberOfValidHits();
-      out.hitPositions["inner"] = TVector3(in->innerPosition().x(),in->innerPosition().y(),in->innerPosition().z());
-      out.hitPositions["outer"] = TVector3(in->outerPosition().x(),in->outerPosition().y(),in->outerPosition().z());
-      out.extrapolatedPositions.clear();
-    }// if(recoMode_)
+    out.extrapolatedPositions.clear();
+    if(recoMode_) fillExtrapolations(&*in,out.extrapolatedPositions);
 
   }// try
   catch(cms::Exception& e) {
@@ -1343,9 +1376,10 @@ void SusyNtuplizer::fillParticle(const reco::GenParticle* in, susy::Particle& ou
 }
 
 
-void SusyNtuplizer::fillExtrapolations(const reco::TrackRef& rtrk, std::map<TString,TVector3>& positions) {
+void SusyNtuplizer::fillExtrapolations(const reco::Track* rtrk, std::map<TString,TVector3>& positions) {
 
-  if(rtrk.isNull()) return;
+  if(!recoMode_) return;
+  if(!rtrk) return;
 
   try {
     reco::TransientTrack  ttk = transientTrackBuilder_->build(*rtrk);

@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+// $Id: SusyEvent.h,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -133,10 +133,6 @@ namespace susy {
     ~Track() { Init(); }
     void Init();
 
-    bool isGsfTrack() { return (statusCode & (0x1 << 0) ); }
-    bool InnerOk() {    return (statusCode & (0x1 << 1) ); }
-    bool OuterOk() {    return (statusCode & (0x1 << 2) ); }
-
     // derived quantities
     float normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
     float dxy() const { return (-vertex.X()*momentum.Py() + vertex.Y()*momentum.Px())/momentum.Pt(); }
@@ -151,15 +147,17 @@ namespace susy {
     Int_t          index;
     Int_t          algorithm;
     Int_t          quality;
-    Int_t          statusCode;
-    Int_t          nHits;
+    UChar_t        numberOfValidHits;
+    UChar_t        numberOfValidTrackerHits;
+    UChar_t        numberOfValidMuonHits;
+    UChar_t        numberOfValidPixelHits;
+    UChar_t        numberOfValidStripHits;
     Float_t        chi2;
     Float_t        ndof;
     Float_t        charge;
     Float_t        error[5]; // qoverp, lambda, phi, dxy, dsz
     TVector3       vertex;
     TLorentzVector momentum;
-    std::map<TString,TVector3> hitPositions;
     std::map<TString,TVector3>  extrapolatedPositions;
     
   };
@@ -221,9 +219,12 @@ namespace susy {
     Float_t        neutralHadronIso;
     Float_t        photonIso;
 
-    Float_t        dist;
-    Float_t        dcot;
-    Float_t        radius;
+    // Conversion info
+    Float_t        convDist;
+    Float_t        convDcot;
+    Float_t        convVtxChi2;
+    UChar_t        convVtxNdof;
+    TVector3       convVertex;
 
     Int_t          superClusterIndex;
     Float_t        superClusterPreshowerEnergy;
@@ -308,6 +309,7 @@ namespace susy {
     Float_t        dr04HcalDepth2TowerSumEt;
     Float_t        dr04HcalTowerSumEt;
 
+    // Conversion info
     Float_t        convDist;
     Float_t        convDcot;
     Float_t        convRadius;
@@ -355,11 +357,11 @@ namespace susy {
     bool isCaloMuon() {       return (type & (0x1 << 4)); }
 
     Int_t          type;
-    Int_t          nMatches;
-    Int_t          nValidHits;
-    Int_t          nValidTrackerHits;
-    Int_t          nValidMuonHits;
-    Int_t          nChambers;
+    UChar_t        nMatches;
+    UChar_t        nValidHits;
+    UChar_t        nValidTrackerHits;
+    UChar_t        nValidMuonHits;
+    UChar_t        nChambers;
     Int_t          timeNDof;
     Int_t          timeDirection;
     Float_t        timeAtIp;
@@ -452,6 +454,8 @@ namespace susy {
     ~CaloJet() { Init(); }
     void Init();
 
+    TLorentzVector corrP4() { return momentum; }
+
     // Basic Jet Info
     Float_t        partonFlavour;
     Float_t        jetCharge;
@@ -504,14 +508,7 @@ namespace susy {
     TLorentzVector momentum;
     TLorentzVector detectorP4;
 
-    // JES correction factor is stored the following order
-    // For example, L4 stands for correction applied up to L4 from Raw
-    // Raw, L1, L2, L3, L4, L5g, L5uds, L5c, L5b, L6g, L6uds, L6c, L6b, L7g, L7uds, L7c, L7b
-    std::map<TString,Float_t> jesMap;
-
-    // Btag discriminator name and value
-    std::map<TString,Float_t> bTagMap;
-
+    std::map<TString,Float_t> jecMap;
   };
 
 
@@ -522,6 +519,7 @@ namespace susy {
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
+    TLorentzVector corrP4() { return momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -537,6 +535,7 @@ namespace susy {
     Int_t          nPasses;
     Int_t          nConstituents;
 
+    // PF Jet Info
     Float_t        chargedHadronEnergy;
     Float_t        neutralHadronEnergy;
     Float_t        photonEnergy;
@@ -547,37 +546,20 @@ namespace susy {
     Float_t        chargedEmEnergy;
     Float_t        chargedMuEnergy;
     Float_t        neutralEmEnergy;
-    Int_t          chargedHadronMultiplicity;
-    Int_t          neutralHadronMultiplicity;
-    Int_t          photonMultiplicity;
-    Int_t          electronMultiplicity;
-    Int_t          muonMultiplicity;
-    Int_t          HFHadronMultiplicity;
-    Int_t          HFEMMultiplicity;
-    Int_t          chargedMultiplicity;
-    Int_t          neutralMultiplicity;
-
-    // Jet ID info
-    Float_t        fHPD;
-    Float_t        fRBX;
-    Float_t        n90Hits;
-    Float_t        fSubDetector1;
-    Float_t        fSubDetector2;
-    Float_t        fSubDetector3;
-    Float_t        fSubDetector4;
-    Float_t        restrictedEMF;
-    Int_t          nHCALTowers;
-    Int_t          nECALTowers;
-    Float_t        approximatefHPD;
-    Float_t        approximatefRBX;
-    Int_t          hitsInN90;
-    Int_t          numberOfHits2RPC;
-    Int_t          numberOfHits3RPC;
-    Int_t          numberOfHitsRPC;
+    UChar_t        chargedHadronMultiplicity;
+    UChar_t        neutralHadronMultiplicity;
+    UChar_t        photonMultiplicity;
+    UChar_t        electronMultiplicity;
+    UChar_t        muonMultiplicity;
+    UChar_t        HFHadronMultiplicity;
+    UChar_t        HFEMMultiplicity;
+    UChar_t        chargedMultiplicity;
+    UChar_t        neutralMultiplicity;
 
     TVector3       vertex;
     TLorentzVector momentum;
 
+    std::map<TString,Float_t> jecMap;
   };
 
 
@@ -588,6 +570,7 @@ namespace susy {
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
+    TLorentzVector corrP4() { return momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -607,20 +590,22 @@ namespace susy {
     Float_t        neutralHadronEnergy;
     Float_t        chargedEmEnergy;
     Float_t        neutralEmEnergy;
-    Int_t          chargedMultiplicity;
-    Int_t          muonMultiplicity;
-    Int_t          elecMultiplicity;
+    UChar_t        chargedMultiplicity;
+    UChar_t        muonMultiplicity;
+    UChar_t        elecMultiplicity;
     Float_t        getZSPCor;
 
     TVector3       vertex;
     TLorentzVector momentum;
 
+    std::map<TString,Float_t> jecMap;
   };
 
 
   typedef std::vector<susy::CaloJet> CaloJetCollection;
   typedef std::vector<susy::PFJet> PFJetCollection;
   typedef std::vector<susy::JPTJet> JPTJetCollection;
+  typedef std::map<TString, std::pair<Int_t, UChar_t> > TriggerMap;
 
   class Event {
 
@@ -638,14 +623,15 @@ namespace susy {
     Int_t                                       runNumber;
     ULong_t                                     eventNumber;
     Int_t                                       luminosityBlockNumber;
+    Int_t                                       bunchCrossing;
     Float_t                                     avgInsRecLumi;
     Float_t                                     intgRecLumi;
     Int_t                                       cosmicFlag;
 
     TVector3                                    beamSpot;
 
-    std::map<TString,UChar_t>                   l1Map;
-    std::map<TString,UChar_t>                   hltMap;
+    susy::TriggerMap                            l1Map;  // <name, <prescale, bit> >
+    susy::TriggerMap                            hltMap; // <name, <prescale, bit> >
     std::map<TString,susy::MET>                 metMap;
 
     std::vector<TVector3>                       vertices;

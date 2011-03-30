@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -59,7 +59,21 @@ void susy::SuperCluster::Init() {
 }
 
 void susy::Track::Init() {
-
+  index                            = 0;
+  algorithm                        = 0;
+  quality                          = 0;
+  numberOfValidHits                = 0;
+  numberOfValidTrackerHits         = 0;
+  numberOfValidMuonHits            = 0;
+  numberOfValidPixelHits           = 0;
+  numberOfValidStripHits           = 0;
+  chi2                             = 0;
+  ndof                             = 0;
+  charge                           = 0;
+  for (int i=0; i<5; i++) error[i] = 0;
+  vertex                          *= 0;
+  momentum                        *= 0;
+  extrapolatedPositions.clear();
 }
 
 void susy::Photon::Init() {
@@ -102,9 +116,11 @@ void susy::Photon::Init() {
   neutralHadronIso                = 0;
   photonIso                       = 0;
 
-  dist                            = 0;
-  dcot                            = 0;
-  radius                          = 0;
+  convDist                        = 999;
+  convDcot                        = 999;
+  convVtxChi2                     = 0;
+  convVtxNdof                     = 0;
+  convVertex                     *= 0;
 
   superClusterIndex               = -1;
   superClusterPreshowerEnergy     = 0;
@@ -155,8 +171,8 @@ void susy::Electron::Init() {
   dr04HcalDepth2TowerSumEt         = 0;
   dr04HcalTowerSumEt               = 0;
 
-  convDist                         = 0;
-  convDcot                         = 0;
+  convDist                         = 999;
+  convDcot                         = 999;
   convRadius                       = 0;
 
   mva                              = 0;
@@ -265,8 +281,7 @@ void susy::CaloJet::Init() {
   momentum                 *= 0;
   detectorP4               *= 0;
 
-  jesMap.clear();
-  bTagMap.clear();
+  jecMap.clear();
 }
 
 
@@ -304,25 +319,10 @@ void susy::PFJet::Init() {
   chargedMultiplicity       = 0;
   neutralMultiplicity       = 0;
 
-  fHPD                      = 0;
-  fRBX                      = 0;
-  n90Hits                   = 0;
-  fSubDetector1             = 0;
-  fSubDetector2             = 0;
-  fSubDetector3             = 0;
-  fSubDetector4             = 0;
-  restrictedEMF             = 0;
-  nHCALTowers               = 0;
-  nECALTowers               = 0;
-  approximatefHPD           = 0;
-  approximatefRBX           = 0;
-  hitsInN90                 = 0;
-  numberOfHits2RPC          = 0;
-  numberOfHits3RPC          = 0;
-  numberOfHitsRPC           = 0;
-
   vertex                   *= 0;
   momentum                 *= 0;
+
+  jecMap.clear();
 }
 
 
@@ -351,6 +351,8 @@ void susy::JPTJet::Init() {
 
   vertex                   *= 0;
   momentum                 *= 0;
+
+  jecMap.clear();
 }
 
 
@@ -360,6 +362,7 @@ void susy::Event::Init() {
     runNumber                   = 0;
     eventNumber                 = 0;
     luminosityBlockNumber       = 0;
+    bunchCrossing               = 0;
     avgInsRecLumi               = 0;
     intgRecLumi                 = 0;
     cosmicFlag                  = 0;
