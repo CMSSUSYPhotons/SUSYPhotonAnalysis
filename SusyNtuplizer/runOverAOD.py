@@ -25,6 +25,7 @@ process.source = cms.Source("PoolSource",
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 process.GlobalTag.globaltag = 'GR_R_311_V2::All'
+#process.GlobalTag.globaltag = 'GR_P_V16::All'
 
 process.load("JetMETCorrections.Configuration.DefaultJEC_cff")
 process.ak5CaloL1Offset.useCondDB = False

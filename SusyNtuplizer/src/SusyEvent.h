@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.2 2011/03/30 18:12:45 dwjang Exp $
+// $Id: SusyEvent.h,v 1.3 2011/03/31 00:51:06 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -454,7 +454,8 @@ namespace susy {
     ~CaloJet() { Init(); }
     void Init();
 
-    TLorentzVector corrP4() { return momentum; }
+    // works for Data only. For MC, use "L2L3" instead
+    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -519,7 +520,9 @@ namespace susy {
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
-    TLorentzVector corrP4() { return momentum; }
+
+    // works for Data only. For MC, use "L2L3" instead
+    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -570,7 +573,9 @@ namespace susy {
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
-    TLorentzVector corrP4() { return momentum; }
+
+    // works for Data only. For MC, use "L2L3" instead
+    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
