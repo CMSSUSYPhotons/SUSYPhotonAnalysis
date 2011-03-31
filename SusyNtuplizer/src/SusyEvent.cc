@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.2 2011/03/30 18:12:45 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -387,7 +387,7 @@ void susy::Event::Init() {
     taus.clear();
     generalTracks.clear();
 
-    genVertices.clear();
+    simVertices.clear();
     genParticles.clear();
 }
 

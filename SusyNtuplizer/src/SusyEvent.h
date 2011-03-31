@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyEvent.h,v 1.2 2011/03/30 18:12:45 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -650,7 +650,7 @@ namespace susy {
     std::vector<susy::Track>                    generalTracks;   // not stored by default
 
     // generated information. Valid only for isRealData == 0, i.e. MC
-    std::vector<TVector3>                       genVertices;
+    std::vector<TVector3>                       simVertices; // Geant vertex, primary only
     std::vector<susy::Particle>                 genParticles;
     
   };

@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.2 2011/03/25 16:39:29 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.3 2011/03/30 18:12:45 dwjang Exp $
 //
 //
 
@@ -107,6 +107,9 @@
 // Jet Energy Correction
 #include "JetMETCorrections/Objects/interface/JetCorrector.h"
 
+// Geant vertex
+#include "SimDataFormats/Vertex/interface/SimVertex.h"
+#include "SimDataFormats/Vertex/interface/SimVertexContainer.h"
 
 // system include files
 #include <memory>
@@ -167,6 +170,7 @@ private:
   edm::InputTag pfParticleCollectionTag_;
   edm::InputTag tauCollectionTag_;
   edm::InputTag genCollectionTag_;
+  edm::InputTag simVertexCollectionTag_;
   std::vector<std::string> caloJetCollectionTags_;
   std::vector<std::string> pfJetCollectionTags_;
   std::vector<std::string> jptJetCollectionTags_;
@@ -207,6 +211,9 @@ private:
   // true : reading from RECO
   bool recoMode_;
 
+  // jetThreshold will be applied on corrected jets' pt
+  double jetThreshold_;
+
   std::string outputFileName_;
 
   susy::Event* susyEvent_;
@@ -234,11 +241,13 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   pfParticleCollectionTag_   = iConfig.getParameter<edm::InputTag>("pfParticleCollectionTag");
   tauCollectionTag_          = iConfig.getParameter<edm::InputTag>("tauCollectionTag");
   genCollectionTag_          = iConfig.getParameter<edm::InputTag>("genCollectionTag");
+  simVertexCollectionTag_    = iConfig.getParameter<edm::InputTag>("simVertexCollectionTag");
   caloJetCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags");
   pfJetCollectionTags_       = iConfig.getParameter<std::vector<std::string> >("pfJetCollectionTags");
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
 
+  jetThreshold_ = iConfig.getParameter<double>("jetThreshold");
   debugLevel_ = iConfig.getParameter<int>("debugLevel");
   storeGenInfos_ = iConfig.getParameter<bool>("storeGenInfos");
   storeTauColl_ = iConfig.getParameter<bool>("storeTauColl");
@@ -991,7 +1000,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	reco::CaloJetRef jetRef(jetH,ijet++);
 
-	if(it->pt() < 10.0) continue;
+	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
+	float jecScale = 1;
+	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	else jecScale = corrL2L3->correction(it->p4());
+	corrP4 *= jecScale;
+
+	if(corrP4.Pt() < jetThreshold_) continue;
 
 	susy::CaloJet jet;
 
@@ -1087,7 +1102,14 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	reco::PFJetRef jetRef(jetH,ijet++);
 
-	if(it->pt() < 10.0) continue;
+	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
+	float jecScale = 1;
+	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	else jecScale = corrL2L3->correction(it->p4());
+	corrP4 *= jecScale;
+
+	if(corrP4.Pt() < jetThreshold_) continue;
+
 
 	susy::PFJet jet;
 
@@ -1167,7 +1189,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	reco::JPTJetRef jetRef(jetH,ijet++);
 
-	if(it->pt() < 10.0) continue;
+	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
+	float jecScale = 1;
+	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	else jecScale = corrL2L3->correction(it->p4());
+	corrP4 *= jecScale;
+
+	if(corrP4.Pt() < jetThreshold_) continue;
 
 	susy::JPTJet jet;
 
@@ -1216,9 +1244,22 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 
   if( storeGenInfos_ && ! iEvent.isRealData() ) {
-    if(debugLevel_ > 0) std::cout << name() << ", fill generated informations" << std::endl;
+    if(debugLevel_ > 0) std::cout << name() << ", fill generated particle informations" << std::endl;
     fillGenInfos(iEvent, iSetup);
-  }
+
+    if(debugLevel_ > 0) std::cout << name() << ", fill simulated vertex informations" << std::endl;
+    edm::Handle<edm::SimVertexContainer> simVertexHandle;
+    iEvent.getByLabel(simVertexCollectionTag_, simVertexHandle);
+
+    // loop over sim vertex coll
+    for(edm::SimVertexContainer::const_iterator vsim=simVertexHandle->begin();
+	vsim!=simVertexHandle->end(); ++vsim){
+      TVector3 vtx(vsim->position().x(),vsim->position().y(),vsim->position().z());
+      if(vsim->parentIndex() != -1) continue; // not primary vertex
+      susyEvent_->simVertices.push_back( TVector3(vsim->position().x(),vsim->position().y(),vsim->position().z()) );
+    }// for sim vertex
+
+  } // if( storeGenInfos_
 
 
 
@@ -1258,7 +1299,7 @@ void SusyNtuplizer::fillTrack(const reco::TrackRef& in, susy::Track& out) {
 
   }// try
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " TrackRef is not available!!! " << e.what();
+    edm::LogError(name()) << " Something wrong in TrackRef accessors!!! " << e.what();
   }
  
 }
@@ -1289,7 +1330,7 @@ void SusyNtuplizer::fillTrack(const reco::GsfTrackRef& in, susy::Track& out) {
 
   }// try
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " GsfTrackRef is not available!!! " << e.what();
+    edm::LogError(name()) << " Something wrong in GsfTrackRef accessors!!! " << e.what();
   }
 
 }
@@ -1305,7 +1346,7 @@ void SusyNtuplizer::fillCluster(const reco::CaloClusterPtr& in, susy::Cluster& o
     out.nCrystals = in->size();
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " CaloClusterPtr is not available!!! " << e.what();
+    edm::LogError(name()) << " Something wrong in CaloClusterPtr accessors!!! " << e.what();
   }
 
 }
@@ -1334,7 +1375,7 @@ void SusyNtuplizer::fillCluster(const reco::SuperClusterRef& in, susy::SuperClus
     }
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " SuperClusterRef is not available!!! " << e.what();
+    edm::LogError(name()) << " Something wrong in SuperCluster accessors!!! " << e.what();
   }
 }
 
@@ -1351,7 +1392,7 @@ void SusyNtuplizer::fillParticle(const reco::PFCandidateRef& in, susy::Particle&
     out.momentum.SetXYZT(in->px(),in->py(),in->pz(),in->energy());
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " PFCandidateRef is not available!!! " << e.what();
+    edm::LogError(name()) << " Something wrong in PFCandidate accessors!!! " << e.what();
   }
 
 }
@@ -1370,7 +1411,7 @@ void SusyNtuplizer::fillParticle(const reco::GenParticle* in, susy::Particle& ou
     out.momentum.SetXYZT(in->px(),in->py(),in->pz(),in->energy());
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << " PFCandidateRef is not available!!! " << e.what();
+    edm::LogError(name()) << "Something wrong in GenParticle accessors!!! " << e.what();
   }
 
 }
