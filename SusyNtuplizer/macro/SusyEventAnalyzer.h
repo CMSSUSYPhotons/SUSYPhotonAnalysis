@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.h,v 1.1 2011/03/24 23:46:27 dwjang Exp $
+// $Id: SusyEventAnalyzer.h,v 1.1 2011/03/24 23:53:52 dwjang Exp $
 //
 
 #ifndef SusyEventAnalyzer_h
@@ -24,6 +24,8 @@
 #include <TString.h>
 
 #include <iostream>
+#include <fstream>
+#include <map>
 
 #include "../src/SusyEvent.h"
 
@@ -47,9 +49,12 @@ class SusyEventAnalyzer {
   virtual void     Loop();                          // event loop for main analysis
 
   // utility functions
-  bool isGoodRun(int run);
   bool isSameObject(TLorentzVector& p1, TLorentzVector& p2);
   float d0correction(TVector3& beamSpot, susy::Track& track) const;
+  void IncludeAJson(std::string jsonfile);  // Call to pull in a json file 
+  bool isInJson(Int_t run,Int_t lumi); // JSON based good run list cut...
+  
+  
 
   // parameter configuration functions
   void Initialize();         // global variables needed to be initialized just once
@@ -79,6 +84,9 @@ class SusyEventAnalyzer {
   TString hltName;          // HLT trigger path name
   bool enableFilter;        // filter events of interest
   TString filtered_file_name; // filtered output file name
+
+  typedef std::map<int,std::map<int,bool> > RunLumiFlagHolder;  //define map that holds json list
+  RunLumiFlagHolder goodrunlumilist;  // instantiate it
 
 };
 
@@ -143,5 +151,95 @@ void SusyEventAnalyzer::Initialize() {
   filtered_file_name = "filtered.root";
 
 }
+
+void SusyEventAnalyzer::IncludeAJson(std::string jsonfile) {
+
+
+// Fairly primitive brute force json parser -- opens the json file named in the argument
+// and adds that to the goodrunlumilist map.  Overlapping jsons are merged inclusively.
+
+ char thing;
+
+ ifstream jsonInput;
+
+ std::cout << "Sucking in Json file: " << jsonfile << " which includes: " << std::endl;
+
+ jsonInput.open(jsonfile.c_str());
+ 
+ if (!jsonInput.good()) {
+   std::cout << "Problem reading file...  Didn't suck anything in... " << std::endl;
+   return;
+ }
+ 
+ jsonInput.get(thing);
+ 
+ while (jsonInput.good()) {
+   if (thing=='{') {  // start of list
+     while (thing != '}') {
+       int runnum;
+       if (thing == '"') {
+         std::string srunnum;
+         jsonInput.get(thing); // get stuff inside ""
+
+         while (thing != '"') {
+           srunnum+=thing; // get stuff inside ""
+           jsonInput.get(thing);
+
+	   }
+         sscanf(srunnum.c_str(),"%i",&runnum);
+         std::cout << " runnum: " << runnum << std::endl;
+         bool newrun=true;
+         
+       } // inside ""
+       if (thing == '[') {
+          jsonInput.get(thing); // get stuff inside []
+	 while (thing != ']') {
+           if (thing == '[') {
+             jsonInput.get(thing); // get stuff inside series []
+
+             std::string lumiseries;
+             int firstlumi,lastlumi;
+             while (thing !=']') {
+               lumiseries+=thing;
+                jsonInput.get(thing); // get stuff inside series []
+             }
+             sscanf(lumiseries.c_str(),"%i,%i",&firstlumi,&lastlumi);
+             std::cout << "  lumis  " << firstlumi << " to " << lastlumi << std::endl;
+
+	     // At this point have runnum, first lumi, last lumi -- so can fill map here...
+	     for (int l=firstlumi;l<=lastlumi;l++) {
+               goodrunlumilist[runnum][l]=true;
+	     }
+
+           } // inside actual series []
+             jsonInput.get(thing); // get stuff inside []
+         }
+       } // inside []
+         jsonInput.get(thing); // get another char looking for "
+
+     } 
+   } // inside {}
+    jsonInput.get(thing); // get another char looking for {
+
+ } // EOF 
+
+ jsonInput.close();
+
+}
+
+
+bool SusyEventAnalyzer::isInJson(Int_t run,Int_t lumi) {
+
+//#ifdef MC
+//  return 1;
+//#endif
+
+if (goodrunlumilist[run][lumi]) return true;
+
+return false;
+
+}
+
+
 
 #endif // #ifdef SusyEventAnalyzer_cxx

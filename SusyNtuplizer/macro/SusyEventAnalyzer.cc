@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.2 2011/03/30 18:12:44 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -31,14 +31,6 @@
 
 void SusyEventAnalyzer::InitializePerEvent() {
 
-}
-
-
-bool SusyEventAnalyzer::isGoodRun(int run) {
-
-  if(run < 0) return false; // just for testing...
-
-  return true;
 }
 
 
@@ -128,7 +120,9 @@ void SusyEventAnalyzer::Loop() {
 
     if(printLevel > 0) std::cout << "Apply good run list." << std::endl;
 
-    if(!isGoodRun(event->runNumber)) continue;
+    
+    // uncomment this to use the Json file to flag good data (or bad depending on your outlook)    
+    // if(!isInJson(event->runNumber,event->luminosityBlockNumber)) continue;
 
 
     if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;

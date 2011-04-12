@@ -20,6 +20,10 @@ void ana(TString ds="relval", TString physics="ttbar") {
   sea->SetFilter(false);                  // filter events passing final cuts
   sea->SetProcessNEvents(-1);             // number of events to be processed
 
+  // as an example -- add your favorite Json here.  More than one can be "Include"ed
+  sea->IncludeAJson("Cert_161079-161352_7TeV_PromptReco_Collisions11_JSON_noESpbl_v2.txt");
+  //sea->IncludeAJson("anotherJSON.txt");
+
   TStopwatch ts;
 
   ts.Start();
