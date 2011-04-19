@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyNtuplizer_LinkDef.h,v 1.2 2011/03/30 18:12:45 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -40,7 +40,6 @@
 #pragma link C++ class  susy::Muon+;
 #pragma link C++ class  susy::Photon+;
 #pragma link C++ class  susy::Electron+;
-#pragma link C++ class  susy::Tau+;
 #pragma link C++ class  susy::CaloJet+;
 #pragma link C++ class  susy::PFJet+;
 #pragma link C++ class  susy::JPTJet+;

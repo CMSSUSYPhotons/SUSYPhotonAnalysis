@@ -12,13 +12,13 @@ void ana(TString ds="relval", TString physics="ttbar") {
 
   // configuration parameters
   // any values given here will replace the default values
-  sea->SetDataset(physics+"_"+ds);                    // dataset name
+  sea->SetDataset(physics+"_"+ds);        // dataset name
   sea->SetPrintInterval(1e4);             // print frequency
-  sea->SetPrintLevel(10);                  // print level for event contents
+  sea->SetPrintLevel(0);                  // print level for event contents
   sea->SetUseTrigger(false);
-  //sea->SetHltName("HLT_Ele15_LW_L1R");    // HLT trigger path name
+  //sea->SetHltName("HLT_Ele15_LW_L1R");  // HLT trigger path name
   sea->SetFilter(false);                  // filter events passing final cuts
-  sea->SetProcessNEvents(-1);             // number of events to be processed
+  sea->SetProcessNEvents(100);             // number of events to be processed
 
   // as an example -- add your favorite Json here.  More than one can be "Include"ed
   sea->IncludeAJson("Cert_161079-161352_7TeV_PromptReco_Collisions11_JSON_noESpbl_v2.txt");

@@ -10,15 +10,14 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.2 2011/03/30 18:12:45 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.3 2011/03/31 00:51:06 dwjang Exp $
 //
 
 #include "SusyEvent.h"
 
 void susy::Particle::Init() {
-    index       = -1;
-    motherIndex = -1;
     status      = 0;
+    motherId    = -1;
     pdgId       = 0;
     charge      = 0;
     vertex     *= 0;
@@ -41,15 +40,13 @@ void susy::MET::Init() {
 }
 
 void susy::Cluster::Init() {
-  index     = -1;
   nCrystals = 0;
   energy    = 0;
   position *= 0;
 }
 
 void susy::SuperCluster::Init() {
-    index            = 0;
-    seedClusterIndex = 0;
+    seedClusterIndex = -1;
     energy           = 0;
     preshowerEnergy  = 0;
     phiWidth         = 0;
@@ -59,7 +56,6 @@ void susy::SuperCluster::Init() {
 }
 
 void susy::Track::Init() {
-  index                            = 0;
   algorithm                        = 0;
   quality                          = 0;
   numberOfValidHits                = 0;
@@ -157,24 +153,25 @@ void susy::Electron::Init() {
   e5x5                             = 0;
   hcalDepth1OverEcal               = 0;
   hcalDepth2OverEcal               = 0;
-  hcalOverEcal                     = 0;
 
   dr03TkSumPt                      = 0;
   dr03EcalRecHitSumEt              = 0;
   dr03HcalDepth1TowerSumEt         = 0;
   dr03HcalDepth2TowerSumEt         = 0;
-  dr03HcalTowerSumEt               = 0;
 
   dr04TkSumPt                      = 0;
   dr04EcalRecHitSumEt              = 0;
   dr04HcalDepth1TowerSumEt         = 0;
   dr04HcalDepth2TowerSumEt         = 0;
-  dr04HcalTowerSumEt               = 0;
 
   convDist                         = 999;
   convDcot                         = 999;
   convRadius                       = 0;
 
+  chargedHadronIso                 = 0;
+  neutralHadronIso                 = 0;
+  photonIso                        = 0;
+  mvaStatus                        = 0;
   mva                              = 0;
 
   bremClass                        = 0;
@@ -183,7 +180,6 @@ void susy::Electron::Init() {
   ecalEnergy                       = 0;
   ecalEnergyError                  = 0;
   trackMomentumError               = 0;
-  electronMomentumError            = 0;
 
   gsfTrackIndex                    = -1;
   closestCtfTrackIndex             = -1;
@@ -227,9 +223,6 @@ void susy::Muon::Init() {
     idPairs.clear();
 }
 
-void susy::Tau::Init() {
-
-}
 
 void susy::CaloJet::Init() {
   partonFlavour             = 0;
@@ -281,7 +274,7 @@ void susy::CaloJet::Init() {
   momentum                 *= 0;
   detectorP4               *= 0;
 
-  jecMap.clear();
+  jecScaleFactor            = 1;
 }
 
 
@@ -322,7 +315,7 @@ void susy::PFJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
-  jecMap.clear();
+  jecScaleFactor            = 1;
 }
 
 
@@ -352,7 +345,7 @@ void susy::JPTJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
-  jecMap.clear();
+  jecScaleFactor            = 1;
 }
 
 
@@ -384,7 +377,6 @@ void susy::Event::Init() {
     pfJets.clear();
     jptJets.clear();
     
-    taus.clear();
     generalTracks.clear();
 
     simVertices.clear();

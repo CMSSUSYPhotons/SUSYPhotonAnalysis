@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.3 2011/03/31 00:51:06 dwjang Exp $
+// $Id: SusyEvent.h,v 1.4 2011/03/31 16:33:48 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -40,11 +40,10 @@ namespace susy {
     ~Particle() { Init(); }
     void Init();
 
-    int index;
-    int motherIndex;
-    int status;
-    int pdgId;
-    int charge;
+    UChar_t status;
+    Int_t   motherId;
+    Int_t   pdgId;
+    Char_t  charge;
     TVector3 vertex;
     TLorentzVector momentum;
 
@@ -97,8 +96,7 @@ namespace susy {
     ~Cluster() { Init(); }
     void Init();
 
-    Int_t    index;
-    Int_t    nCrystals;
+    UChar_t  nCrystals;
     Float_t  energy;
     TVector3 position;
 
@@ -113,8 +111,7 @@ namespace susy {
     ~SuperCluster() { Init(); }
     void Init();
 
-    Int_t    index;
-    Int_t    seedClusterIndex; // index in vector<Cluster> below
+    Short_t  seedClusterIndex; // index in vector<Cluster> below
     Float_t  energy;
     Float_t  preshowerEnergy;
     Float_t  phiWidth;
@@ -144,7 +141,6 @@ namespace susy {
     bool confirmed() const {     return (quality & ( 0x1 << 3)); }
     bool goodIterative() const { return (confirmed() || highPurity()); }
 
-    Int_t          index;
     Int_t          algorithm;
     Int_t          quality;
     UChar_t        numberOfValidHits;
@@ -179,6 +175,7 @@ namespace susy {
     bool isEERingGap()    { return (fidBit & (0x1 << 4)); }
     bool isEEDeeGap()     { return (fidBit & (0x1 << 5)); }
     bool isEBEEGap()      { return (fidBit & (0x1 << 6)); }
+    bool isPF()           { return (fidBit & (0x1 << 7)); }
 
     Int_t          fidBit;
     Int_t          nPixelSeeds;
@@ -203,8 +200,8 @@ namespace susy {
     Float_t        hcalDepth2TowerSumEtConeDR04;
     Float_t        trkSumPtSolidConeDR04;
     Float_t        trkSumPtHollowConeDR04;
-    Int_t          nTrkSolidConeDR04;
-    Int_t          nTrkHollowConeDR04;
+    UChar_t        nTrkSolidConeDR04;
+    UChar_t        nTrkHollowConeDR04;
 
     Float_t        ecalRecHitSumEtConeDR03;
     Float_t        hcalTowerSumEtConeDR03;
@@ -212,8 +209,8 @@ namespace susy {
     Float_t        hcalDepth2TowerSumEtConeDR03;
     Float_t        trkSumPtSolidConeDR03;
     Float_t        trkSumPtHollowConeDR03;
-    Int_t          nTrkSolidConeDR03;
-    Int_t          nTrkHollowConeDR03;
+    UChar_t        nTrkSolidConeDR03;
+    UChar_t        nTrkHollowConeDR03;
 
     Float_t        chargedHadronIso;
     Float_t        neutralHadronIso;
@@ -226,7 +223,7 @@ namespace susy {
     UChar_t        convVtxNdof;
     TVector3       convVertex;
 
-    Int_t          superClusterIndex;
+    Short_t        superClusterIndex;
     Float_t        superClusterPreshowerEnergy;
     Float_t        superClusterPhiWidth;
     Float_t        superClusterEtaWidth;
@@ -263,13 +260,18 @@ namespace susy {
     bool isGsfCtfChargeConsistent() {      return (boolPack & (0x1 << 2)); }
     bool ecalDrivenSeed() {                return (boolPack & (0x1 << 3)); }
     bool trackerDrivenSeed() {             return (boolPack & (0x1 << 4)); }
-    bool ecalDriven() {                    return (boolPack & (0x1 << 5)); }
-    bool passingCutBasedPreselection() {   return (boolPack & (0x1 << 6)); }
-    bool passingMvaPreselection() {        return (boolPack & (0x1 << 7)); }
-    bool ambiguous() {                     return (boolPack & (0x1 << 8)); }
-    bool isEcalEnergyCorrected() {         return (boolPack & (0x1 << 9)); }
-    bool isMomentumCorrected() {           return (boolPack & (0x1 << 10)); }
-    bool convFlags() {                     return (boolPack & (0x1 << 11)); }
+    bool passingCutBasedPreselection() {   return (boolPack & (0x1 << 5)); }
+    bool passingMvaPreselection() {        return (boolPack & (0x1 << 6)); }
+    bool ambiguous() {                     return (boolPack & (0x1 << 7)); }
+    bool isEcalEnergyCorrected() {         return (boolPack & (0x1 << 8)); }
+    bool isEnergyScaleCorrected() {        return (boolPack & (0x1 << 9)); }
+    bool convFlags() {                     return (boolPack & (0x1 << 10)); }
+    bool isPF() {                          return (boolPack & (0x1 << 11)); }
+    bool ecalDriven() {                    return (ecalDrivenSeed() && passingCutBasedPreselection()); }
+
+    Float_t hcalOverEcal() { return (hcalDepth1OverEcal + hcalDepth2OverEcal); }
+    Float_t dr03HcalTowerSumEt() { return (dr03HcalDepth1TowerSumEt + dr03HcalDepth2TowerSumEt); }
+    Float_t dr04HcalTowerSumEt() { return (dr04HcalDepth1TowerSumEt + dr04HcalDepth2TowerSumEt); }
 
     Int_t          fidBit;
     Int_t          boolPack;
@@ -295,39 +297,39 @@ namespace susy {
     Float_t        e5x5;
     Float_t        hcalDepth1OverEcal;          // hadronic energy on depth1 / em enrgy
     Float_t        hcalDepth2OverEcal;          // hadronic energy on depth2 / em enrgy
-    Float_t        hcalOverEcal;                // hadronic energy / em energy
 
     Float_t        dr03TkSumPt;
     Float_t        dr03EcalRecHitSumEt;
     Float_t        dr03HcalDepth1TowerSumEt;
     Float_t        dr03HcalDepth2TowerSumEt;
-    Float_t        dr03HcalTowerSumEt;
 
     Float_t        dr04TkSumPt;
     Float_t        dr04EcalRecHitSumEt;
     Float_t        dr04HcalDepth1TowerSumEt;
     Float_t        dr04HcalDepth2TowerSumEt;
-    Float_t        dr04HcalTowerSumEt;
 
     // Conversion info
     Float_t        convDist;
     Float_t        convDcot;
     Float_t        convRadius;
 
+    Float_t        chargedHadronIso;
+    Float_t        neutralHadronIso;
+    Float_t        photonIso;
+    Int_t          mvaStatus;
     Float_t        mva;
 
-    Int_t          bremClass;
+    Char_t         bremClass;
     Float_t        fbrem;
 
     Float_t        ecalEnergy;                  // corrected
     Float_t        ecalEnergyError;             // correction error
     Float_t        trackMomentumError;
-    Float_t        electronMomentumError;
 
-    Int_t          gsfTrackIndex;
-    Int_t          closestCtfTrackIndex;
-    Int_t          electronClusterIndex;
-    Int_t          superClusterIndex;
+    Short_t        gsfTrackIndex;
+    Short_t        closestCtfTrackIndex;
+    Short_t        electronClusterIndex;
+    Short_t        superClusterIndex;
 
     // AtVtx, AtCalo
     std::map<TString,TVector3> trackPositions;
@@ -356,14 +358,14 @@ namespace susy {
     bool isStandAloneMuon() { return (type & (0x1 << 3)); }
     bool isCaloMuon() {       return (type & (0x1 << 4)); }
 
-    Int_t          type;
+    UChar_t        type;
     UChar_t        nMatches;
     UChar_t        nValidHits;
     UChar_t        nValidTrackerHits;
     UChar_t        nValidMuonHits;
     UChar_t        nChambers;
-    Int_t          timeNDof;
-    Int_t          timeDirection;
+    UChar_t        timeNDof;
+    Char_t         timeDirection;
     Float_t        timeAtIp;
     Float_t        timeAtIpError;
     Float_t        caloCompatibility;
@@ -376,72 +378,12 @@ namespace susy {
     Float_t        ecalIsoR05;
     Float_t        hcalIsoR05;
 
-    Int_t          trackIndex;             // tracker only
-    Int_t          standAloneTrackIndex;   // muon detector only
-    Int_t          combinedTrackIndex;     // combined
+    Short_t        trackIndex;             // tracker only
+    Short_t        standAloneTrackIndex;   // muon detector only
+    Short_t        combinedTrackIndex;     // combined
     TLorentzVector momentum;
 
     std::map<TString, UChar_t> idPairs;
-
-  };
-
-
-
-  class Tau {
-
-  public:
-
-    Tau()  { Init(); }
-    ~Tau() { Init(); }
-    void Init();
-
-    bool IsCaloTau() {             return (status & (0x1 << 0)); }
-    bool IsPFTau() {               return (status & (0x1 << 1)); }
-    bool electronPreIDDecision() { return (status & (0x1 << 2)); }
-    bool muonDecision() {          return (status & (0x1 << 3)); }
-
-    Int_t status;
-    Int_t decayMode;
-    Int_t leadTrackIndex;
-    Int_t leadParticleIndex;
-
-    // from CaloTau
-    Float_t leadTracksignedSipt;
-    Float_t leadTrackHCAL3x3hitsEtSum;
-    Float_t leadTrackHCAL3x3hottesthitDEta;
-    Float_t signalTracksInvariantMass;
-    Float_t TracksInvariantMass;
-    Float_t isolationTracksPtSum;
-    Float_t isolationECALhitsEtSum;
-    Float_t maximumHCALhitEt;
-
-    // from PFTau
-    Float_t leadPFChargedHadrCandsignedSipt;
-    Float_t isolationPFChargedHadrCandsPtSum;
-    Float_t isolationPFGammaCandsEtSum;
-    Float_t maximumHCALPFClusterEt;
-    Float_t emFraction;
-    Float_t hcalTotOverPLead;
-    Float_t hcalMaxOverPLead;
-    Float_t hcal3x3OverPLead;
-    Float_t ecalStripSumEOverPLead;
-    Float_t bremsRecoveryEOverPLead;
-    Float_t electronPreIDOutput;
-    Float_t caloComp;
-    Float_t segComp;
-
-    Float_t trackIso;
-    Float_t ecalIso;
-    Float_t hcalIso;
-
-    TLorentzVector momentum;
-
-    std::map<TString,Float_t> idPairs;
-
-    std::vector<Int_t> sigTracks;
-    std::vector<Int_t> isoTracks;
-    std::vector<susy::Particle> sigParticles;
-    std::vector<susy::Particle> isoParticles;
 
   };
 
@@ -454,8 +396,8 @@ namespace susy {
     ~CaloJet() { Init(); }
     void Init();
 
-    // works for Data only. For MC, use "L2L3" instead
-    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
+    // Data use "L2L3" and MC use "L2L3Residual"
+    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -468,8 +410,8 @@ namespace susy {
     Float_t        maxDistance;
     Float_t        jetArea;
     Float_t        pileup;
-    Int_t          nPasses;
-    Int_t          nConstituents;
+    UChar_t        nPasses;
+    UChar_t        nConstituents;
 
     // CaloJet info
     Float_t        maxEInEmTowers;
@@ -484,8 +426,8 @@ namespace susy {
     Float_t        emEnergyInEE;
     Float_t        emEnergyInHF;
     Float_t        towersArea;
-    Int_t          n90;
-    Int_t          n60;
+    UChar_t        n90;
+    UChar_t        n60;
 
     // Jet ID info
     Float_t        fHPD;
@@ -496,20 +438,20 @@ namespace susy {
     Float_t        fSubDetector3;
     Float_t        fSubDetector4;
     Float_t        restrictedEMF;
-    Int_t          nHCALTowers;
-    Int_t          nECALTowers;
+    UChar_t        nHCALTowers;
+    UChar_t        nECALTowers;
     Float_t        approximatefHPD;
     Float_t        approximatefRBX;
-    Int_t          hitsInN90;
-    Int_t          numberOfHits2RPC;
-    Int_t          numberOfHits3RPC;
-    Int_t          numberOfHitsRPC;
+    UChar_t        hitsInN90;
+    UChar_t        numberOfHits2RPC;
+    UChar_t        numberOfHits3RPC;
+    UChar_t        numberOfHitsRPC;
 
     TVector3       vertex;
     TLorentzVector momentum;
     TLorentzVector detectorP4;
 
-    std::map<TString,Float_t> jecMap;
+    Float_t        jecScaleFactor;
   };
 
 
@@ -521,8 +463,8 @@ namespace susy {
     ~PFJet() { Init(); }
     void Init();
 
-    // works for Data only. For MC, use "L2L3" instead
-    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
+    // Data use "L2L3" and MC use "L2L3Residual"
+    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -535,8 +477,8 @@ namespace susy {
     Float_t        maxDistance;
     Float_t        jetArea;
     Float_t        pileup;
-    Int_t          nPasses;
-    Int_t          nConstituents;
+    UChar_t        nPasses;
+    UChar_t        nConstituents;
 
     // PF Jet Info
     Float_t        chargedHadronEnergy;
@@ -562,7 +504,7 @@ namespace susy {
     TVector3       vertex;
     TLorentzVector momentum;
 
-    std::map<TString,Float_t> jecMap;
+    Float_t        jecScaleFactor;
   };
 
 
@@ -574,8 +516,8 @@ namespace susy {
     ~JPTJet() { Init(); }
     void Init();
 
-    // works for Data only. For MC, use "L2L3" instead
-    TLorentzVector corrP4() { return jecMap["L2L3Residual"]*momentum; }
+    // Data use "L2L3" and MC use "L2L3Residual"
+    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -588,8 +530,8 @@ namespace susy {
     Float_t        maxDistance;
     Float_t        jetArea;
     Float_t        pileup;
-    Int_t          nPasses;
-    Int_t          nConstituents;
+    UChar_t        nPasses;
+    UChar_t        nConstituents;
 
     Float_t        chargedHadronEnergy;
     Float_t        neutralHadronEnergy;
@@ -603,10 +545,12 @@ namespace susy {
     TVector3       vertex;
     TLorentzVector momentum;
 
-    std::map<TString,Float_t> jecMap;
+    Float_t        jecScaleFactor;
   };
 
 
+  typedef std::vector<susy::Electron> ElectronCollection;
+  typedef std::vector<susy::Photon> PhotonCollection;
   typedef std::vector<susy::CaloJet> CaloJetCollection;
   typedef std::vector<susy::PFJet> PFJetCollection;
   typedef std::vector<susy::JPTJet> JPTJetCollection;
@@ -631,7 +575,7 @@ namespace susy {
     Int_t                                       bunchCrossing;
     Float_t                                     avgInsRecLumi;
     Float_t                                     intgRecLumi;
-    Int_t                                       cosmicFlag;
+    UChar_t                                     cosmicFlag;
 
     TVector3                                    beamSpot;
 
@@ -644,14 +588,15 @@ namespace susy {
     std::vector<susy::SuperCluster>             superClusters;   // only selected super clusters associated with objects
     std::vector<susy::Cluster>                  clusters;        // only selected basic clusters associated with super clusters
     std::vector<susy::Muon>                     muons;
-    std::vector<susy::Photon>                   photons;
-    std::vector<susy::Electron>                 electrons;
+    //     std::vector<susy::Photon>                   photons;
+    //     std::vector<susy::Electron>                 electrons;
+    std::map<TString,susy::ElectronCollection>  electrons;
+    std::map<TString,susy::PhotonCollection>    photons;
     std::map<TString,susy::CaloJetCollection>   caloJets;
     std::map<TString,susy::PFJetCollection>     pfJets;
     std::map<TString,susy::JPTJetCollection>    jptJets;
 
     // optional collections
-    std::vector<susy::Tau>                      taus;            // not stored by default
     std::vector<susy::Track>                    generalTracks;   // not stored by default
 
     // generated information. Valid only for isRealData == 0, i.e. MC

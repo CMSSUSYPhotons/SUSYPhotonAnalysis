@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.2 2011/03/30 18:12:44 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.3 2011/04/12 15:31:36 dmason Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -139,14 +139,12 @@ void SusyEventAnalyzer::Loop() {
     std::vector<susy::Muon*>     loose_muons;
     std::vector<susy::Electron*> loose_electrons;
     std::vector<susy::Photon*>   loose_photons;
-    std::vector<susy::Tau*>      loose_taus;
     std::vector<susy::CaloJet*>  loose_jets;
 
     // tight objects hava isolation cuts applied on top of loose objects
     std::vector<susy::Muon*>     tight_muons;
     std::vector<susy::Electron*> tight_electrons;
     std::vector<susy::Photon*>   tight_photons;
-    std::vector<susy::Tau*>      tight_taus;
     std::vector<susy::CaloJet*>  tight_jets;
 
 
@@ -194,197 +192,168 @@ void SusyEventAnalyzer::Loop() {
 
     } // for muon
 
-
     if(printLevel > 0) std::cout << "Find loose and tight electrons in the event." << std::endl;
 
-    for(std::vector<susy::Electron>::iterator it = event->electrons.begin();
-	it != event->electrons.end(); it++) {
+    std::map<TString, std::vector<susy::Electron> >::iterator eleMap = event->electrons.find("gsfElectrons");
+    if(eleMap == event->electrons.end()) {
+      if(event->electrons.size() > 0) std::cout << "electron collection is not available!!!" << std::endl;
+    }
+    else {
+      for(std::vector<susy::Electron>::iterator it = eleMap->second.begin();
+	  it != eleMap->second.end(); it++) {
 
-      float pt = it->momentum.Pt();
-      if(pt < 20) continue;
+	float pt = it->momentum.Pt();
+	if(pt < 20) continue;
 
-      float absEta = std::abs(it->momentum.Eta());
-      if(absEta > 2.5) continue;
-      if(absEta > 1.47 && absEta < 1.567) continue;
+	float absEta = std::abs(it->momentum.Eta());
+	if(absEta > 2.5) continue;
+	if(absEta > 1.47 && absEta < 1.567) continue;
 
-      if(it->gsfTrackIndex < 0) continue;
+	if(it->gsfTrackIndex < 0) continue;
 
-      susy::Track& gsfTrack = event->tracks[it->gsfTrackIndex];
-      float d0 = d0correction(event->beamSpot, gsfTrack);
-      //	if(std::abs(d0) > 0.2) continue;
+	susy::Track& gsfTrack = event->tracks[it->gsfTrackIndex];
+	float d0 = d0correction(event->beamSpot, gsfTrack);
+	//	if(std::abs(d0) > 0.2) continue;
 
-      bool same = false;
-      for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
-	  m_it != tight_muons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
+	bool same = false;
+	for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
+	    m_it != tight_muons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
+	  }
 	}
-      }
 
-      if(same) continue;
+	if(same) continue;
 
-      loose_electrons.push_back(&*it);
+	loose_electrons.push_back(&*it);
 
-      std::map<TString,Float_t>::iterator idPair = it->idPairs.find("eidRobustTight");
-      if(idPair == it->idPairs.end()) continue;
-      if(idPair->second < 0.5) continue;
+	std::map<TString,Float_t>::iterator idPair = it->idPairs.find("eidRobustTight");
+	if(idPair == it->idPairs.end()) continue;
+	if(idPair->second < 0.5) continue;
 
-      float relIso = (it->dr04EcalRecHitSumEt + it->dr04HcalTowerSumEt)/pt;
-      if(relIso > 0.1) continue;
+	float relIso = (it->dr04EcalRecHitSumEt + it->dr04HcalTowerSumEt())/pt;
+	if(relIso > 0.1) continue;
 
-      tight_electrons.push_back(&*it);
+	tight_electrons.push_back(&*it);
 
-    }// for electron
+      }// for electron
+    }// else 
 
 
     if(printLevel > 0) std::cout << "Find loose and tight photons in the event." << std::endl;
 
-    for(std::vector<susy::Photon>::iterator it = event->photons.begin();
-	it != event->photons.end(); it++) {
+    std::map<TString, std::vector<susy::Photon> >::iterator phoMap = event->photons.find("photons");
+    if(phoMap == event->photons.end()) {
+      if(event->photons.size() > 0) std::cout << "photon collection is not available!" << std::endl;
+    }
+    else {
+      for(std::vector<susy::Photon>::iterator it = phoMap->second.begin();
+	  it != phoMap->second.end(); it++) {
 
-      // fiducial cuts
-      if(std::abs(it->caloPosition.Eta()) > 2.5) continue;
-      if(it->isEBEtaGap() || it->isEBPhiGap() || it->isEERingGap() || it->isEEDeeGap() || it->isEBEEGap()) continue;
+	// fiducial cuts
+	if(std::abs(it->caloPosition.Eta()) > 2.5) continue;
+	if(it->isEBEtaGap() || it->isEBPhiGap() || it->isEERingGap() || it->isEEDeeGap() || it->isEBEEGap()) continue;
 
-      // Et cuts, for the time being, 20 GeV
-      if(it->momentum.Et() < 20.0) continue;
+	// Et cuts, for the time being, 20 GeV
+	if(it->momentum.Et() < 20.0) continue;
 
-      bool same = false;
-      for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
-	  m_it != tight_muons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
-	}
-      }
-      if(same) continue;
-
-      for(std::vector<susy::Electron*>::iterator m_it = tight_electrons.begin();
-	  m_it != tight_electrons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
-	}
-      }
-      if(same) continue;
-
-      // loose & tight ID variables
-      bool loosePhoton = false;
-      bool tightPhoton = false;
-
-      std::map<TString,UChar_t>::iterator id_it = it->idPairs.find("PhotonCutBasedIDLoose");
-      if(id_it != it->idPairs.end() && int(id_it->second) != 0) loosePhoton = true;
-
-      id_it = it->idPairs.find("PhotonCutBasedIDTight");
-      if(id_it != it->idPairs.end() && int(id_it->second) != 0) tightPhoton = true;
-
-      if(loosePhoton) {
-	loose_photons.push_back(&*it);
-      }
-
-      if(tightPhoton) {
-	tight_photons.push_back(&*it);
-      }
-
-    }// for photon
-
-    if(printLevel > 2) {
-
-      std::cout << "L1 Info ----------" << std::endl;
-      for(susy::TriggerMap::iterator it = event->l1Map.begin(); it != event->l1Map.end(); it++) {
-	std::cout << it->first << " => " << it->second.first << ", " << Int_t(it->second.second) << std::endl;
-      }
-      std::cout << std::endl;
-
-      std::cout << "HLT Info ----------" << std::endl;
-      for(susy::TriggerMap::iterator it = event->hltMap.begin(); it != event->hltMap.end(); it++) {
-	std::cout << it->first << " => " << it->second.first << ", " << Int_t(it->second.second) << std::endl;
-      }
-      std::cout << std::endl;
-      
-      std::cout << "Jet Collection Names ------------------------ " << std::endl;
-      for(std::map<TString, susy::CaloJetCollection>::iterator it = event->caloJets.begin();
-	  it != event->caloJets.end(); it++){
-	std::cout << it->first << ", size : " << it->second.size() << std::endl;
-	if(it->second.size() > 0){
-	  std::cout << "momentum pt : " << it->second.begin()->momentum.Pt() << std::endl;
-	  std::cout << "jecMap : " ;
-	  for(std::map<TString,Float_t>::iterator mit = it->second.begin()->jecMap.begin();
-	      mit != it->second.begin()->jecMap.end(); mit++) {
-	    std::cout << mit->first << " => " << mit->second << std::endl;
+	bool same = false;
+	for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
+	    m_it != tight_muons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
 	  }
 	}
-      }
-      std::cout << std::endl;
-      
-      std::cout << "Met Collection Names ------------------------- " << std::endl;
-      for(std::map<TString, susy::MET>::iterator it = event->metMap.begin();
-	  it != event->metMap.end(); it++) {
-	std::cout << it->first << ", met : " << it->second.met()  
-		  << ", mEtCorr size : " << it->second.mEtCorr.size() << std::endl;
-      }
-      std::cout << std::endl;
-      
-      
-    } // if(debugLevel
+	if(same) continue;
+
+	for(std::vector<susy::Electron*>::iterator m_it = tight_electrons.begin();
+	    m_it != tight_electrons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
+	  }
+	}
+	if(same) continue;
+
+	// loose & tight ID variables
+	bool loosePhoton = false;
+	bool tightPhoton = false;
+
+	std::map<TString,UChar_t>::iterator id_it = it->idPairs.find("PhotonCutBasedIDLoose");
+	if(id_it != it->idPairs.end() && int(id_it->second) != 0) loosePhoton = true;
+
+	id_it = it->idPairs.find("PhotonCutBasedIDTight");
+	if(id_it != it->idPairs.end() && int(id_it->second) != 0) tightPhoton = true;
+
+	if(loosePhoton) {
+	  loose_photons.push_back(&*it);
+	}
+
+	if(tightPhoton) {
+	  tight_photons.push_back(&*it);
+	}
+
+      }// for photon
+    }// else
 
 
     if(printLevel > 0) std::cout << "Find loose and tight jets in the event." << std::endl;
       
     std::map<TString,susy::CaloJetCollection>::iterator jetColl_it = event->caloJets.find("ak5");
     if(jetColl_it == event->caloJets.end()){
-      std::cout << "JetCollection is not available!!!" << std::endl;
-      continue;
+      if(event->caloJets.size() > 0) std::cout << "JetCollection is not available!!!" << std::endl;
     }
+    else {
 
-    susy::CaloJetCollection& jetColl = jetColl_it->second;
+      susy::CaloJetCollection& jetColl = jetColl_it->second;
 
-    for(std::vector<susy::CaloJet>::iterator it = jetColl.begin();
-	it != jetColl.end(); it++) {
+      for(std::vector<susy::CaloJet>::iterator it = jetColl.begin();
+	  it != jetColl.end(); it++) {
 
-      float pt = it->momentum.Pt();
-      if(pt < 30) continue;
+	float pt = it->momentum.Pt();
+	if(pt < 30) continue;
 
-      if(it->emEnergyFraction > 0.9) continue;
+	if(it->emEnergyFraction > 0.9) continue;
 
-      if(std::abs(it->momentum.Eta()) > 2.4) continue;
+	if(std::abs(it->momentum.Eta()) > 2.4) continue;
 
-      bool same = false;
-      for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
-	  m_it != tight_muons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
+	bool same = false;
+	for(std::vector<susy::Muon*>::iterator m_it = tight_muons.begin();
+	    m_it != tight_muons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
+	  }
 	}
-      }
-      if(same) continue;
+	if(same) continue;
 
-      for(std::vector<susy::Electron*>::iterator m_it = tight_electrons.begin();
-	  m_it != tight_electrons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
+	for(std::vector<susy::Electron*>::iterator m_it = tight_electrons.begin();
+	    m_it != tight_electrons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
+	  }
 	}
-      }
-      if(same) continue;
+	if(same) continue;
 
-      for(std::vector<susy::Photon*>::iterator m_it = tight_photons.begin();
-	  m_it != tight_photons.end(); m_it++){
-	if(isSameObject(it->momentum,(*m_it)->momentum)){
-	  same = true;
-	  break;
+	for(std::vector<susy::Photon*>::iterator m_it = tight_photons.begin();
+	    m_it != tight_photons.end(); m_it++){
+	  if(isSameObject(it->momentum,(*m_it)->momentum)){
+	    same = true;
+	    break;
+	  }
 	}
-      }
-      if(same) continue;
+	if(same) continue;
 
 
-      loose_jets.push_back(&*it);
+	loose_jets.push_back(&*it);
 
-      tight_jets.push_back(&*it);
+	tight_jets.push_back(&*it);
 
-    }// for jet
-
+      }// for jet
+    }// else
 
     if(printLevel > 0) std::cout << "Apply trigger selection in the event." << std::endl;
 
@@ -396,7 +365,7 @@ void SusyEventAnalyzer::Loop() {
 
     if(printLevel > 0) std::cout << "Select which met will be used in the event." << std::endl;
 
-    std::map<TString, susy::MET>::iterator met_it = event->metMap.find("htMetAK5");
+    std::map<TString, susy::MET>::iterator met_it = event->metMap.find("tcMet");
     if(met_it == event->metMap.end()) {
       std::cout << "MET map is not available!!!" << std::endl;
       continue;
@@ -410,13 +379,11 @@ void SusyEventAnalyzer::Loop() {
       std::cout << "loose_muons       : " << loose_muons.size() << std::endl;
       std::cout << "loose_electrons   : " << loose_electrons.size() << std::endl;
       std::cout << "loose_photons     : " << loose_photons.size() << std::endl;
-      std::cout << "loose_taus        : " << loose_taus.size() << std::endl;
       std::cout << "loose_jets        : " << loose_jets.size() << std::endl;
       std::cout << "------------------------------------------" << std::endl;
       std::cout << "tight_muons       : " << tight_muons.size() << std::endl;
       std::cout << "tight_electrons   : " << tight_electrons.size() << std::endl;
       std::cout << "tight_photons     : " << tight_photons.size() << std::endl;
-      std::cout << "tight_taus        : " << tight_taus.size() << std::endl;
       std::cout << "tight_jets        : " << tight_jets.size() << std::endl;
       std::cout << "------------------------------------------" << std::endl;
       std::cout << "met               : " << met->met() << std::endl;
