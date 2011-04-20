@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.2 2011/03/30 18:12:45 dwjang Exp $
+// $Id: SusyNtuplizer_LinkDef.h,v 1.3 2011/04/19 20:15:21 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -24,6 +24,7 @@
 #pragma link C++ class  std::pair<Int_t, UChar_t>+;
 #pragma link C++ class  std::map<TString, UChar_t>+;
 #pragma link C++ class  std::map<TString, std::pair<Int_t, UChar_t> >+;
+#pragma link C++ class  std::pair<TString, std::pair<Int_t, UChar_t> >+;
 #pragma link C++ class  std::map<TString, susy::MET>+;
 #pragma link C++ class  std::map<TString, TVector3>+;
 #pragma link C++ class  std::map<TString, TLorentzVector>+;
