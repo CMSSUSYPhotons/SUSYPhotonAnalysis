@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.3 2011/03/31 00:51:06 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.4 2011/04/19 20:15:20 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -111,6 +111,9 @@ void susy::Photon::Init() {
   chargedHadronIso                = 0;
   neutralHadronIso                = 0;
   photonIso                       = 0;
+
+  vz                              = 0;
+  seedTime                        = 0;
 
   convDist                        = 999;
   convDcot                        = 999;
@@ -381,5 +384,6 @@ void susy::Event::Init() {
 
     simVertices.clear();
     genParticles.clear();
+    gridParams.clear();
 }
 

@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.4 2011/03/31 16:33:48 dwjang Exp $
+// $Id: SusyEvent.h,v 1.5 2011/04/19 20:15:21 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -215,6 +215,9 @@ namespace susy {
     Float_t        chargedHadronIso;
     Float_t        neutralHadronIso;
     Float_t        photonIso;
+
+    Float_t        vz;       // z position of vertex when this photon is reconstructed.
+    Float_t        seedTime; // seed timing
 
     // Conversion info
     Float_t        convDist;
@@ -602,7 +605,8 @@ namespace susy {
     // generated information. Valid only for isRealData == 0, i.e. MC
     std::vector<TVector3>                       simVertices; // Geant vertex, primary only
     std::vector<susy::Particle>                 genParticles;
-    
+    std::map<TString, Float_t>                  gridParams; // pairs of parameter name and value
+
   };
 
 
