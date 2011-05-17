@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.5 2011/04/19 20:15:21 dwjang Exp $
+// $Id: SusyEvent.h,v 1.6 2011/05/13 22:37:59 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -177,6 +177,9 @@ namespace susy {
     bool isEBEEGap()      { return (fidBit & (0x1 << 6)); }
     bool isPF()           { return (fidBit & (0x1 << 7)); }
 
+    Float_t hcalTowerSumEtConeDR04() { return (hcalDepth1TowerSumEtConeDR04+hcalDepth2TowerSumEtConeDR04); }
+    Float_t hcalTowerSumEtConeDR03() { return (hcalDepth1TowerSumEtConeDR03+hcalDepth2TowerSumEtConeDR03); }
+
     Int_t          fidBit;
     Int_t          nPixelSeeds;
     Float_t        hadronicOverEm;
@@ -195,7 +198,6 @@ namespace susy {
     Float_t        r9;
 
     Float_t        ecalRecHitSumEtConeDR04;
-    Float_t        hcalTowerSumEtConeDR04;
     Float_t        hcalDepth1TowerSumEtConeDR04;
     Float_t        hcalDepth2TowerSumEtConeDR04;
     Float_t        trkSumPtSolidConeDR04;
@@ -204,7 +206,6 @@ namespace susy {
     UChar_t        nTrkHollowConeDR04;
 
     Float_t        ecalRecHitSumEtConeDR03;
-    Float_t        hcalTowerSumEtConeDR03;
     Float_t        hcalDepth1TowerSumEtConeDR03;
     Float_t        hcalDepth2TowerSumEtConeDR03;
     Float_t        trkSumPtSolidConeDR03;
@@ -216,8 +217,14 @@ namespace susy {
     Float_t        neutralHadronIso;
     Float_t        photonIso;
 
-    Float_t        vz;       // z position of vertex when this photon is reconstructed.
     Float_t        seedTime; // seed timing
+
+    // cluster shape variables (barrel only)
+    Float_t        sMaj;
+    Float_t        sMin;
+    Float_t        alpha;
+    Float_t        roundness;
+    Float_t        angle;
 
     // Conversion info
     Float_t        convDist;
@@ -231,6 +238,8 @@ namespace susy {
     Float_t        superClusterPhiWidth;
     Float_t        superClusterEtaWidth;
     TVector3       caloPosition;
+
+    TVector3 vertex; // photon vertex when reconstructed.
     TLorentzVector momentum;
     std::map<TString,UChar_t> idPairs;
 
@@ -399,9 +408,6 @@ namespace susy {
     ~CaloJet() { Init(); }
     void Init();
 
-    // Data use "L2L3" and MC use "L2L3Residual"
-    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
-
     // Basic Jet Info
     Float_t        partonFlavour;
     Float_t        jetCharge;
@@ -451,10 +457,10 @@ namespace susy {
     UChar_t        numberOfHitsRPC;
 
     TVector3       vertex;
-    TLorentzVector momentum;
+    TLorentzVector momentum; // uncorrected momentum
     TLorentzVector detectorP4;
 
-    Float_t        jecScaleFactor;
+    std::map<TString, Float_t> jecScaleFactors;
   };
 
 
@@ -465,9 +471,6 @@ namespace susy {
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
-
-    // Data use "L2L3" and MC use "L2L3Residual"
-    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -505,9 +508,9 @@ namespace susy {
     UChar_t        neutralMultiplicity;
 
     TVector3       vertex;
-    TLorentzVector momentum;
+    TLorentzVector momentum; // uncorrected momentum
 
-    Float_t        jecScaleFactor;
+    std::map<TString, Float_t> jecScaleFactors;
   };
 
 
@@ -518,9 +521,6 @@ namespace susy {
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
-
-    // Data use "L2L3" and MC use "L2L3Residual"
-    TLorentzVector corrP4() { return jecScaleFactor*momentum; }
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -546,9 +546,9 @@ namespace susy {
     Float_t        getZSPCor;
 
     TVector3       vertex;
-    TLorentzVector momentum;
+    TLorentzVector momentum; // uncorrected momentum
 
-    Float_t        jecScaleFactor;
+    std::map<TString, Float_t> jecScaleFactors;
   };
 
 

@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.6 2011/04/21 20:06:29 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.7 2011/05/13 22:37:59 dwjang Exp $
 //
 //
 
@@ -107,6 +107,7 @@
 
 #include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgo.h"
 #include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
+#include "RecoEcal/EgammaCoreTools/interface/EcalClusterTools.h"
 
 // Jet Energy Correction
 #include "JetMETCorrections/Objects/interface/JetCorrector.h"
@@ -476,45 +477,43 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   if(debugLevel_ > 0) std::cout << name() << ", get ecal rechits" << std::endl;
     
-  if(recoMode_) {
-    try {
-      iEvent.getByLabel("ecalRecHit","EcalRecHitsEB",barrelRecHitsHandle);
-      iEvent.getByLabel("ecalRecHit","EcalRecHitsEE",endcapRecHitsHandle);
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "EcalRecHitCollection is not available!!! " << e.what();
-    }
-    
-    if(debugLevel_ > 0) std::cout << name() << ", get calo geometry record." << std::endl;
-    
-    try{
-      iSetup.get<CaloGeometryRecord>().get(cgH);
-      geo = cgH.product();
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "CaloGeometryRecord is not available!!! " << e.what();
-    }
-
-    
-    if(debugLevel_ > 0) std::cout << name() << ", get calo topology record." << std::endl;
-    
-    try {
-      iSetup.get<CaloTopologyRecord>().get(ctH); 
-      caloTopology = ctH.product();
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
-    }
-
-    try {
-      iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
-      sevLevel = sevlv.product();
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
-    }
-
+  try {
+    iEvent.getByLabel("reducedEcalRecHitsEB","",barrelRecHitsHandle);
+    iEvent.getByLabel("reducedEcalRecHitsEE","",endcapRecHitsHandle);
   }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "EcalRecHitCollection is not available!!! " << e.what();
+  }
+  
+  if(debugLevel_ > 0) std::cout << name() << ", get calo geometry record." << std::endl;
+  
+  try{
+    iSetup.get<CaloGeometryRecord>().get(cgH);
+    geo = cgH.product();
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "CaloGeometryRecord is not available!!! " << e.what();
+  }
+
+  
+  if(debugLevel_ > 0) std::cout << name() << ", get calo topology record." << std::endl;
+    
+  try {
+    iSetup.get<CaloTopologyRecord>().get(ctH); 
+    caloTopology = ctH.product();
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
+  }
+  
+  try {
+    iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
+    sevLevel = sevlv.product();
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
+  }
+
 
   if(debugLevel_ > 0) std::cout << name() << ", fill all kinds of met collections" << std::endl;
 
@@ -621,7 +620,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.r9                                = it->r9();
 
 	pho.ecalRecHitSumEtConeDR04           = it->ecalRecHitSumEtConeDR04();
-	pho.hcalTowerSumEtConeDR04            = it->hcalTowerSumEtConeDR04();
 	pho.hcalDepth1TowerSumEtConeDR04      = it->hcalDepth1TowerSumEtConeDR04();
 	pho.hcalDepth2TowerSumEtConeDR04      = it->hcalDepth2TowerSumEtConeDR04();
 	pho.trkSumPtSolidConeDR04             = it->trkSumPtSolidConeDR04();
@@ -630,7 +628,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.nTrkHollowConeDR04                = it->nTrkHollowConeDR04();
 
 	pho.ecalRecHitSumEtConeDR03           = it->ecalRecHitSumEtConeDR03();
-	pho.hcalTowerSumEtConeDR03            = it->hcalTowerSumEtConeDR03();
 	pho.hcalDepth1TowerSumEtConeDR03      = it->hcalDepth1TowerSumEtConeDR03();
 	pho.hcalDepth2TowerSumEtConeDR03      = it->hcalDepth2TowerSumEtConeDR03();
 	pho.trkSumPtSolidConeDR03             = it->trkSumPtSolidConeDR03();
@@ -642,19 +639,29 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.neutralHadronIso                  = it->neutralHadronIso();
 	pho.photonIso                         = it->photonIso();
 
-	pho.vz                                = it->vz();
-	// @@ trying to figure out how to get timing on AOD
-	//	pho.seedTime                          = ;
+	// for timing
+	DetId seedId(0);
 
+	// Cluster informations
 	if(it->superCluster().isNonnull()) {
-	  if(recoMode_) {
-	    double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
-	    double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
-	    double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
-	    double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
-	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
-	  }
+	  double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
+	  double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
+	  double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
+	  double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
+	  pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
 
+	  // from Shilei's request
+	  Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->superCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
+	  std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->superCluster()), *(barrelRecHitsHandle.product()), 1);
+	  pho.sMaj      = my2ndMoments.sMaj;
+	  pho.sMin      = my2ndMoments.sMin;
+	  pho.alpha     = my2ndMoments.alpha;
+	  pho.roundness = myVector[0];
+	  pho.angle     = myVector[1];
+
+
+	  // general cluster info
+	  seedId = it->superCluster()->seed()->seed();
 	  pho.superClusterPreshowerEnergy = it->superCluster()->preshowerEnergy();
 	  pho.superClusterPhiWidth = it->superCluster()->phiWidth();
 	  pho.superClusterEtaWidth = it->superCluster()->etaWidth();
@@ -666,6 +673,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	}
 
 	if(it->isPFlowPhoton() && it->pfSuperCluster().isNonnull()){
+
+	  // from Shilei's request
+	  Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->pfSuperCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
+	  std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->pfSuperCluster()), *(barrelRecHitsHandle.product()), 1);
+	  pho.sMaj      = my2ndMoments.sMaj;
+	  pho.sMin      = my2ndMoments.sMin;
+	  pho.alpha     = my2ndMoments.alpha;
+	  pho.roundness = myVector[0];
+	  pho.angle     = myVector[1];
+
+	  seedId = it->pfSuperCluster()->seed()->seed();
 	  pho.superClusterPreshowerEnergy = it->pfSuperCluster()->preshowerEnergy();
 	  pho.superClusterPhiWidth = it->pfSuperCluster()->phiWidth();
 	  pho.superClusterEtaWidth = it->pfSuperCluster()->etaWidth();
@@ -676,9 +694,23 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  superClusterIndex++;
 	}
 
-
 	pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
+	pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
 	pho.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+
+
+	// store seed timing information
+	float seedTime = 999;
+	if(seedId.subdetId() == EcalBarrel) {
+	  EcalRecHitCollection::const_iterator hit = barrelRecHitsHandle->find(seedId);
+	  if ((hit != barrelRecHitsHandle->end()) && hit->isTimeValid()) seedTime = hit->time();
+	}
+	else if(seedId.subdetId() == EcalEndcap) {
+	  EcalRecHitCollection::const_iterator hit = endcapRecHitsHandle->find(seedId);
+	  if ((hit != endcapRecHitsHandle->end()) && hit->isTimeValid()) seedTime = hit->time();
+	}
+	pho.seedTime = seedTime;
+
 
 	if(!it->isPFlowPhoton()) {
 	  for(int k=0; k<nPhoIDC; k++){
@@ -1117,7 +1149,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.detectorP4.SetXYZT(it->detectorP4().px(),it->detectorP4().py(),
 			       it->detectorP4().pz(),it->detectorP4().energy());
 
-	jet.jecScaleFactor = jecScale;
+	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
 
 	// accessing Jet ID information
 	const reco::JetID& jetID = (*jetIDH)[jetRef];
@@ -1220,7 +1253,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.chargedMultiplicity = it->chargedMultiplicity();
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
-	jet.jecScaleFactor = jecScale;
+	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1291,7 +1325,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.elecMultiplicity    = it->elecMultiplicity();
 	jet.getZSPCor           = it->getZSPCor();
 
-	jet.jecScaleFactor = jecScale;
+	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;

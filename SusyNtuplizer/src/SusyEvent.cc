@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.4 2011/04/19 20:15:20 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.5 2011/05/13 22:37:59 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -91,7 +91,6 @@ void susy::Photon::Init() {
   r9                              = 0;
 
   ecalRecHitSumEtConeDR04         = 0;
-  hcalTowerSumEtConeDR04          = 0;
   hcalDepth1TowerSumEtConeDR04    = 0;
   hcalDepth2TowerSumEtConeDR04    = 0;
   trkSumPtSolidConeDR04           = 0;
@@ -100,7 +99,6 @@ void susy::Photon::Init() {
   nTrkHollowConeDR04              = 0;
 
   ecalRecHitSumEtConeDR03         = 0;
-  hcalTowerSumEtConeDR03          = 0;
   hcalDepth1TowerSumEtConeDR03    = 0;
   hcalDepth2TowerSumEtConeDR03    = 0;
   trkSumPtSolidConeDR03           = 0;
@@ -112,8 +110,13 @@ void susy::Photon::Init() {
   neutralHadronIso                = 0;
   photonIso                       = 0;
 
-  vz                              = 0;
   seedTime                        = 0;
+
+  sMaj                            = 0;
+  sMin                            = 0;
+  alpha                           = 0;
+  roundness                       = 0;
+  angle                           = 0;
 
   convDist                        = 999;
   convDcot                        = 999;
@@ -126,6 +129,7 @@ void susy::Photon::Init() {
   superClusterPhiWidth            = 0;
   superClusterEtaWidth            = 0;
   caloPosition                   *= 0;
+  vertex                         *= 0;
   momentum                       *= 0;
   idPairs.clear();
 
@@ -277,7 +281,7 @@ void susy::CaloJet::Init() {
   momentum                 *= 0;
   detectorP4               *= 0;
 
-  jecScaleFactor            = 1;
+  jecScaleFactors.clear();
 }
 
 
@@ -318,7 +322,7 @@ void susy::PFJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
-  jecScaleFactor            = 1;
+  jecScaleFactors.clear();
 }
 
 
@@ -348,7 +352,7 @@ void susy::JPTJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
-  jecScaleFactor            = 1;
+  jecScaleFactors.clear();
 }
 
 

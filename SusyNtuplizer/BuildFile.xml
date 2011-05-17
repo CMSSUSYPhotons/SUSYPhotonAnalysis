@@ -31,6 +31,7 @@
 <use name="Geometry/CaloTopology"/>
 <use name="Calibration/IsolatedParticles"/>
 <use name="RecoLocalCalo/EcalRecAlgos"/>
+<use name="RecoEcal/EgammaCoreTools"/>
 
 <use name="JetMETCorrections/Objects"/>
 
