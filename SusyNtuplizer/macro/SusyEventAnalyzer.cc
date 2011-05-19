@@ -12,12 +12,11 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.3 2011/04/12 15:31:36 dmason Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.4 2011/04/19 20:15:20 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
 
-#include "SusyEventAnalyzer.h"
 #include <TH2.h>
 #include <TStyle.h>
 #include <TCanvas.h>
@@ -28,6 +27,14 @@
 #include <cmath>
 #include <algorithm>
 #include <utility>
+
+#include "SusyEventAnalyzer.h"
+#include "SusyEventPrinter.h"
+
+template<typename T> bool EtGreater(const T* p1, const T* p2) {
+  return (p1->momentum.Et() > p2->momentum.Et());
+}
+
 
 void SusyEventAnalyzer::InitializePerEvent() {
 
@@ -49,6 +56,31 @@ float SusyEventAnalyzer::d0correction(TVector3& beamSpot, susy::Track& track) co
   float d0 = track.d0() - beamSpot.X()*std::sin(track.phi()) + beamSpot.Y()*std::cos(track.phi());
   return d0;
 }
+
+
+bool SusyEventAnalyzer::PassTrigger(TString path) {
+  bool pass = false;
+  for(susy::TriggerMap::iterator it = event->hltMap.begin(); it != event->hltMap.end(); it++) {
+    if(it->first.Contains(path) && (int(it->second.second)) ) {
+      pass = true;
+      break;
+    }
+  }
+  return pass;
+}
+
+
+bool SusyEventAnalyzer::PassTriggers() {
+  bool pass = false;
+  for(std::vector<TString>::iterator it = hltNames.begin(); it != hltNames.end(); it++) {
+    if(PassTrigger(*it)) {
+      pass = true;
+      break;
+    }
+  }
+  return pass;
+}
+
 
 
 void SusyEventAnalyzer::Loop() {
@@ -123,6 +155,8 @@ void SusyEventAnalyzer::Loop() {
     
     // uncomment this to use the Json file to flag good data (or bad depending on your outlook)    
     // if(!isInJson(event->runNumber,event->luminosityBlockNumber)) continue;
+
+    Print(*event);
 
 
     if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;
@@ -357,11 +391,7 @@ void SusyEventAnalyzer::Loop() {
 
     if(printLevel > 0) std::cout << "Apply trigger selection in the event." << std::endl;
 
-    susy::TriggerMap::iterator it = event->hltMap.find(hltName);
-    bool passHLT = false;
-    if(!useTrigger) passHLT = true; 
-    else if(it != event->hltMap.end() && it->second.second == 1) passHLT = true;
-
+    bool passHLT = (useTrigger ? PassTriggers() : true);
 
     if(printLevel > 0) std::cout << "Select which met will be used in the event." << std::endl;
 
@@ -387,7 +417,6 @@ void SusyEventAnalyzer::Loop() {
       std::cout << "tight_jets        : " << tight_jets.size() << std::endl;
       std::cout << "------------------------------------------" << std::endl;
       std::cout << "met               : " << met->met() << std::endl;
-      if(useTrigger) std::cout << hltName << "  : " << passHLT << std::endl;
     } 
 
 

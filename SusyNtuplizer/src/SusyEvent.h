@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.6 2011/05/13 22:37:59 dwjang Exp $
+// $Id: SusyEvent.h,v 1.7 2011/05/17 22:32:08 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -552,12 +552,46 @@ namespace susy {
   };
 
 
+  class PFParticle {
+
+  public:
+    PFParticle() { Init(); }
+    ~PFParticle() { Init(); }
+    void Init();
+
+    Int_t pdgId;
+    Char_t  charge;
+    Float_t ecalEnergy;
+    Float_t rawEcalEnergy;
+    Float_t hcalEnergy;
+    Float_t rawHcalEnergy;
+    Float_t pS1Energy;
+    Float_t pS2Energy;
+    Float_t deltaP;
+    Float_t mva_e_pi;
+    Float_t mva_e_mu;
+    Float_t mva_pi_mu;
+    Float_t mva_nothing_gamma;
+    Float_t mva_nothing_nh;
+    Float_t mva_gamma_nh;
+
+    TVector3 vertex;
+    TVector3 positionAtECALEntrance;
+    TLorentzVector momentum;
+
+  };
+
+
+
   typedef std::vector<susy::Electron> ElectronCollection;
   typedef std::vector<susy::Photon> PhotonCollection;
   typedef std::vector<susy::CaloJet> CaloJetCollection;
   typedef std::vector<susy::PFJet> PFJetCollection;
   typedef std::vector<susy::JPTJet> JPTJetCollection;
+  typedef std::vector<susy::PFParticle> PFParticleCollection;
   typedef std::map<TString, std::pair<Int_t, UChar_t> > TriggerMap;
+
+
 
   class Event {
 
@@ -598,6 +632,7 @@ namespace susy {
     std::map<TString,susy::CaloJetCollection>   caloJets;
     std::map<TString,susy::PFJetCollection>     pfJets;
     std::map<TString,susy::JPTJetCollection>    jptJets;
+    std::map<TString,susy::PFParticleCollection> pfParticles;
 
     // optional collections
     std::vector<susy::Track>                    generalTracks;   // not stored by default

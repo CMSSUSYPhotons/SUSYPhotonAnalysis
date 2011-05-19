@@ -3,10 +3,11 @@ void ana(TString ds="relval", TString physics="ttbar") {
 
   gSystem->Load("libSusyEvent.so");
 
+  gROOT->LoadMacro("SusyEventPrinter.cc+");
   gROOT->LoadMacro("SusyEventAnalyzer.cc+");
 
   TChain* chain = new TChain("susyTree");
-  chain->Add("../susyEvents.root");
+  chain->Add("../susyEvent.root");
 
   SusyEventAnalyzer* sea = new SusyEventAnalyzer(chain);
 
@@ -16,7 +17,8 @@ void ana(TString ds="relval", TString physics="ttbar") {
   sea->SetPrintInterval(1e4);             // print frequency
   sea->SetPrintLevel(0);                  // print level for event contents
   sea->SetUseTrigger(false);
-  //sea->SetHltName("HLT_Ele15_LW_L1R");  // HLT trigger path name
+  sea->AddHltName("HLT_Photon36_CaloIdL_Photon22_CaloIdL");  // add HLT trigger path name
+  sea->AddHltName("HLT_Photon32_CaloIdL_Photon26_CaloIdL");  // add HLT trigger path name
   sea->SetFilter(false);                  // filter events passing final cuts
   sea->SetProcessNEvents(100);             // number of events to be processed
 

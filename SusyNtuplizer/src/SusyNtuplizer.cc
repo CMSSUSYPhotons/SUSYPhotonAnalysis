@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.7 2011/05/13 22:37:59 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.8 2011/05/17 22:32:08 dwjang Exp $
 //
 //
 
@@ -175,6 +175,7 @@ private:
   std::vector<std::string> pfJetCollectionTags_;
   std::vector<std::string> jptJetCollectionTags_;
   std::vector<std::string> metCollectionTags_;
+  std::vector<std::string> pfCandidateCollectionTags_;
 
   edm::ESHandle<MagneticField> magneticField_;
   PropagatorWithMaterial* propagator_;
@@ -215,6 +216,9 @@ private:
   // jetThreshold will be applied on corrected jets' pt
   double jetThreshold_;
 
+  // PFParticleThreshold
+  double pfParticleThreshold_;
+
   std::string outputFileName_;
 
   susy::Event* susyEvent_;
@@ -244,11 +248,13 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   pfJetCollectionTags_       = iConfig.getParameter<std::vector<std::string> >("pfJetCollectionTags");
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
+  pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
   photonThreshold_ = iConfig.getParameter<double>("photonThreshold");
   jetThreshold_ = iConfig.getParameter<double>("jetThreshold");
+  pfParticleThreshold_ = iConfig.getParameter<double>("pfParticleThreshold");
   debugLevel_ = iConfig.getParameter<int>("debugLevel");
   storeGenInfos_ = iConfig.getParameter<bool>("storeGenInfos");
   storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
@@ -556,10 +562,57 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       susyEvent_->metMap[TString(metCollectionTags_[iMet].c_str())] = susyMet;
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << "pat::MET " << metCollectionTags_[iMet] << " is not available!!! " << e.what();
+      edm::LogError(name()) << "MET " << metCollectionTags_[iMet] << " is not available!!! " << e.what();
     }
 
   }// for iMet
+
+
+  if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
+
+  edm::Handle<reco::PFCandidateCollection> pfH;
+  for(unsigned int iPFC=0; iPFC<pfCandidateCollectionTags_.size(); iPFC++) {
+    try {
+      iEvent.getByLabel(edm::InputTag(pfCandidateCollectionTags_[iPFC]),pfH);
+      if(debugLevel_ > 1) std::cout << "size of PFCandidateCollection : " << pfH->size() << std::endl;
+      int ipf = 0;
+      for(reco::PFCandidateCollection::const_iterator it = pfH->begin(); it != pfH->end(); it++){
+
+	reco::PFCandidateRef pfRef(pfH,ipf++);
+
+	if(it->pt() < pfParticleThreshold_) continue;
+
+	susy::PFParticle pf;
+	pf.pdgId                 = it->translateTypeToPdgId(it->particleId());
+	pf.charge                = it->charge();
+	pf.ecalEnergy            = it->ecalEnergy();
+	pf.rawEcalEnergy         = it->rawEcalEnergy();
+	pf.hcalEnergy            = it->hcalEnergy();
+	pf.rawHcalEnergy         = it->rawHcalEnergy();
+	pf.pS1Energy             = it->pS1Energy();
+	pf.pS2Energy             = it->pS2Energy();
+	pf.deltaP                = it->deltaP();
+	pf.mva_e_pi              = it->mva_e_pi();
+	pf.mva_e_mu              = it->mva_e_mu();
+	pf.mva_pi_mu             = it->mva_pi_mu();
+	pf.mva_nothing_gamma     = it->mva_nothing_gamma();
+	pf.mva_nothing_nh        = it->mva_nothing_nh();
+	pf.mva_gamma_nh          = it->mva_gamma_nh();
+	
+	pf.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+	pf.positionAtECALEntrance.SetXYZ(it->positionAtECALEntrance().x(),it->positionAtECALEntrance().y(),it->positionAtECALEntrance().z());
+	pf.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+
+	susyEvent_->pfParticles[TString(pfCandidateCollectionTags_[iPFC].c_str())].push_back(pf);
+
+      } // for
+    } // try
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "PFCandidate " << pfCandidateCollectionTags_[iPFC] << " is not available!!! " << e.what();
+    }
+  } // for
+
+
 
 
   if(debugLevel_ > 0) std::cout << name() << ", fill photon" << std::endl;
@@ -643,7 +696,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	DetId seedId(0);
 
 	// Cluster informations
-	if(it->superCluster().isNonnull()) {
+	if(!it->isPFlowPhoton() && it->superCluster().isNonnull()) {
 	  double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
 	  double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
 	  double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);

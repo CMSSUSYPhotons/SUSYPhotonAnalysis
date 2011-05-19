@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.5 2011/05/13 22:37:59 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.6 2011/05/17 22:32:08 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -356,6 +356,29 @@ void susy::JPTJet::Init() {
 }
 
 
+void susy::PFParticle::Init() {
+  pdgId                       = 0;
+  charge                      = 0;
+  ecalEnergy                  = 0;
+  rawEcalEnergy               = 0;
+  hcalEnergy                  = 0;
+  rawHcalEnergy               = 0;
+  pS1Energy                   = 0;
+  pS2Energy                   = 0;
+  deltaP                      = 0;
+  mva_e_pi                    = 0;
+  mva_e_mu                    = 0;
+  mva_pi_mu                   = 0;
+  mva_nothing_gamma           = 0;
+  mva_nothing_nh              = 0;
+  mva_gamma_nh                = 0;
+  
+  vertex                     *= 0;
+  positionAtECALEntrance     *= 0;
+  momentum                   *= 0;
+}
+
+
 
 void susy::Event::Init() {
     isRealData                  = 0;
@@ -383,6 +406,7 @@ void susy::Event::Init() {
     caloJets.clear();
     pfJets.clear();
     jptJets.clear();
+    pfParticles.clear();
     
     generalTracks.clear();
 

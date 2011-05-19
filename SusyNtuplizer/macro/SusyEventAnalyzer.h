@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.h,v 1.1 2011/03/24 23:53:52 dwjang Exp $
+// $Id: SusyEventAnalyzer.h,v 1.2 2011/04/12 15:31:36 dmason Exp $
 //
 
 #ifndef SusyEventAnalyzer_h
@@ -52,9 +52,9 @@ class SusyEventAnalyzer {
   bool isSameObject(TLorentzVector& p1, TLorentzVector& p2);
   float d0correction(TVector3& beamSpot, susy::Track& track) const;
   void IncludeAJson(std::string jsonfile);  // Call to pull in a json file 
-  bool isInJson(Int_t run,Int_t lumi); // JSON based good run list cut...
-  
-  
+  bool isInJson(Int_t run,Int_t lumi);      // JSON based good run list cut...
+  bool PassTrigger(TString v); // return true if path v is fired
+  bool PassTriggers(); // return true if any of names in hltNames are fired
 
   // parameter configuration functions
   void Initialize();         // global variables needed to be initialized just once
@@ -64,7 +64,7 @@ class SusyEventAnalyzer {
   void SetPrintLevel(int v) {            printLevel = v; }
   void SetProcessNEvents(int v) {        processNEvents = v; }
   void SetUseTrigger(bool v) {           useTrigger = v; }
-  void SetHltName(TString v) {           hltName = v; }
+  void AddHltName(TString v) {           hltNames.push_back(v); }
   void SetFilter(bool v) {               enableFilter = v; }
   void SetFilteredFileName(TString v) {  filtered_file_name = v; }
 
@@ -81,7 +81,7 @@ class SusyEventAnalyzer {
   int printInterval;        // print level for event content: defined in Event.h
   int processNEvents;       // number of events to be processed
   bool useTrigger;          // flag for using trigger bit selection.
-  TString hltName;          // HLT trigger path name
+  std::vector<TString> hltNames;          // HLT trigger path names
   bool enableFilter;        // filter events of interest
   TString filtered_file_name; // filtered output file name
 

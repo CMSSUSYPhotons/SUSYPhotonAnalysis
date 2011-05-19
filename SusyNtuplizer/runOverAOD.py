@@ -3,7 +3,7 @@ import FWCore.ParameterSet.Config as cms
 process = cms.Process("SNT")
 
 process.load('FWCore/MessageService/MessageLogger_cfi')
-process.MessageLogger.cerr.FwkReport.reportEvery = 500
+process.MessageLogger.cerr.FwkReport.reportEvery = -1
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
 
@@ -13,7 +13,8 @@ process.source = cms.Source("PoolSource",
                             fileNames = cms.untracked.vstring(
 # MC
 #    '/store/relval/CMSSW_4_2_3/RelValPhotonJets_Pt_10/GEN-SIM-RECO/START42_V12-v2/0062/AA819E58-077B-E011-8C9C-0018F3D095FC.root'
-    '/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0004/003F6C25-7C7B-E011-8C25-0026189438EF.root'
+# Data
+    '/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0000/003D325C-547B-E011-81D4-001A928116C2.root'
     )
 )
 
@@ -41,6 +42,11 @@ process.ak5JPTL1Offset.useCondDB = False
 
 # SusyNtuplizer options
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
+process.susyNtuplizer.debugLevel = cms.int32(0)
+process.susyNtuplizer.electronCollectionTags = cms.vstring("gsfElectrons")
+process.susyNtuplizer.photonCollectionTags = cms.vstring("photons")
+
+
 
 process.jec = cms.Sequence(process.ak5CaloJetsL2L3 * process.ak7CaloJetsL2L3 * process.kt4CaloJetsL2L3 * process.kt6CaloJetsL2L3
                            * process.ak5CaloJetsL2L3Residual * process.ak7CaloJetsL2L3Residual * process.kt4CaloJetsL2L3Residual * process.kt6CaloJetsL2L3Residual

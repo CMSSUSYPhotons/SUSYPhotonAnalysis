@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.4 2011/04/20 17:30:49 dwjang Exp $
+// $Id: SusyNtuplizer_LinkDef.h,v 1.5 2011/05/13 22:37:59 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -46,9 +46,13 @@
 #pragma link C++ class  susy::CaloJet+;
 #pragma link C++ class  susy::PFJet+;
 #pragma link C++ class  susy::JPTJet+;
+#pragma link C++ class  susy::PFParticle+;
+#pragma link C++ class  std::map<TString, std::vector<susy::Electron> >+;
+#pragma link C++ class  std::map<TString, std::vector<susy::Photon> >+;
 #pragma link C++ class  std::map<TString, std::vector<susy::CaloJet> >+;
 #pragma link C++ class  std::map<TString, std::vector<susy::PFJet> >+;
 #pragma link C++ class  std::map<TString, std::vector<susy::JPTJet> >+;
+#pragma link C++ class  std::map<TString, std::vector<susy::PFParticle> >+;
 #pragma link C++ class  susy::Event+;
 
 #endif
