@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.8 2011/05/19 06:21:46 dwjang Exp $
+// $Id: SusyEvent.h,v 1.9 2011/05/24 00:03:19 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -567,13 +567,6 @@ namespace susy {
     Float_t rawHcalEnergy;
     Float_t pS1Energy;
     Float_t pS2Energy;
-    Float_t deltaP;
-    Float_t mva_e_pi;
-    Float_t mva_e_mu;
-    Float_t mva_pi_mu;
-    Float_t mva_nothing_gamma;
-    Float_t mva_nothing_nh;
-    Float_t mva_gamma_nh;
 
     TVector3 vertex;
     TVector3 positionAtECALEntrance;

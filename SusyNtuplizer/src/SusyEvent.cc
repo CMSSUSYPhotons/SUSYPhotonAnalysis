@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.7 2011/05/19 06:21:46 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.8 2011/05/24 00:03:19 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -363,13 +363,6 @@ void susy::PFParticle::Init() {
   rawHcalEnergy               = 0;
   pS1Energy                   = 0;
   pS2Energy                   = 0;
-  deltaP                      = 0;
-  mva_e_pi                    = 0;
-  mva_e_mu                    = 0;
-  mva_pi_mu                   = 0;
-  mva_nothing_gamma           = 0;
-  mva_nothing_nh              = 0;
-  mva_gamma_nh                = 0;
   
   vertex                     *= 0;
   positionAtECALEntrance     *= 0;

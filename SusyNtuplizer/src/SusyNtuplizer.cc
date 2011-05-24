@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.9 2011/05/19 06:21:46 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.10 2011/05/24 00:03:19 dwjang Exp $
 //
 //
 
@@ -593,13 +593,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pf.rawHcalEnergy         = it->rawHcalEnergy();
 	pf.pS1Energy             = it->pS1Energy();
 	pf.pS2Energy             = it->pS2Energy();
-	pf.deltaP                = it->deltaP();
-	pf.mva_e_pi              = it->mva_e_pi();
-	pf.mva_e_mu              = it->mva_e_mu();
-	pf.mva_pi_mu             = it->mva_pi_mu();
-	pf.mva_nothing_gamma     = it->mva_nothing_gamma();
-	pf.mva_nothing_nh        = it->mva_nothing_nh();
-	pf.mva_gamma_nh          = it->mva_gamma_nh();
 	
 	pf.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
 	pf.positionAtECALEntrance.SetXYZ(it->positionAtECALEntrance().x(),it->positionAtECALEntrance().y(),it->positionAtECALEntrance().z());

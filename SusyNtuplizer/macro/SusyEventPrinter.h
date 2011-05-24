@@ -14,6 +14,7 @@ void Print(const susy::CaloJet& j);
 void Print(const susy::PFJet& j);
 void Print(const susy::Particle& p);
 void Print(const susy::Track& t);
+void Print(const susy::PFParticle& p);
 
 void Print(const susy::Event& event);
 

@@ -255,6 +255,23 @@ void Print(const susy::Track& t) {
 }
 
 
+void Print(const susy::PFParticle& p) {
+  std::cout << "\tpdgId : " << p.pdgId << std::endl;
+  std::cout << "\tcharge : " << (int)p.charge << std::endl;
+  std::cout << "\tecalEnergy : " << p.ecalEnergy << std::endl;
+  std::cout << "\trawEcalEnergy : " << p.rawEcalEnergy << std::endl;
+  std::cout << "\thcalEnergy : " << p.hcalEnergy << std::endl;
+  std::cout << "\trawHcalEnergy : " << p.rawHcalEnergy << std::endl;
+  std::cout << "\tpS1Energy : " << p.pS1Energy << std::endl;
+  std::cout << "\tpS2Energy : " << p.pS2Energy << std::endl;
+  std::cout << "\tvertex : "; Print(p.vertex);
+  std::cout << "\tpositionAtECALEntrance : "; Print(p.positionAtECALEntrance);
+  std::cout << "\tmomentum : "; Print(p.momentum);
+  std::cout << std::endl;
+}
+
+
+
 void Print(const susy::Event& event) {
 
   std::cout << "---------- run(" << event.runNumber << "), event(" << event.eventNumber << ") ----------" << std::endl;
@@ -293,6 +310,7 @@ void Print(const susy::Event& event) {
   for(std::vector<susy::Track>::const_iterator it = event.tracks.begin(); it != event.tracks.end(); it++) {
     Print(*it);
   }
+  std::cout << std::endl;
 
   std::cout << "superClusters size(" << event.superClusters.size() << ") =========>" << std::endl;
   std::cout << "clusters size(" << event.clusters.size() << ") =========>" << std::endl;
@@ -301,30 +319,43 @@ void Print(const susy::Event& event) {
 
   std::cout << "photons size(" << event.photons.size() << ") =========>" << std::endl;
   for(std::map<TString,susy::PhotonCollection>::const_iterator it = event.photons.begin(); it != event.photons.end(); it++) {
-    std::cout << it->first << " ======>" << std::endl;
+    std::cout << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(std::vector<susy::Photon>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
       Print(*it2);
     }
   }
+  std::cout << std::endl;
 
   std::cout << "caloJets size(" << event.caloJets.size() << ") =========>" << std::endl;
   for(std::map<TString, susy::CaloJetCollection>::const_iterator it = event.caloJets.begin(); it != event.caloJets.end(); it++) {
-    std::cout << it->first << " ======>" << std::endl;
+    std::cout << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(std::vector<susy::CaloJet>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
       Print(*it2);
     }
   }
+  std::cout << std::endl;
 
   std::cout << "pfJets size(" << event.pfJets.size() << ") =========>" << std::endl;
   for(std::map<TString, susy::PFJetCollection>::const_iterator it = event.pfJets.begin(); it != event.pfJets.end(); it++) {
-    std::cout << it->first << " ======>" << std::endl;
+    std::cout << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(std::vector<susy::PFJet>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
       Print(*it2);
     }
   }
+  std::cout << std::endl;
 
 
   std::cout << "jptJets size(" << event.jptJets.size() << ") =========>" << std::endl;
+
+  std::cout << "pfParticles size(" << event.pfParticles.size() << ") =========>" << std::endl;
+  for(std::map<TString, susy::PFParticleCollection>::const_iterator it = event.pfParticles.begin(); it != event.pfParticles.end(); it++) {
+    std::cout << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(std::vector<susy::PFParticle>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+      Print(*it2);
+    }
+  }
+  std::cout << std::endl;
+
   std::cout << "generalTracks size(" << event.generalTracks.size() << ") =========>" << std::endl;
 
   if(!event.isRealData) {
@@ -332,6 +363,7 @@ void Print(const susy::Event& event) {
     for(std::vector<TVector3>::const_iterator it = event.simVertices.begin(); it != event.simVertices.end(); it++) {
       std::cout << "\tsimVertex : "; Print(*it);
     }
+    std::cout << std::endl;
 
     std::cout << "genParticles size(" << event.genParticles.size() << ") =========>" << std::endl;
     for(std::vector<susy::Particle>::const_iterator it = event.genParticles.begin(); it != event.genParticles.end(); it++) {
@@ -344,6 +376,7 @@ void Print(const susy::Event& event) {
     for(std::map<TString,Float_t>::const_iterator it = event.gridParams.begin(); it != event.gridParams.end(); it++) {
       std::cout << "(" << it->first << "," << it->second << ") ";
     }
+    std::cout << std::endl;
   } // if(!event.isRealData)
 
   std::cout << std::endl;
