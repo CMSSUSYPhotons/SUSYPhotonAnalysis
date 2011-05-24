@@ -170,6 +170,91 @@ void Print(const susy::CaloJet& j) {
 }
 
 
+void Print(const susy::PFJet& j) {
+  std::cout << "\tpartonFlavour : " << j.partonFlavour << std::endl;
+  std::cout << "\tjetCharge : " << j.jetCharge << std::endl;
+  std::cout << "\tetaMean : " << j.etaMean << std::endl;
+  std::cout << "\tphiMean : " << j.phiMean << std::endl;
+  std::cout << "\tetaEtaMoment : " << j.etaEtaMoment << std::endl;
+  std::cout << "\tetaPhiMoment : " << j.etaPhiMoment << std::endl;
+  std::cout << "\tphiPhiMoment : " << j.phiPhiMoment << std::endl;
+  std::cout << "\tmaxDistance : " << j.maxDistance << std::endl;
+  std::cout << "\tjetArea : " << j.jetArea << std::endl;
+  std::cout << "\tpileup : " << j.pileup << std::endl;
+  std::cout << "\tnPasses : " << (int)j.nPasses << std::endl;
+  std::cout << "\tnConstituents : " << (int)j.nConstituents << std::endl;
+  std::cout << "\tchargedHadronEnergy : " << j.chargedHadronEnergy << std::endl;
+  std::cout << "\tneutralHadronEnergy : " << j.neutralHadronEnergy << std::endl;
+  std::cout << "\tphotonEnergy : " << j.photonEnergy << std::endl;
+  std::cout << "\telectronEnergy : " << j.electronEnergy << std::endl;
+  std::cout << "\tmuonEnergy : " << j.muonEnergy << std::endl;
+  std::cout << "\tHFHadronEnergy : " << j.HFHadronEnergy << std::endl;
+  std::cout << "\tHFEMEnergy : " << j.HFEMEnergy << std::endl;
+  std::cout << "\tchargedEmEnergy : " << j.chargedEmEnergy << std::endl;
+  std::cout << "\tchargedMuEnergy : " << j.chargedMuEnergy << std::endl;
+  std::cout << "\tneutralEmEnergy : " << j.neutralEmEnergy << std::endl;
+  std::cout << "\tchargedHadronMultiplicity : " << (int)j.chargedHadronMultiplicity << std::endl;
+  std::cout << "\tneutralHadronMultiplicity : " << (int)j.neutralHadronMultiplicity << std::endl;
+  std::cout << "\tphotonMultiplicity : " << (int)j.photonMultiplicity << std::endl;
+  std::cout << "\telectronMultiplicity : " << (int)j.electronMultiplicity << std::endl;
+  std::cout << "\tmuonMultiplicity : " << (int)j.muonMultiplicity << std::endl;
+  std::cout << "\tHFHadronMultiplicity : " << (int)j.HFHadronMultiplicity << std::endl;
+  std::cout << "\tHFEMMultiplicity : " << (int)j.HFEMMultiplicity << std::endl;
+  std::cout << "\tchargedMultiplicity : " << (int)j.chargedMultiplicity << std::endl;
+  std::cout << "\tneutralMultiplicity : " << (int)j.neutralMultiplicity << std::endl;
+  std::cout << "\tvertex : "; Print(j.vertex);
+  std::cout << "\tmomentum : "; Print(j.momentum);
+  std::cout << "\tjecScaleFactors : ";
+  for(std::map<TString, Float_t>::const_iterator it = j.jecScaleFactors.begin();
+      it != j.jecScaleFactors.end(); it++) {
+    std::cout << "(" << it->first << "," << it->second << ") ";
+  }
+  std::cout << std::endl;
+}
+
+
+
+void Print(const susy::Particle& p) {
+  std::cout << "\tstatus : " << (int)p.status << std::endl;
+  std::cout << "\tmotherId : " << p.motherId << std::endl;
+  std::cout << "\tpdgId : " << p.pdgId << std::endl;
+  std::cout << "\tcharge : " << (int)p.charge << std::endl;
+  std::cout << "\tvertex : "; Print(p.vertex);
+  std::cout << "\tmomentum : "; Print(p.momentum);
+  std::cout << std::endl;
+}
+
+
+void Print(const susy::Track& t) {
+  std::cout << "\talgorithm : " << t.algorithm << std::endl;
+  std::cout << "\tquality : " << t.quality << std::endl;
+  std::cout << "\tnumberOfValidHits : " << (int)t.numberOfValidHits << std::endl;
+  std::cout << "\tnumberOfValidTrackerHits : " << (int)t.numberOfValidTrackerHits << std::endl;
+  std::cout << "\tnumberOfValidMuonHits : " << (int)t.numberOfValidMuonHits << std::endl;
+  std::cout << "\tnumberOfValidPixelHits : " << (int)t.numberOfValidPixelHits << std::endl;
+  std::cout << "\tnumberOfValidStripHits : " << (int)t.numberOfValidStripHits << std::endl;
+  std::cout << "\tchi2 : " << t.chi2 << std::endl;
+  std::cout << "\tndof : " << t.ndof << std::endl;
+  std::cout << "\tcharge : " << t.charge << std::endl;
+  std::cout << "\terror[5] : (";
+  for(int i=0; i<5; i++) std::cout << t.error[i] << " ";
+  std::cout << ")" << std::endl;
+  std::cout << "\tvertex : "; Print(t.vertex);
+  std::cout << "\tmomentum : "; Print(t.momentum);
+  std::cout << "\textrapolatedPosition : ===> ";
+  if(t.extrapolatedPositions.size() == 0) {
+    std::cout << "(0)" << std::endl;
+  }
+  else {
+    std::cout << std::endl;
+    for(std::map<TString,TVector3>::const_iterator it = t.extrapolatedPositions.begin();
+	it != t.extrapolatedPositions.end(); it++) {
+      std::cout << "\t\t[ " << it->first << " : "; Print(it->second); std::cout << " ]" << std::endl;
+    }
+  }
+}
+
+
 void Print(const susy::Event& event) {
 
   std::cout << "---------- run(" << event.runNumber << "), event(" << event.eventNumber << ") ----------" << std::endl;
@@ -205,6 +290,10 @@ void Print(const susy::Event& event) {
   std::cout << std::endl;
 
   std::cout << "tracks size(" << event.tracks.size() << ") =========>" << std::endl;
+  for(std::vector<susy::Track>::const_iterator it = event.tracks.begin(); it != event.tracks.end(); it++) {
+    Print(*it);
+  }
+
   std::cout << "superClusters size(" << event.superClusters.size() << ") =========>" << std::endl;
   std::cout << "clusters size(" << event.clusters.size() << ") =========>" << std::endl;
   std::cout << "muons size(" << event.muons.size() << ") =========>" << std::endl;
@@ -227,11 +316,35 @@ void Print(const susy::Event& event) {
   }
 
   std::cout << "pfJets size(" << event.pfJets.size() << ") =========>" << std::endl;
+  for(std::map<TString, susy::PFJetCollection>::const_iterator it = event.pfJets.begin(); it != event.pfJets.end(); it++) {
+    std::cout << it->first << " ======>" << std::endl;
+    for(std::vector<susy::PFJet>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
+      Print(*it2);
+    }
+  }
+
+
   std::cout << "jptJets size(" << event.jptJets.size() << ") =========>" << std::endl;
   std::cout << "generalTracks size(" << event.generalTracks.size() << ") =========>" << std::endl;
-  std::cout << "simVertices size(" << event.simVertices.size() << ") =========>" << std::endl;
-  std::cout << "genParticles size(" << event.genParticles.size() << ") =========>" << std::endl;
-  std::cout << "gridParams size(" << event.gridParams.size() << ") =========>" << std::endl;
+
+  if(!event.isRealData) {
+    std::cout << "simVertices size(" << event.simVertices.size() << ") =========>" << std::endl;
+    for(std::vector<TVector3>::const_iterator it = event.simVertices.begin(); it != event.simVertices.end(); it++) {
+      std::cout << "\tsimVertex : "; Print(*it);
+    }
+
+    std::cout << "genParticles size(" << event.genParticles.size() << ") =========>" << std::endl;
+    for(std::vector<susy::Particle>::const_iterator it = event.genParticles.begin(); it != event.genParticles.end(); it++) {
+      Print(*it);
+    }
+    std::cout << std::endl;
+
+    std::cout << "gridParams size(" << event.gridParams.size() << ") =========>" << std::endl;
+    std::cout << "\t";
+    for(std::map<TString,Float_t>::const_iterator it = event.gridParams.begin(); it != event.gridParams.end(); it++) {
+      std::cout << "(" << it->first << "," << it->second << ") ";
+    }
+  } // if(!event.isRealData)
 
   std::cout << std::endl;
 }
