@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.7 2011/05/17 22:32:08 dwjang Exp $
+// $Id: SusyEvent.h,v 1.8 2011/05/19 06:21:46 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -179,6 +179,8 @@ namespace susy {
 
     Float_t hcalTowerSumEtConeDR04() { return (hcalDepth1TowerSumEtConeDR04+hcalDepth2TowerSumEtConeDR04); }
     Float_t hcalTowerSumEtConeDR03() { return (hcalDepth1TowerSumEtConeDR03+hcalDepth2TowerSumEtConeDR03); }
+    Float_t r1x5() { return ((e5x5 > 0) ? e1x5/e5x5 : 0); }
+    Float_t r2x5() { return ((e5x5 > 0) ? e2x5/e5x5 : 0); }
 
     Int_t          fidBit;
     Int_t          nPixelSeeds;
@@ -193,8 +195,6 @@ namespace susy {
     Float_t        maxEnergyXtal;
     Float_t        sigmaEtaEta;
     Float_t        sigmaIetaIeta;
-    Float_t        r1x5;
-    Float_t        r2x5;
     Float_t        r9;
 
     Float_t        ecalRecHitSumEtConeDR04;
@@ -612,7 +612,7 @@ namespace susy {
     Int_t                                       bunchCrossing;
     Float_t                                     avgInsRecLumi;
     Float_t                                     intgRecLumi;
-    UChar_t                                     cosmicFlag;
+    UChar_t                                     cosmicFlag; // empty for now
 
     TVector3                                    beamSpot;
 
@@ -621,12 +621,10 @@ namespace susy {
     std::map<TString,susy::MET>                 metMap;
 
     std::vector<TVector3>                       vertices;
-    std::vector<susy::Track>                    tracks;          // only selected tracks associated with objects
+    std::vector<susy::Track>                    tracks;          // only selected tracks associated with objects directly and photons with dR<0.4
     std::vector<susy::SuperCluster>             superClusters;   // only selected super clusters associated with objects
     std::vector<susy::Cluster>                  clusters;        // only selected basic clusters associated with super clusters
     std::vector<susy::Muon>                     muons;
-    //     std::vector<susy::Photon>                   photons;
-    //     std::vector<susy::Electron>                 electrons;
     std::map<TString,susy::ElectronCollection>  electrons;
     std::map<TString,susy::PhotonCollection>    photons;
     std::map<TString,susy::CaloJetCollection>   caloJets;

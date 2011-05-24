@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.6 2011/05/17 22:32:08 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.7 2011/05/19 06:21:46 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -86,8 +86,6 @@ void susy::Photon::Init() {
   maxEnergyXtal                   = 0;
   sigmaEtaEta                     = 0;
   sigmaIetaIeta                   = 0;
-  r1x5                            = 0;
-  r2x5                            = 0;
   r9                              = 0;
 
   ecalRecHitSumEtConeDR04         = 0;

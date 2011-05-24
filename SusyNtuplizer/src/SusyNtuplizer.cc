@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.8 2011/05/17 22:32:08 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.9 2011/05/19 06:21:46 dwjang Exp $
 //
 //
 
@@ -152,6 +152,8 @@ private:
   void fillCluster(const reco::SuperClusterRef& in, susy::SuperCluster& out, int& basicClusterIndex); // basicClusterIndex will be incremented here
   void fillParticle(const reco::GenParticle* in, susy::Particle& out, int momId);
   void fillExtrapolations(const reco::Track* ttk, std::map<TString,TVector3>& positions);
+  // If track is already stored, return its index, otherwise return -1.
+  int sameTrack(const susy::Track& track, const std::vector<susy::Track>& tracks) const;
 
   // ----------member data ---------------------------
 
@@ -644,6 +646,15 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	if(it->pt() < photonThreshold_) continue;
 
+	// For PFPhoton, PhotonCore is not stored in event record. So we cannot access any of photon core stuffs.
+	// It doesn't make sense to check isPFlowPhoton flag stored in photonCore. It may be a bug.
+	// For temporary fix, I check it based on collection name.
+	// PhotonCore information is missing for PFPhoton as of May 23, 2011 (with 4_2_3)
+
+	bool isPF = false;
+	TString tag(photonCollectionTags_[iPhoC].c_str());
+	if(tag.Contains("pfphot")) isPF = true;
+
 	susy::Photon pho;
 
 	// pack fiducial bits
@@ -654,9 +665,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.fidBit |= (it->isEERingGap()   << 4);
 	pho.fidBit |= (it->isEEDeeGap()    << 5);
 	pho.fidBit |= (it->isEBEEGap()     << 6);
-	pho.fidBit |= (it->isPFlowPhoton() << 7);
+	pho.fidBit |= (isPF                << 7);
 
-	pho.nPixelSeeds                       = it->electronPixelSeeds().size();
 	pho.hadronicOverEm                    = it->hadronicOverEm();
 	pho.hadronicDepth1OverEm              = it->hadronicDepth1OverEm();
 	pho.hadronicDepth2OverEm              = it->hadronicDepth2OverEm();
@@ -668,9 +678,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.maxEnergyXtal                     = it->maxEnergyXtal();
 	pho.sigmaEtaEta                       = it->sigmaEtaEta();
 	pho.sigmaIetaIeta                     = it->sigmaIetaIeta();
-	pho.r1x5                              = it->r1x5();
-	pho.r2x5                              = it->r2x5();
-	pho.r9                                = it->r9();
+	if(!isPF) pho.r9                                = it->r9();
 
 	pho.ecalRecHitSumEtConeDR04           = it->ecalRecHitSumEtConeDR04();
 	pho.hcalDepth1TowerSumEtConeDR04      = it->hcalDepth1TowerSumEtConeDR04();
@@ -692,60 +700,88 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.neutralHadronIso                  = it->neutralHadronIso();
 	pho.photonIso                         = it->photonIso();
 
+
 	// for timing
 	DetId seedId(0);
 
 	// Cluster informations
-	if(!it->isPFlowPhoton() && it->superCluster().isNonnull()) {
-	  double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
-	  double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
-	  double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
-	  double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
-	  pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
+	if(!isPF) {
+	  if(it->superCluster().isNonnull()) {
+	    double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
+	    double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
+	    double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
+	    double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
+	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
 
-	  // from Shilei's request
-	  Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->superCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
-	  std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->superCluster()), *(barrelRecHitsHandle.product()), 1);
-	  pho.sMaj      = my2ndMoments.sMaj;
-	  pho.sMin      = my2ndMoments.sMin;
-	  pho.alpha     = my2ndMoments.alpha;
-	  pho.roundness = myVector[0];
-	  pho.angle     = myVector[1];
+	    // from Shilei's request
+	    Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->superCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
+	    std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->superCluster()), *(barrelRecHitsHandle.product()), 1);
+	    pho.sMaj      = my2ndMoments.sMaj;
+	    pho.sMin      = my2ndMoments.sMin;
+	    pho.alpha     = my2ndMoments.alpha;
+	    pho.roundness = myVector[0];
+	    pho.angle     = myVector[1];
+	    
+	    // general cluster info
+	    seedId = it->superCluster()->seed()->seed();
+	    pho.superClusterPreshowerEnergy = it->superCluster()->preshowerEnergy();
+	    pho.superClusterPhiWidth = it->superCluster()->phiWidth();
+	    pho.superClusterEtaWidth = it->superCluster()->etaWidth();
+	    susy::SuperCluster superCluster;
+	    fillCluster(it->superCluster(), superCluster, clusterIndex);
+	    pho.superClusterIndex = superClusterIndex;
+	    susyEvent_->superClusters.push_back(superCluster);
+	    superClusterIndex++;
+	  }
 
+	  pho.nPixelSeeds                       = it->electronPixelSeeds().size();
 
-	  // general cluster info
-	  seedId = it->superCluster()->seed()->seed();
-	  pho.superClusterPreshowerEnergy = it->superCluster()->preshowerEnergy();
-	  pho.superClusterPhiWidth = it->superCluster()->phiWidth();
-	  pho.superClusterEtaWidth = it->superCluster()->etaWidth();
-	  susy::SuperCluster superCluster;
-	  fillCluster(it->superCluster(), superCluster, clusterIndex);
-	  pho.superClusterIndex = superClusterIndex;
-	  susyEvent_->superClusters.push_back(superCluster);
-	  superClusterIndex++;
+	  // conversion ID
+	  if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
+	    pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
+	    pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
+	    pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
+	    pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
+	    pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
+				  it->conversions()[0]->conversionVertex().y(),
+				  it->conversions()[0]->conversionVertex().z());
+	  }
+
+	  // Photon ID  
+	  for(int k=0; k<nPhoIDC; k++){
+	    pho.idPairs[ TString(photonIDCollectionTags_[k].c_str()) ] = (*phoIds[k])[phoRef];
+	  }// for id
+
 	}
+// 	else { // isPF
+// 	  if(it->photonCore().isNonnull() && it->pfSuperCluster().isNonnull()){
+// 	    double e1000 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
+// 	    double e0100 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
+// 	    double e0010 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
+// 	    double e0001 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
+// 	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
 
-	if(it->isPFlowPhoton() && it->pfSuperCluster().isNonnull()){
+// 	    // from Shilei's request
+// 	    Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->pfSuperCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
+// 	    std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->pfSuperCluster()), *(barrelRecHitsHandle.product()), 1);
+// 	    pho.sMaj      = my2ndMoments.sMaj;
+// 	    pho.sMin      = my2ndMoments.sMin;
+// 	    pho.alpha     = my2ndMoments.alpha;
+// 	    pho.roundness = myVector[0];
+// 	    pho.angle     = myVector[1];
+	    
+// 	    seedId = it->pfSuperCluster()->seed()->seed();
+// 	    pho.superClusterPreshowerEnergy = it->pfSuperCluster()->preshowerEnergy();
+// 	    pho.superClusterPhiWidth = it->pfSuperCluster()->phiWidth();
+// 	    pho.superClusterEtaWidth = it->pfSuperCluster()->etaWidth();
+// 	    susy::SuperCluster superCluster;
+// 	    fillCluster(it->pfSuperCluster(), superCluster, clusterIndex);
+// 	    pho.superClusterIndex = superClusterIndex;
+// 	    susyEvent_->superClusters.push_back(superCluster);
+// 	    superClusterIndex++;
+// 	  }
+// 	}
 
-	  // from Shilei's request
-	  Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->pfSuperCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
-	  std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->pfSuperCluster()), *(barrelRecHitsHandle.product()), 1);
-	  pho.sMaj      = my2ndMoments.sMaj;
-	  pho.sMin      = my2ndMoments.sMin;
-	  pho.alpha     = my2ndMoments.alpha;
-	  pho.roundness = myVector[0];
-	  pho.angle     = myVector[1];
-
-	  seedId = it->pfSuperCluster()->seed()->seed();
-	  pho.superClusterPreshowerEnergy = it->pfSuperCluster()->preshowerEnergy();
-	  pho.superClusterPhiWidth = it->pfSuperCluster()->phiWidth();
-	  pho.superClusterEtaWidth = it->pfSuperCluster()->etaWidth();
-	  susy::SuperCluster superCluster;
-	  fillCluster(it->pfSuperCluster(), superCluster, clusterIndex);
-	  pho.superClusterIndex = superClusterIndex;
-	  susyEvent_->superClusters.push_back(superCluster);
-	  superClusterIndex++;
-	}
 
 	pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
 	pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
@@ -764,29 +800,34 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	}
 	pho.seedTime = seedTime;
 
+	int itrk = 0;
+	for(reco::TrackCollection::const_iterator t_it = trackH->begin();
+	    t_it != trackH->end(); t_it++) {
+	  reco::TrackRef trkRef(trackH,itrk++);
+	  //	  if(t_it->pt() < 1.0) continue;
+	  // 	  float dz = std::abs(it->vz() - t_it->vz());
+	  // 	  if(dz > 1.0) continue;
+	  float dEta = it->eta() - t_it->eta();
+	  float dPhi = TVector2::Phi_mpi_pi(it->phi() - t_it->phi());
+	  float dR = std::sqrt(dEta*dEta + dPhi*dPhi);
+	  if(dR > 0.4) continue;
+	  susy::Track track;
+	  fillTrack(trkRef,track);
+	  int thisIndex = sameTrack(track,susyEvent_->tracks);
+	  if(thisIndex < 0){
+	    susyEvent_->tracks.push_back(track);
+	    trackIndex++;
+	  }
+	}// for track
 
-	if(!it->isPFlowPhoton()) {
-	  for(int k=0; k<nPhoIDC; k++){
-	    pho.idPairs[ TString(photonIDCollectionTags_[k].c_str()) ] = (*phoIds[k])[phoRef];
-	  }// for id
-	}
 
-	// conversion ID
-	if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
-	  pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
-	  pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
-	  pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
-	  pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
-	  pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
-				it->conversions()[0]->conversionVertex().y(),
-				it->conversions()[0]->conversionVertex().z());
-	}
 
 	susyEvent_->photons[TString(photonCollectionTags_[iPhoC].c_str())].push_back(pho);
 
 	if(debugLevel_ > 2) std::cout << "pt, e, hadEm : " << it->pt()
 				      << ", " << it->energy()
 				      << ", " << it->hadronicOverEm() << std::endl;
+
       }// for it
     }
     catch(cms::Exception& e) {
@@ -962,17 +1003,29 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	if(it->closestCtfTrackRef().isNonnull()){
 	  susy::Track track;
 	  fillTrack(it->closestCtfTrackRef(), track);
-	  ele.closestCtfTrackIndex = trackIndex;
-	  susyEvent_->tracks.push_back(track);
-	  trackIndex++;
+	  int thisIndex = sameTrack(track,susyEvent_->tracks);
+	  if(thisIndex < 0){
+	    ele.closestCtfTrackIndex = trackIndex;
+	    susyEvent_->tracks.push_back(track);
+	    trackIndex++;
+	  }
+	  else {
+	    ele.closestCtfTrackIndex = thisIndex;
+	  }
 	}
 	if(it->gsfTrack().isNonnull()) {
 	  susy::Track track;
 	  fillTrack(it->gsfTrack(), track);
 	  track.extrapolatedPositions["ECALInnerWall"] = TVector3(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
-	  ele.gsfTrackIndex = trackIndex;
-	  susyEvent_->tracks.push_back(track);
-	  trackIndex++;
+	  int thisIndex = sameTrack(track,susyEvent_->tracks);
+	  if(thisIndex < 0){
+	    ele.gsfTrackIndex = trackIndex;
+	    susyEvent_->tracks.push_back(track);
+	    trackIndex++;
+	  }
+	  else {
+	    ele.gsfTrackIndex = thisIndex;
+	  }
 	}// if(it->gsfTrack().isNonnull())
 
 
@@ -1061,23 +1114,41 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       if(it->track().isNonnull()){
 	susy::Track track;
 	fillTrack(it->track(), track);
-	mu.trackIndex = trackIndex;
-	susyEvent_->tracks.push_back(track);
-	trackIndex++;
+	int thisIndex = sameTrack(track,susyEvent_->tracks);
+	if(thisIndex < 0){
+	  mu.trackIndex = trackIndex;
+	  susyEvent_->tracks.push_back(track);
+	  trackIndex++;
+	}
+	else {
+	  mu.trackIndex = thisIndex;
+	}
       }
       if(it->standAloneMuon().isNonnull()){
 	susy::Track track;
 	fillTrack(it->standAloneMuon(), track);
-	mu.standAloneTrackIndex = trackIndex;
-	susyEvent_->tracks.push_back(track);
-	trackIndex++;
+	int thisIndex = sameTrack(track,susyEvent_->tracks);
+	if(thisIndex < 0){
+	  mu.standAloneTrackIndex = trackIndex;
+	  susyEvent_->tracks.push_back(track);
+	  trackIndex++;
+	}
+	else {
+	  mu.standAloneTrackIndex = thisIndex;
+	}
       }
       if(it->combinedMuon().isNonnull()){
 	susy::Track track;
 	fillTrack(it->combinedMuon(), track);
-	mu.combinedTrackIndex = trackIndex;
-	susyEvent_->tracks.push_back(track);
-	trackIndex++;
+	int thisIndex = sameTrack(track,susyEvent_->tracks);
+	if(thisIndex < 0){
+	  mu.combinedTrackIndex = trackIndex;
+	  susyEvent_->tracks.push_back(track);
+	  trackIndex++;
+	}
+	else {
+	  mu.combinedTrackIndex = thisIndex;
+	}
       }
 
       mu.momentum.SetXYZT(it->p4().px(),it->p4().py(),it->p4().pz(),it->p4().e());
@@ -1106,29 +1177,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   // For CaloJets
   //
   // ak5CaloJetsL2L3
-  // ak7CaloJetsL2L3
-  // kt4CaloJetsL2L3
-  // kt6CaloJetsL2L3
-  // ak5CaloJetsL2L3Residual
-  // ak7CaloJetsL2L3Residual
-  // kt4CaloJetsL2L3Residual
-  // kt6CaloJetsL2L3Residual
+  // ak5CaloJetsL1FastL2L3
   //
   // For PFJets
   //
   // ak5PFJetsL2L3
-  // ak7PFJetsL2L3
-  // kt4PFJetsL2L3
-  // kt6PFJetsL2L3
-  // ak5PFJetsL2L3Residual
-  // ak7PFJetsL2L3Residual
-  // kt4PFJetsL2L3Residual
-  // kt6PFJetsL2L3Residual
+  // ak5PFJetsL1FastL2L3
   //
   // For JPTJets
   //
   // ak5JPTJetsL2L3
-  // ak5JPTJetsL2L3Residual
+  // ak5JPTJetsL1FastL2L3
   //
 
 
@@ -1147,7 +1206,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
 
     const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
-    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
+    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
+    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "CaloL1FastL2L3").Data(),iSetup);
+    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector((key + "CaloL1FastL2L3Residual").Data(),iSetup);
 
     edm::Handle<reco::CaloJetCollection> jetH;
     try {
@@ -1161,7 +1222,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
 	float jecScale = 1;
-	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
 	else jecScale = corrL2L3->correction(it->p4());
 	corrP4 *= jecScale;
 
@@ -1203,7 +1265,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 			       it->detectorP4().pz(),it->detectorP4().energy());
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	// accessing Jet ID information
 	const reco::JetID& jetID = (*jetIDH)[jetRef];
@@ -1247,7 +1311,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     TString key = TString(pfJetCollectionTags_[iJetC].c_str()).ReplaceAll("PFJets","");
 
     const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3").Data(),iSetup);
-    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
+    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
+    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3").Data(),iSetup);
+    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector((key + "PFL1FastL2L3Residual").Data(),iSetup);
 
     edm::Handle<reco::PFJetCollection> jetH;
     try {
@@ -1261,7 +1327,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
 	float jecScale = 1;
-	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
 	else jecScale = corrL2L3->correction(it->p4());
 	corrP4 *= jecScale;
 
@@ -1307,7 +1374,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1332,7 +1401,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     TString key(jptJetCollectionTags_[iJetC].c_str());
 
     const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector("ak5JPTL2L3",iSetup);
-    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector("ak5JPTL2L3Residual",iSetup);
+    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector("ak5JPTL2L3Residual",iSetup);
+    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector("ak5JPTL1FastL2L3",iSetup);
+    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector("ak5JPTL1FastL2L3Residual",iSetup);
 
     edm::Handle<reco::JPTJetCollection> jetH;
     try {
@@ -1346,7 +1417,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
 	float jecScale = 1;
-	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
 	else jecScale = corrL2L3->correction(it->p4());
 	corrP4 *= jecScale;
 
@@ -1379,7 +1451,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.getZSPCor           = it->getZSPCor();
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1436,6 +1510,28 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   if(recoMode_ && propagator_) delete propagator_;
 
 }
+
+
+int SusyNtuplizer::sameTrack(const susy::Track& track, const std::vector<susy::Track>& tracks) const {
+
+  // If track is already stored, return its index, otherwise return -1.
+  int thisIndex = -1;
+  float epsilon = 1e-6;
+  int itrk = 0;
+  for(std::vector<susy::Track>::const_iterator it = tracks.begin(); it != tracks.end(); it++, itrk++) {
+    if(thisIndex >= 0) break;
+    if(std::abs(track.vertex.X() - it->vertex.X()) > epsilon) continue;
+    if(std::abs(track.vertex.Y() - it->vertex.Y()) > epsilon) continue;
+    if(std::abs(track.vertex.Z() - it->vertex.Z()) > epsilon) continue;
+    if(std::abs(track.momentum.Px() - it->momentum.Px()) > epsilon) continue;
+    if(std::abs(track.momentum.Py() - it->momentum.Py()) > epsilon) continue;
+    if(std::abs(track.momentum.Pz() - it->momentum.Pz()) > epsilon) continue;
+    thisIndex = itrk;
+  }
+
+  return thisIndex;
+}
+
 
 
 void SusyNtuplizer::fillTrack(const reco::TrackRef& in, susy::Track& out) {
