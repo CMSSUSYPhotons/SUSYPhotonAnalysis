@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.10 2011/05/24 00:03:19 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.11 2011/05/24 22:14:07 dwjang Exp $
 //
 //
 
@@ -1200,8 +1200,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
     const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
     //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
-    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "CaloL1FastL2L3").Data(),iSetup);
-    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector((key + "CaloL1FastL2L3Residual").Data(),iSetup);
+    const JetCorrector* corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3").Data(),iSetup);
+    //    const JetCorrector* corrL1L2L3R = JetCorrector::getJetCorrector((key + "CaloL1L2L3Residual").Data(),iSetup);
 
     edm::Handle<reco::CaloJetCollection> jetH;
     try {
@@ -1259,7 +1259,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
 	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
-	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
 	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	// accessing Jet ID information
@@ -1395,8 +1395,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
     const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector("ak5JPTL2L3",iSetup);
     //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector("ak5JPTL2L3Residual",iSetup);
-    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector("ak5JPTL1FastL2L3",iSetup);
-    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector("ak5JPTL1FastL2L3Residual",iSetup);
+    const JetCorrector* corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3",iSetup);
+    //    const JetCorrector* corrL1L2L3R = JetCorrector::getJetCorrector("ak5JPTL1L2L3Residual",iSetup);
 
     edm::Handle<reco::JPTJetCollection> jetH;
     try {
@@ -1445,8 +1445,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
 	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
-	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
-	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
+	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	//	jet.jecScaleFactors["L1L2L3R"] = corrL1L2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;

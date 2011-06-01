@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 # change this to 0 if you run on MC files
-realData = 0
+realData = 1
 
 process = cms.Process("RA3")
 
@@ -41,6 +41,8 @@ process.kt6PFJets = process.kt4PFJets.clone(
     doRhoFastjet = cms.bool(True),
     voronoiRfact = cms.double(0.9)
     )
+process.ak5PFJets.doAreaFastjet = True
+
 
 # SusyNtuplizer options
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
@@ -48,13 +50,13 @@ process.susyNtuplizer.debugLevel = cms.int32(0)
 
 # JEC
 process.jet = cms.Sequence(
-    process.kt6PFJets *
+    process.kt6PFJets * process.ak5PFJets *
     # CaloJets
-    process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1FastL2L3 *
+    process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
     # PFJets
     process.ak5PFJetsL2L3 * process.ak5PFJetsL1FastL2L3 *
     # JPTJets
-    process.ak5JPTJetsL2L3 * process.ak5JPTJetsL1FastL2L3
+    process.ak5JPTJetsL2L3 * process.ak5JPTJetsL1L2L3
     )
 
 process.p = cms.Path( process.jet * process.susyNtuplizer )
