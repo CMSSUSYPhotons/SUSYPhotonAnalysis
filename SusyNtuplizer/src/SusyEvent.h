@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.9 2011/05/24 00:03:19 dwjang Exp $
+// $Id: SusyEvent.h,v 1.10 2011/05/24 22:14:07 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -132,6 +132,10 @@ namespace susy {
 
     // derived quantities
     float normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
+    float qoverp() const { return charge/momentum.P(); }
+    float lambda() const { return M_PI/2 - momentum.Theta(); }
+    float dsz() const { return vertex.Z()*momentum.Pt()/momentum.P() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * momentum.Pz()/momentum.P(); }
+    float dz() const { return vertex.Z() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * (momentum.Pz()/momentum.Pt()); }
     float dxy() const { return (-vertex.X()*momentum.Py() + vertex.Y()*momentum.Px())/momentum.Pt(); }
     float d0() const { return -dxy(); }
     float phi() const { return momentum.Phi(); }
