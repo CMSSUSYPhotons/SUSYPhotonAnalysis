@@ -1,12 +1,31 @@
+// Original Author:  Dongwook Jang
+// $Id: ana.C,v 1.0 2011/06/01 20:25:17 dwjang Exp $
+//
+// Jet energy correction is possible at ntuple level.
+// $ cd ../jec/JetMETObjects
+// $ make
+// This will create a shared library in jec/lib
+// which is included below as libJetMETObjects.so
+//
+// Come back to this directory and do
+// $ make
+// $ root -b -q -l ana.C
+// will produce hist_"physics"_"ds".root
 
 void ana(TString ds="relval", TString physics="ttbar") {
 
   gSystem->Load("libSusyEvent.so");
+
+  // Look ../jec/JetMETObjects/README
   gSystem->Load("../jec/lib/libJetMETObjects.so");
 
+  // Printing utility for ntuple variables
   gROOT->LoadMacro("SusyEventPrinter.cc+");
+
+  // Main analysis code
   gROOT->LoadMacro("SusyEventAnalyzer.cc+");
 
+  // chain of inputs
   TChain* chain = new TChain("susyTree");
   chain->Add("../susyEvent.root");
   //chain->Add("dcap:///pnfs/cms/WAX/resilient/lpcpjm/SusyNtuples/cms423v2_v1/Run2011A-May10ReReco-v1/Photon/susyEvent_1_1_dLs.root");

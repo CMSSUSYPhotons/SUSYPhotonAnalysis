@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.5 2011/05/19 06:21:45 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.6 2011/06/01 20:25:17 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -160,7 +160,8 @@ void SusyEventAnalyzer::Loop() {
     // uncomment this to use the Json file to flag good data (or bad depending on your outlook)    
     // if(!isInJson(event->runNumber,event->luminosityBlockNumber)) continue;
 
-    Print(*event);
+    // uncomment this to print all ntuple variables
+    //    Print(*event);
 
 
     if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;
@@ -362,7 +363,7 @@ void SusyEventAnalyzer::Loop() {
         jetCorrector.setJetPt(it->momentum.Pt());
         double corr = jetCorrector.getCorrection();
 
-        std::cout << "stored (" << it->jecScaleFactors["L2L3"] << "), onTheFly (" << corr << ")" << std::endl;
+        if(printLevel > 2) std::cout << "stored (" << it->jecScaleFactors["L2L3"] << "), onTheFly (" << corr << ")" << std::endl;
 
 	float pt = it->momentum.Pt();
 	if(pt < 30) continue;
