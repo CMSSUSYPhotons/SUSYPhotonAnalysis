@@ -2,12 +2,14 @@
 void ana(TString ds="relval", TString physics="ttbar") {
 
   gSystem->Load("libSusyEvent.so");
+  gSystem->Load("../jec/lib/libJetMETObjects.so");
 
   gROOT->LoadMacro("SusyEventPrinter.cc+");
   gROOT->LoadMacro("SusyEventAnalyzer.cc+");
 
   TChain* chain = new TChain("susyTree");
   chain->Add("../susyEvent.root");
+  //chain->Add("dcap:///pnfs/cms/WAX/resilient/lpcpjm/SusyNtuples/cms423v2_v1/Run2011A-May10ReReco-v1/Photon/susyEvent_1_1_dLs.root");
 
   SusyEventAnalyzer* sea = new SusyEventAnalyzer(chain);
 

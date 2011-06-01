@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.4 2011/04/19 20:15:20 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.5 2011/05/19 06:21:45 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -30,6 +30,10 @@
 
 #include "SusyEventAnalyzer.h"
 #include "SusyEventPrinter.h"
+
+#include "../jec/JetMETObjects/interface/JetCorrectorParameters.h"
+#include "../jec/JetMETObjects/interface/FactorizedJetCorrector.h"
+
 
 template<typename T> bool EtGreater(const T* p1, const T* p2) {
   return (p1->momentum.Et() > p2->momentum.Et());
@@ -333,6 +337,14 @@ void SusyEventAnalyzer::Loop() {
     }// else
 
 
+    if(printLevel > 0) std::cout << "Setup JEC for this event." << std::endl;
+
+    std::vector<JetCorrectorParameters> vPar;
+    vPar.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5Calo_L2Relative.txt"));
+    vPar.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5Calo_L3Absolute.txt"));
+    FactorizedJetCorrector jetCorrector(vPar);
+
+
     if(printLevel > 0) std::cout << "Find loose and tight jets in the event." << std::endl;
       
     std::map<TString,susy::CaloJetCollection>::iterator jetColl_it = event->caloJets.find("ak5");
@@ -345,6 +357,12 @@ void SusyEventAnalyzer::Loop() {
 
       for(std::vector<susy::CaloJet>::iterator it = jetColl.begin();
 	  it != jetColl.end(); it++) {
+
+        jetCorrector.setJetEta(it->momentum.Eta());
+        jetCorrector.setJetPt(it->momentum.Pt());
+        double corr = jetCorrector.getCorrection();
+
+        std::cout << "stored (" << it->jecScaleFactors["L2L3"] << "), onTheFly (" << corr << ")" << std::endl;
 
 	float pt = it->momentum.Pt();
 	if(pt < 30) continue;
