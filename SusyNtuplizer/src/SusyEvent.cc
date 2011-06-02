@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.8 2011/05/24 00:03:19 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.9 2011/05/24 22:14:07 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -380,6 +380,7 @@ void susy::Event::Init() {
     avgInsRecLumi               = 0;
     intgRecLumi                 = 0;
     cosmicFlag                  = 0;
+    rho                         = 0;
 
     beamSpot                   *= 0;
 

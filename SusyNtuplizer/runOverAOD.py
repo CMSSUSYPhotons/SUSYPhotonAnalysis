@@ -35,12 +35,7 @@ process.ak5PFL1Fastjet.useCondDB = False
 
 # to avoid crashes due to looking for kt6PFJets:rho
 process.load('RecoJets.Configuration.RecoPFJets_cff')
-process.kt6PFJets = process.kt4PFJets.clone(
-    rParam = cms.double(0.6),
-    doAreaFastjet = cms.bool(True),
-    doRhoFastjet = cms.bool(True),
-    voronoiRfact = cms.double(0.9)
-    )
+process.kt6PFJets.doRhoFastjet = True
 process.ak5PFJets.doAreaFastjet = True
 
 

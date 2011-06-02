@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.11 2011/05/24 22:14:07 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.12 2011/06/01 20:02:16 dwjang Exp $
 //
 //
 
@@ -568,6 +568,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
 
   }// for iMet
+
+
+  if(debugLevel_ > 0) std::cout << name() << ", fill rho calculated from kt6PFJets" << std::endl;
+  try {
+    edm::Handle<double> rH;
+    iEvent.getByLabel("kt6PFJets","rho",rH);
+    susyEvent_->rho = *rH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "rho  is not available!!! " << e.what();
+  }
 
 
   if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
