@@ -55,6 +55,14 @@ void Print(const susy::MET& met) {
 }
 
 
+void Print(const susy::Vertex& vtx) {
+  std::cout << "\tchi2 : " << vtx.chi2 << std::endl;
+  std::cout << "\tndof : " << vtx.ndof << std::endl;
+  std::cout << "\ttracksSize : " << (int)vtx.tracksSize << std::endl;
+  std::cout << "\tposition : "; Print(vtx.position);
+}
+
+
 void Print(const susy::Photon& p) {
 
   std::cout << "\tfidBit : " << p.fidBit << std::endl;
@@ -301,8 +309,8 @@ void Print(const susy::Event& event) {
   std::cout << std::endl;
 
   std::cout << "vertices size(" << event.vertices.size() << ") =========>" << std::endl;
-  for(std::vector<TVector3>::const_iterator it = event.vertices.begin(); it != event.vertices.end(); it++) {
-    std::cout << "\t"; Print(*it);
+  for(std::vector<susy::Vertex>::const_iterator it = event.vertices.begin(); it != event.vertices.end(); it++) {
+    Print(*it);
   }
   std::cout << std::endl;
 

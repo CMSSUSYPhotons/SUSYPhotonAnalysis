@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.12 2011/06/01 20:02:16 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.13 2011/06/02 19:58:35 dwjang Exp $
 //
 //
 
@@ -439,7 +439,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     iEvent.getByLabel(vtxCollectionTag_,vtxH);
     for(reco::VertexCollection::const_iterator it = vtxH->begin();
 	it != vtxH->end(); it++){
-      TVector3 vtx(it->x(),it->y(),it->z());
+      susy::Vertex vtx;
+      vtx.chi2       = it->chi2();
+      vtx.ndof       = it->ndof();
+      vtx.tracksSize = UChar_t(it->tracksSize());
+      vtx.position.SetXYZ(it->x(),it->y(),it->z());
       susyEvent_->vertices.push_back(vtx);
       if(debugLevel_ > 1) std::cout << "vertex : " << it->x() << ", " << it->y() << ", " << it->z() << std::endl;
     }

@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.11 2011/06/01 22:11:33 dwjang Exp $
+// $Id: SusyEvent.h,v 1.12 2011/06/02 19:58:35 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -86,6 +86,23 @@ namespace susy {
 
   };
 
+
+
+  class Vertex {
+
+  public:
+    
+    Vertex()  { Init(); }
+    ~Vertex() { Init(); }
+    void Init();
+    bool isFake() { return (chi2 == 0 && ndof == 0 && tracksSize == 0); }
+
+    Float_t  chi2;
+    Float_t  ndof;
+    UChar_t  tracksSize;
+    TVector3 position;
+
+  };
 
 
   class Cluster {
@@ -618,7 +635,7 @@ namespace susy {
     susy::TriggerMap                            hltMap; // <name, <prescale, bit> >
     std::map<TString,susy::MET>                 metMap;
 
-    std::vector<TVector3>                       vertices;
+    std::vector<susy::Vertex>                   vertices;
     std::vector<susy::Track>                    tracks;          // only selected tracks associated with objects directly and photons with dR<0.4
     std::vector<susy::SuperCluster>             superClusters;   // only selected super clusters associated with objects
     std::vector<susy::Cluster>                  clusters;        // only selected basic clusters associated with super clusters

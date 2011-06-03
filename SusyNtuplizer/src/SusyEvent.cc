@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.9 2011/05/24 22:14:07 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.10 2011/06/02 19:58:35 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -38,6 +38,14 @@ void susy::MET::Init() {
   vertex      *= 0;
   mEtCorr.clear();
 }
+
+void susy::Vertex::Init() {
+  chi2       = 0;
+  ndof       = 0;
+  tracksSize = 0;
+  position  *= 0;
+}
+
 
 void susy::Cluster::Init() {
   nCrystals = 0;

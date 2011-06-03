@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.7 2011/06/01 20:41:52 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.8 2011/06/02 19:58:35 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -161,7 +161,7 @@ void SusyEventAnalyzer::Loop() {
     // if(!isInJson(event->runNumber,event->luminosityBlockNumber)) continue;
 
     // uncomment this to print all ntuple variables
-    //    Print(*event);
+    Print(*event);
 
 
     if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;
@@ -192,7 +192,7 @@ void SusyEventAnalyzer::Loop() {
     if(printLevel > 0) std::cout << "Find primary vertex in the event." << std::endl;
 
     TVector3* primVtx = 0;
-    if(event->vertices.size() > 0) primVtx = &(event->vertices[0]);
+    if(event->vertices.size() > 0) primVtx = &(event->vertices[0].position);
 
     if(primVtx) h_vtxZ->Fill(primVtx->Z());
     h_bsZ->Fill(event->beamSpot.Z());

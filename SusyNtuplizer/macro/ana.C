@@ -1,5 +1,5 @@
 // Original Author:  Dongwook Jang
-// $Id: ana.C,v 1.0 2011/06/01 20:25:17 dwjang Exp $
+// $Id: ana.C,v 1.6 2011/06/01 20:41:52 dwjang Exp $
 //
 // Jet energy correction is possible at ntuple level.
 // $ cd ../jec/JetMETObjects
@@ -41,7 +41,7 @@ void ana(TString ds="relval", TString physics="ttbar") {
   sea->AddHltName("HLT_Photon36_CaloIdL_Photon22_CaloIdL");  // add HLT trigger path name
   sea->AddHltName("HLT_Photon32_CaloIdL_Photon26_CaloIdL");  // add HLT trigger path name
   sea->SetFilter(false);                  // filter events passing final cuts
-  sea->SetProcessNEvents(100);             // number of events to be processed
+  sea->SetProcessNEvents(10);             // number of events to be processed
 
   // as an example -- add your favorite Json here.  More than one can be "Include"ed
   sea->IncludeAJson("Cert_161079-161352_7TeV_PromptReco_Collisions11_JSON_noESpbl_v2.txt");
