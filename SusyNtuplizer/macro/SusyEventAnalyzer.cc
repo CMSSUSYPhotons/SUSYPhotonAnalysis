@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.8 2011/06/02 19:58:35 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.9 2011/06/03 16:58:46 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -221,10 +221,10 @@ void SusyEventAnalyzer::Loop() {
         if(isSpike) continue;
 
         // H/E (in trigger, 0.15 for EB, 0.10 for EE)
-        bool heCut = (it->isEB() && it->hadronicOverEm < 0.05) || (it->isEB() && it->hadronicOverEm < 0.05);
+        bool heCut = (it->isEB() && it->hadronicOverEm < 0.05) || (it->isEE() && it->hadronicOverEm < 0.05);
         
         // sigma_ietaieta (in trigger 0.014 for EB, 0.034 for EE)
-        bool sIetaCut = (it->isEB() && it->sigmaIetaIeta < 0.013) || (it->isEB() && it->sigmaIetaIeta < 0.033);
+        bool sIetaCut = (it->isEB() && it->sigmaIetaIeta < 0.013) || (it->isEE() && it->sigmaIetaIeta < 0.033);
 
         // Ecal Isolation
         bool ecalIsoCut = (it->ecalRecHitSumEtConeDR04 < 4.2 + 0.006 * it->momentum.Et());
