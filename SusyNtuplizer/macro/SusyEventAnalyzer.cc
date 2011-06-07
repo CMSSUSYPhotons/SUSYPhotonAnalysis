@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.9 2011/06/03 16:58:46 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.10 2011/06/06 19:31:47 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -201,10 +201,9 @@ void SusyEventAnalyzer::Loop() {
     if(printLevel > 0) std::cout << "Find loose and tight photons in the event." << std::endl;
 
     std::map<TString, std::vector<susy::Photon> >::iterator phoMap = event->photons.find("photons");
-    if(phoMap == event->photons.end()) {
-      if(event->photons.size() > 0) std::cout << "photon collection is not available!" << std::endl;
-    }
-    else {
+
+    if(phoMap != event->photons.end()) {
+
       for(std::vector<susy::Photon>::iterator it = phoMap->second.begin();
 	  it != phoMap->second.end(); it++) {
 
@@ -281,10 +280,8 @@ void SusyEventAnalyzer::Loop() {
     if(printLevel > 0) std::cout << "Find caloJets in the event." << std::endl;
       
     std::map<TString,susy::CaloJetCollection>::iterator caloJets_it = event->caloJets.find("ak5");
-    if(caloJets_it == event->caloJets.end()){
-      if(event->caloJets.size() > 0) std::cout << "CaloJetCollection is not available!!!" << std::endl;
-    }
-    else {
+
+    if(caloJets_it != event->caloJets.end()){
 
       susy::CaloJetCollection& jetColl = caloJets_it->second;
 
