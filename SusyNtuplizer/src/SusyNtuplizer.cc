@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.13 2011/06/02 19:58:35 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.14 2011/06/03 16:58:47 dwjang Exp $
 //
 //
 
@@ -43,6 +43,8 @@
 #include "FWCore/Common/interface/TriggerNames.h"
 
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
+#include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
+
 
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/CaloRecHit/interface/CaloClusterFwd.h"
@@ -1504,6 +1506,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     if(iEvent.getByLabel("susyScanMassGluino", sparm_mGluinoHandle)) susyEvent_->gridParams["mGluino"] = (float)*(sparm_mGluinoHandle.product());
     if(iEvent.getByLabel("susyScanMassSquark", sparm_mSquarkHandle)) susyEvent_->gridParams["mSquark"] = (float)*(sparm_mSquarkHandle.product());
     if(iEvent.getByLabel("susyScanCrossSection", sparm_xsecHandle))  susyEvent_->gridParams["xsec"]    = (float)*(sparm_xsecHandle.product());
+
+    edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
+    if(iEvent.getByLabel("generator",GenEventInfoHandle)) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
 
   } // if( storeGenInfos_
 

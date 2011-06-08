@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.12 2011/06/02 19:58:35 dwjang Exp $
+// $Id: SusyEvent.h,v 1.13 2011/06/03 16:58:47 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -20,6 +20,7 @@
 
 #include <vector>
 #include <map>
+#include <math.h>
 
 #include <TLorentzVector.h>
 

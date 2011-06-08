@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.h,v 1.2 2011/04/12 15:31:36 dmason Exp $
+// $Id: SusyEventAnalyzer.h,v 1.3 2011/05/19 06:21:45 dwjang Exp $
 //
 
 #ifndef SusyEventAnalyzer_h
@@ -167,7 +167,7 @@ void SusyEventAnalyzer::IncludeAJson(std::string jsonfile) {
  jsonInput.open(jsonfile.c_str());
  
  if (!jsonInput.good()) {
-   std::cout << "Problem reading file...  Didn't suck anything in... " << std::endl;
+   std::cout << "Problem reading Json file...  Didn't suck anything in... " << std::endl;
    return;
  }
  
