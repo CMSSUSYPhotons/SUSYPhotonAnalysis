@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 # change this to 0 if you run on MC files
-realData = 1
+realData = 0
 
 process = cms.Process("RA3")
 
@@ -24,16 +24,15 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 if realData:
     process.source.fileNames = cms.untracked.vstring('/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0000/003D325C-547B-E011-81D4-001A928116C2.root')
-    process.GlobalTag.globaltag = 'GR_R_42_V14::All'
+    process.GlobalTag.globaltag = 'GR_R_42_V12::All'
 else:
     process.source.fileNames = cms.untracked.vstring('dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root')
     #process.source.fileNames = cms.untracked.vstring('/store/relval/CMSSW_4_2_3/RelValPhotonJets_Pt_10/GEN-SIM-RECO/START42_V12-v2/0062/AA819E58-077B-E011-8C9C-0018F3D095FC.root')
     process.GlobalTag.globaltag = 'START42_V12::All'
 
 process.load("JetMETCorrections.Configuration.DefaultJEC_cff")
-process.ak5PFL1Fastjet.useCondDB = False
 
-# to avoid crashes due to looking for kt6PFJets:rho
+# calculate rho & jetArea
 process.load('RecoJets.Configuration.RecoPFJets_cff')
 process.kt6PFJets.doRhoFastjet = True
 process.ak5PFJets.doAreaFastjet = True

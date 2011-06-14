@@ -1,6 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-realData = 0
+realData = 1
 
 process = cms.Process("RA3")
 
@@ -14,7 +14,7 @@ process.load('Configuration.StandardSequences.Services_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 if realData:
-    process.GlobalTag.globaltag = 'GR_R_42_V14::All'
+    process.GlobalTag.globaltag = 'GR_R_42_V12::All'
 else:
     process.GlobalTag.globaltag = 'START42_V12::All'
 
