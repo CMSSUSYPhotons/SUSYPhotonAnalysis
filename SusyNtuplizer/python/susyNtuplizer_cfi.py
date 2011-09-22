@@ -56,5 +56,5 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
                                storeGenInfos = cms.bool(True),
                                storeGeneralTracks = cms.bool(False),
                                recoMode = cms.bool(False),
-                               outputFileName = cms.string("susyEvent.root")                               
+                               outputFileName = cms.string("/data/ndpc3/c/dmorse/RA3/SusyNtuples/SignalMC/1250_700_375_ALL_PU_Ntuplized.root")                               
 )
