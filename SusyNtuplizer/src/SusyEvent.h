@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.13 2011/06/03 16:58:47 dwjang Exp $
+// $Id: SusyEvent.h,v 1.14 2011/06/08 16:28:39 dmason Exp $
 //
 
 #ifndef SusyEvent_h
@@ -31,6 +31,40 @@ namespace susy {
   const float etaGapEnd = 1.556;
   const float etaGap = 1.499;
   const float etaMax = 2.5;
+
+
+  class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time, 
+                          or late)*/
+
+  public:
+
+    PUSummaryInfo()  { Init(); }
+    ~PUSummaryInfo() { Init(); }
+    void Init();
+
+    //all info below from https://twiki.cern.ch/twiki/bin/view/CMS/PileupInformation
+    /*low_cut = 0.1 GeV, high_cut = 0.5 GeV, tracks summed/counted are TrackingParticles from 
+      simulation truth info*/
+    int numInteractions; //the number of pileup interactions that have been added to the event
+    std::vector<float> zPositions; /*the true primary vertex position along the z axis for each 
+                                     added interaction*/
+    std::vector<float> sumPTLowPT; /*the sum of the transverse momentum of the tracks originating 
+                                     from each interaction, where track pT > low_cut*/
+    std::vector<float> sumPTHighPT; /*the sum of the transverse momentum of the tracks originating 
+                                      from each interaction, where track pT > high_cut*/
+    std::vector<int> numTracksLowPT; /*the number of tracks originating from each interaction, 
+                                       where track pT > low_cut*/
+    std::vector<int> numTracksHighPT; /*the number of tracks originating from each interaction, 
+                                        where track pT > high_cut*/
+    std::vector<float> instLumi; //for PU from DataMixer
+    std::vector<unsigned int> dataMixerRun;
+    std::vector<unsigned int> dataMixerEvt;
+    std::vector<unsigned int> dataMixerLumiSection;
+    int BX; /*to which bunch crossing does this interaction belong?  New in 3_11_3 and 4_1_3 or 
+              later*/
+    float trueNumInteractions;
+
+  };
 
 
   class Particle {
@@ -604,6 +638,7 @@ namespace susy {
   typedef std::vector<susy::PFJet> PFJetCollection;
   typedef std::vector<susy::JPTJet> JPTJetCollection;
   typedef std::vector<susy::PFParticle> PFParticleCollection;
+  typedef std::vector<susy::PUSummaryInfo> PUSummaryInfoCollection;
   typedef std::map<TString, std::pair<Int_t, UChar_t> > TriggerMap;
 
 
@@ -652,6 +687,7 @@ namespace susy {
     std::vector<susy::Track>                    generalTracks;   // not stored by default
 
     // generated information. Valid only for isRealData == 0, i.e. MC
+    susy::PUSummaryInfoCollection               PU; //PU summary info
     std::vector<TVector3>                       simVertices; // Geant vertex, primary only
     std::vector<susy::Particle>                 genParticles;
     std::map<TString, Float_t>                  gridParams; // pairs of parameter name and value

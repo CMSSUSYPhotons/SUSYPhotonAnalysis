@@ -36,6 +36,7 @@
 <use name="JetMETCorrections/Objects"/>
 
 <use name="SimDataFormats/Vertex"/>
+<use name="HLTrigger/HLTcore"/>
 
 <use name="root"/>
 

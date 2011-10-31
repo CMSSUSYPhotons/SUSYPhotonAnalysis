@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.14 2011/06/03 16:58:47 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.15 2011/06/08 16:28:39 dmason Exp $
 //
 //
 
@@ -41,6 +41,7 @@
 
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "FWCore/Common/interface/TriggerNames.h"
+#include "HLTrigger/HLTcore/interface/HLTConfigProvider.h"
 
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
@@ -118,6 +119,9 @@
 #include "SimDataFormats/Vertex/interface/SimVertex.h"
 #include "SimDataFormats/Vertex/interface/SimVertexContainer.h"
 
+// pileup summary info
+#include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
+
 // system include files
 #include <memory>
 #include <string>
@@ -142,6 +146,7 @@ public:
   ~SusyNtuplizer();
 
 private:
+  virtual void beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup);
   virtual void beginJob() ;
   virtual void analyze(const edm::Event&, const edm::EventSetup&);
   virtual void endJob() ;
@@ -180,12 +185,17 @@ private:
   std::vector<std::string> jptJetCollectionTags_;
   std::vector<std::string> metCollectionTags_;
   std::vector<std::string> pfCandidateCollectionTags_;
+  edm::InputTag PUSummaryInfoTag_;
 
   edm::ESHandle<MagneticField> magneticField_;
   PropagatorWithMaterial* propagator_;
   edm::ESHandle<TransientTrackBuilder> transientTrackBuilder_;
 
   PFGeometry pfGeom_;
+
+  //for HLT prescales
+  HLTConfigProvider hltConfig_;
+  bool changed_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -253,6 +263,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
   pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
+  PUSummaryInfoTag_ = iConfig.getParameter<edm::InputTag>("PUSummaryInfoTag");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
@@ -309,6 +320,20 @@ void SusyNtuplizer::endJob() {
   susyTree_->Write();
   susyTree_->GetCurrentFile()->Close();
 
+}
+
+
+// ---- method called once each job just before starting event loop  ---                                                                     
+void SusyNtuplizer::beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup){
+
+  //intialize HLTConfigProvider                                                                                                              
+  if(!hltConfig_.init(iRun,iSetup,"HLT",changed_) ){
+    edm::LogError("SusyNtuplizer") <<
+      "Error! Can't initialize HLTConfigProvider";
+    throw cms::Exception("HLTConfigProvider::init() returned non 0");
+  }
+  if(changed_)
+    std::cout << "HLT configuration changed !" << std::endl;
 }
 
 
@@ -409,7 +434,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     // loop over hlt paths
     for(int i=0; i<nHlt; i++) {
       // get prescale from LumiSummary
-      Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
+      // Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
+      Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
       // check hlt bit
       susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
       if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
@@ -1484,31 +1510,127 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     if(debugLevel_ > 0) std::cout << name() << ", fill generated particle informations" << std::endl;
     fillGenInfos(iEvent, iSetup);
 
-    if(debugLevel_ > 0) std::cout << name() << ", fill simulated vertex informations" << std::endl;
-    edm::Handle<edm::SimVertexContainer> simVertexHandle;
-    iEvent.getByLabel(simVertexCollectionTag_, simVertexHandle);
-
-    // loop over sim vertex coll
-    for(edm::SimVertexContainer::const_iterator vsim=simVertexHandle->begin();
-	vsim!=simVertexHandle->end(); ++vsim){
-      TVector3 vtx(vsim->position().x(),vsim->position().y(),vsim->position().z());
-      if(vsim->parentIndex() != -1) continue; // not primary vertex
-      susyEvent_->simVertices.push_back( TVector3(vsim->position().x(),vsim->position().y(),vsim->position().z()) );
-    }// for sim vertex
-
-    // grid parameters for GGM signals
-    edm::Handle<double> sparm_mChi0Handle;
-    edm::Handle<double> sparm_mGluinoHandle;
-    edm::Handle<double> sparm_mSquarkHandle;
-    edm::Handle<double> sparm_xsecHandle;
-
-    if(iEvent.getByLabel("susyScanChi0", sparm_mChi0Handle))         susyEvent_->gridParams["mChi0"]   = (float)*(sparm_mChi0Handle.product());
-    if(iEvent.getByLabel("susyScanMassGluino", sparm_mGluinoHandle)) susyEvent_->gridParams["mGluino"] = (float)*(sparm_mGluinoHandle.product());
-    if(iEvent.getByLabel("susyScanMassSquark", sparm_mSquarkHandle)) susyEvent_->gridParams["mSquark"] = (float)*(sparm_mSquarkHandle.product());
-    if(iEvent.getByLabel("susyScanCrossSection", sparm_xsecHandle))  susyEvent_->gridParams["xsec"]    = (float)*(sparm_xsecHandle.product());
-
     edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
     if(iEvent.getByLabel("generator",GenEventInfoHandle)) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
+
+    //get PU summary info
+    edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;
+    bool foundPUSummaryInfo = false;
+    try { foundPUSummaryInfo = iEvent.getByLabel(PUSummaryInfoTag_, pPUSummaryInfo); }
+    catch (cms::Exception& ex) {}
+    if (!foundPUSummaryInfo) {
+      std::cerr << "No collection of type " << PUSummaryInfoTag_ << " found in run ";
+      std::cerr << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
+      std::cerr << iEvent.getLuminosityBlock().luminosityBlock() << ".\n";
+    }
+    else {
+
+      //fill PUSummaryInfo object
+      if (debugLevel_ > 0) std::cout << name() << ", fill PU summary information" << std::endl;
+      if (debugLevel_ > 1) {
+        std::cout << "size of PileupSummaryInfo collection: " << pPUSummaryInfo->size();
+        std::cout << std::endl;
+      }
+      for (std::vector<PileupSummaryInfo>::const_iterator iPU = pPUSummaryInfo->begin(); 
+           iPU != pPUSummaryInfo->end(); ++iPU) {
+        const unsigned int index = iPU - pPUSummaryInfo->begin();
+        if (debugLevel_ > 1) {
+          std::cout << "size of z position collection for BX " << index << ": ";
+          std::cout << iPU->getPU_zpositions().size() << std::endl;
+          std::cout << "size of sum pT / low pT collection for BX " << index << ": ";
+          std::cout << iPU->getPU_sumpT_lowpT().size() << std::endl;
+          std::cout << "size of sum pT / high pT collection for BX " << index << ": ";
+          std::cout << iPU->getPU_sumpT_highpT().size() << std::endl;
+          std::cout << "size of track / low pT collection for BX " << index << ": ";
+          std::cout << iPU->getPU_ntrks_lowpT().size() << std::endl;
+          std::cout << "size of track / high pT collection for BX " << index << ": ";
+          std::cout << iPU->getPU_ntrks_highpT().size() << std::endl;
+          std::cout << "size of inst. lumi collection for BX " << index << ": ";
+          std::cout << iPU->getPU_instLumi().size() << std::endl;
+          std::cout << "size of DataMixer event collection for BX " << index << ": ";
+          std::cout << iPU->getPU_EventID().size() << std::endl;
+        }
+        if (debugLevel_ > 2) {
+          std::cout << "No. interactions for BX " << index << ": " << iPU->getPU_NumInteractions();
+          std::cout << std::endl;
+          std::cout << "BX ID for BX " << index << ": " << iPU->getBunchCrossing() << std::endl;
+          //for MC samples earlier than CMSSWv4.2.8 or Fall11, comment out the following 2 lines
+          // std::cout << "True no. interactions for BX " << index << ": ";
+          // std::cout << iPU->getTrueNumInteractions() << std::endl;
+        }
+        susy::PUSummaryInfo PUInfoForThisBX;
+        PUInfoForThisBX.numInteractions = iPU->getPU_NumInteractions();
+        for (std::vector<float>::const_iterator i = iPU->getPU_zpositions().begin(); 
+             i != iPU->getPU_zpositions().end(); ++i) {
+          PUInfoForThisBX.zPositions.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "Z position for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_zpositions().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<float>::const_iterator i = iPU->getPU_sumpT_lowpT().begin(); 
+             i != iPU->getPU_sumpT_lowpT().end(); ++i) {
+          PUInfoForThisBX.sumPTLowPT.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "Sum pT (low pT) for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_sumpT_lowpT().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<float>::const_iterator i = iPU->getPU_sumpT_highpT().begin(); 
+             i != iPU->getPU_sumpT_highpT().end(); ++i) {
+          PUInfoForThisBX.sumPTHighPT.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "Sum pT (high pT) for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_sumpT_highpT().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<int>::const_iterator i = iPU->getPU_ntrks_lowpT().begin(); 
+             i != iPU->getPU_ntrks_lowpT().end(); ++i) {
+          PUInfoForThisBX.numTracksLowPT.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "No. tracks (low pT) for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_ntrks_lowpT().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<int>::const_iterator i = iPU->getPU_ntrks_highpT().begin(); 
+             i != iPU->getPU_ntrks_highpT().end(); ++i) {
+          PUInfoForThisBX.numTracksHighPT.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "No. tracks (high pT) for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_ntrks_highpT().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<float>::const_iterator i = iPU->getPU_instLumi().begin(); 
+             i != iPU->getPU_instLumi().end(); ++i) {
+          PUInfoForThisBX.instLumi.push_back(*i);
+          if (debugLevel_ > 2) {
+            std::cout << "Inst. lumi for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_instLumi().begin()) << ": " << *i << std::endl;
+          }
+        }
+        for (std::vector<edm::EventID>::const_iterator i = iPU->getPU_EventID().begin(); 
+             i != iPU->getPU_EventID().end(); ++i) {
+          PUInfoForThisBX.dataMixerRun.push_back(i->run());
+          PUInfoForThisBX.dataMixerEvt.push_back(i->event());
+          PUInfoForThisBX.dataMixerLumiSection.push_back(i->luminosityBlock());
+          if (debugLevel_ > 2) {
+            std::cout << "Event ID for BX " << index << ", interaction ";
+            std::cout << (i - iPU->getPU_EventID().begin()) << ":\n";
+            std::cout << " Run: " << i->run() << std::endl;
+            std::cout << " Event: " << i->event() << std::endl;
+            std::cout << " Lumi section: " << i->luminosityBlock() << std::endl;
+          }
+        }
+        PUInfoForThisBX.BX = iPU->getBunchCrossing();
+        //for MC samples earlier than CMSSWv4.2.8 or Fall11, COMMENT OUT the following line
+//      PUInfoForThisBX.trueNumInteractions = iPU->getTrueNumInteractions();
+        //for MC samples earlier than CMSSWv4.2.8 or Fall11, UNCOMMENT the following line
+        PUInfoForThisBX.trueNumInteractions = -1.0;
+
+        //add PU summary info for this BX to the vector of PU summary info for this event
+        susyEvent_->PU.push_back(PUInfoForThisBX);
+      }
+    }
 
   } // if( storeGenInfos_
 

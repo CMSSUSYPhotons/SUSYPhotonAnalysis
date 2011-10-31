@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.6 2011/05/19 06:21:46 dwjang Exp $
+// $Id: SusyNtuplizer_LinkDef.h,v 1.7 2011/06/03 16:58:47 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -34,6 +34,13 @@
 #pragma link C++ class  std::pair<TString, susy::MET>+;
 #pragma link C++ class  std::pair<TString, TVector3>+;
 #pragma link C++ class  std::pair<TString, TLorentzVector>+;
+#pragma link C++ class  std::pair<unsigned int,bool>+;
+#pragma link C++ class  std::pair<TString,int>+;
+#pragma link C++ class  std::pair<TString,bool>+;
+#pragma link C++ class  std::pair<TString,double>+;
+#pragma link C++ class  std::pair<unsigned int,double>+;
+#pragma link C++ class  std::pair<unsigned int,int>+;
+#pragma link C++ class  susy::PUSummaryInfo+;
 #pragma link C++ class  susy::Particle+;
 #pragma link C++ class  susy::CorrMETData+;
 #pragma link C++ class  susy::MET+;
@@ -60,6 +67,7 @@
 #pragma link C++ class  std::vector<susy::JPTJet>+;
 #pragma link C++ class  std::vector<susy::PFParticle>+;
 #pragma link C++ class  std::vector<susy::Particle>+;
+#pragma link C++ class  std::vector<susy::PUSummaryInfo>+;
 #pragma link C++ class  std::vector<TVector3>+;
 #pragma link C++ class  std::map<TString, std::vector<susy::Electron> >+;
 #pragma link C++ class  std::map<TString, std::vector<susy::Photon> >+;
@@ -68,5 +76,15 @@
 #pragma link C++ class  std::map<TString, std::vector<susy::JPTJet> >+;
 #pragma link C++ class  std::map<TString, std::vector<susy::PFParticle> >+;
 #pragma link C++ class  susy::Event+;
+#pragma link C++ class  std::map<TString, std::map<unsigned int, int> >+;
+#pragma link C++ class  std::map<unsigned int, int>+;
+#pragma link C++ class  std::map<TString, std::map<unsigned int, bool> >+;
+#pragma link C++ class  std::map<unsigned int, bool>+;
+#pragma link C++ class  std::map<TString, int>+;
+#pragma link C++ class  std::map<TString, bool>+;
+#pragma link C++ class  std::map<TString, double>+;
+#pragma link C++ class  std::map<TString, std::map<unsigned int, double> >+;
+#pragma link C++ class  std::map<unsigned int, double>+;
+#pragma link C++ class  std::vector<int>+;
 
 #endif

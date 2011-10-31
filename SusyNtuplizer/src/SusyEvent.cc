@@ -10,10 +10,25 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.10 2011/06/02 19:58:35 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.11 2011/06/03 16:58:47 dwjang Exp $
 //
 
 #include "SusyEvent.h"
+
+void susy::PUSummaryInfo::Init() {
+  numInteractions = 0;
+  zPositions.clear();
+  sumPTLowPT.clear();
+  sumPTHighPT.clear();
+  numTracksLowPT.clear();
+  numTracksHighPT.clear();
+  instLumi.clear();
+  dataMixerRun.clear();
+  dataMixerEvt.clear();
+  dataMixerLumiSection.clear();
+  BX = 0;
+  trueNumInteractions = 0;
+}
 
 void susy::Particle::Init() {
     status      = 0;
@@ -410,6 +425,7 @@ void susy::Event::Init() {
     
     generalTracks.clear();
 
+    PU.clear();
     simVertices.clear();
     genParticles.clear();
     gridParams.clear();
