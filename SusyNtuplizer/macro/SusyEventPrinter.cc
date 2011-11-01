@@ -78,6 +78,7 @@ void Print(const susy::Photon& p) {
   std::cout << "\tmaxEnergyXtal : " << p.maxEnergyXtal << std::endl;
   std::cout << "\tsigmaEtaEta : " << p.sigmaEtaEta << std::endl;
   std::cout << "\tsigmaIetaIeta : " << p.sigmaIetaIeta << std::endl;
+  std::cout << "\tsigmaIphiIphi : " << p.sigmaIphiIphi << std::endl;
   std::cout << "\tr9 : " << p.r9 << std::endl;
   std::cout << "\tecalRecHitSumEtConeDR04 : " << p.ecalRecHitSumEtConeDR04 << std::endl;
   std::cout << "\thcalDepth1TowerSumEtConeDR04 : " << p.hcalDepth1TowerSumEtConeDR04 << std::endl;
@@ -279,6 +280,57 @@ void Print(const susy::PFParticle& p) {
 }
 
 
+void Print(const susy::PUSummaryInfo& p) {
+  std::cout << "\tnumInteractions : " << p.numInteractions << std::endl;
+  std::cout << "\tBX : " << p.BX << std::endl;
+  std::cout << "\ttrueNumInteractions : " << p.trueNumInteractions << std::endl;
+  std::cout << "\tzPositions :";
+  for(std::vector<float>::const_iterator it = p.zPositions.begin(); it != p.zPositions.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tsumPTLowPT :";
+  for(std::vector<float>::const_iterator it = p.sumPTLowPT.begin(); it != p.sumPTLowPT.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tsumPTHighPT :";
+  for(std::vector<float>::const_iterator it = p.sumPTHighPT.begin(); it != p.sumPTHighPT.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tnumTracksLowPT :";
+  for(std::vector<int>::const_iterator it = p.numTracksLowPT.begin(); it != p.numTracksLowPT.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tnumTracksHighPT :";
+  for(std::vector<int>::const_iterator it = p.numTracksHighPT.begin(); it != p.numTracksHighPT.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tinstLumi :";
+  for(std::vector<float>::const_iterator it = p.instLumi.begin(); it != p.instLumi.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tdataMixerRun :";
+  for(std::vector<unsigned int>::const_iterator it = p.dataMixerRun.begin(); it != p.dataMixerRun.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tdataMixerEvt :";
+  for(std::vector<unsigned int>::const_iterator it = p.dataMixerEvt.begin(); it != p.dataMixerEvt.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+  std::cout << "\tdataMixerLumiSection :";
+  for(std::vector<unsigned int>::const_iterator it = p.dataMixerLumiSection.begin(); it != p.dataMixerLumiSection.end(); it++) {
+    std::cout << " " << *it; 
+  }
+  std::cout << std::endl;
+}
+
 
 void Print(const susy::Event& event) {
 
@@ -367,6 +419,12 @@ void Print(const susy::Event& event) {
   std::cout << "generalTracks size(" << event.generalTracks.size() << ") =========>" << std::endl;
 
   if(!event.isRealData) {
+    std::cout << "pu size(" << event.pu.size() << ") =========>" << std::endl;
+    for(susy::PUSummaryInfoCollection::const_iterator it = event.pu.begin(); it != event.pu.end(); it++) {
+      std::cout << "\tpu : "; Print(*it);
+    }
+    std::cout << std::endl;
+
     std::cout << "simVertices size(" << event.simVertices.size() << ") =========>" << std::endl;
     for(std::vector<TVector3>::const_iterator it = event.simVertices.begin(); it != event.simVertices.end(); it++) {
       std::cout << "\tsimVertex : "; Print(*it);

@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.15 2011/06/08 16:28:39 dmason Exp $
+// $Id: SusyNtuplizer.cc,v 1.16 2011/10/31 19:57:42 dwjang Exp $
 //
 //
 
@@ -58,6 +58,7 @@
 #include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
 
 #include "DataFormats/METReco/interface/MET.h"
+#include "DataFormats/METReco/interface/GenMET.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
@@ -185,7 +186,7 @@ private:
   std::vector<std::string> jptJetCollectionTags_;
   std::vector<std::string> metCollectionTags_;
   std::vector<std::string> pfCandidateCollectionTags_;
-  edm::InputTag PUSummaryInfoTag_;
+  edm::InputTag puSummaryInfoTag_;
 
   edm::ESHandle<MagneticField> magneticField_;
   PropagatorWithMaterial* propagator_;
@@ -263,7 +264,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
   pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
-  PUSummaryInfoTag_ = iConfig.getParameter<edm::InputTag>("PUSummaryInfoTag");
+  puSummaryInfoTag_ = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
@@ -332,8 +333,9 @@ void SusyNtuplizer::beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup
       "Error! Can't initialize HLTConfigProvider";
     throw cms::Exception("HLTConfigProvider::init() returned non 0");
   }
-  if(changed_)
-    std::cout << "HLT configuration changed !" << std::endl;
+  if(changed_) {
+    std::cout << "HLT configuration changed to " << hltConfig_.tableName() << std::endl;
+  }
 }
 
 
@@ -563,6 +565,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   for(int iMet=0; iMet<nMetColl; iMet++) {
 
+    size_t found = metCollectionTags_[iMet].find("gen");
+    if(found != std::string::npos && iEvent.isRealData()) continue;
+
     //    edm::Handle<edm::View<pat::MET> > metH;
     edm::Handle<edm::View<reco::MET> > metH;
     try {
@@ -757,7 +762,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    pho.alpha     = my2ndMoments.alpha;
 	    pho.roundness = myVector[0];
 	    pho.angle     = myVector[1];
-	    
+
+	    std::vector<float> crysCov = EcalClusterTools::localCovariances(*(it->superCluster()->seed()), barrelRecHitsHandle.product(),caloTopology);
+	    pho.sigmaIphiIphi = std::sqrt(crysCov[2]);
+
 	    // general cluster info
 	    seedId = it->superCluster()->seed()->seed();
 	    pho.superClusterPreshowerEnergy = it->superCluster()->preshowerEnergy();
@@ -1241,10 +1249,16 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       edm::LogError(name()) << caloJetCollectionTags_[iJetC] << " of JetID is not available!!! " << e.what();
     }
 
-    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
-    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
-    const JetCorrector* corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3").Data(),iSetup);
-    //    const JetCorrector* corrL1L2L3R = JetCorrector::getJetCorrector((key + "CaloL1L2L3Residual").Data(),iSetup);
+    const JetCorrector* corrL2L3  = 0;
+    const JetCorrector* corrL1L2L3  = 0;
+    if(iEvent.isRealData()) {
+      corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3Residual").Data(),iSetup);
+    }
+    else {
+      corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3").Data(),iSetup);
+    }
 
     edm::Handle<reco::CaloJetCollection> jetH;
     try {
@@ -1257,10 +1271,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	reco::CaloJetRef jetRef(jetH,ijet++);
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-	float jecScale = 1;
-	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
-	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
-	else jecScale = corrL2L3->correction(it->p4());
+	float jecScale = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
 	corrP4 *= jecScale;
 
 	if(corrP4.Pt() < jetThreshold_) continue;
@@ -1301,9 +1312,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 			       it->detectorP4().pz(),it->detectorP4().energy());
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
 	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
-	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	// accessing Jet ID information
 	const reco::JetID& jetID = (*jetIDH)[jetRef];
@@ -1346,10 +1355,16 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     susy::PFJetCollection jetCollection;
     TString key = TString(pfJetCollectionTags_[iJetC].c_str()).ReplaceAll("PFJets","");
 
-    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3").Data(),iSetup);
-    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
-    const JetCorrector* corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3").Data(),iSetup);
-    //    const JetCorrector* corrL1FastL2L3R = JetCorrector::getJetCorrector((key + "PFL1FastL2L3Residual").Data(),iSetup);
+    const JetCorrector* corrL2L3  = 0;
+    const JetCorrector* corrL1FastL2L3  = 0;
+    if(iEvent.isRealData()) {
+      corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3Residual").Data(),iSetup);
+    }
+    else {
+      corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3").Data(),iSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3").Data(),iSetup);
+    }
 
     edm::Handle<reco::PFJetCollection> jetH;
     try {
@@ -1362,10 +1377,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	reco::PFJetRef jetRef(jetH,ijet++);
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-	float jecScale = 1;
-	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
-	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
-	else jecScale = corrL2L3->correction(it->p4());
+	float jecScale = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
 	corrP4 *= jecScale;
 
 	if(corrP4.Pt() < jetThreshold_) continue;
@@ -1410,9 +1422,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
 	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
-	//	jet.jecScaleFactors["L1FastL2L3R"] = corrL1FastL2L3R->correction(it->p4());
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
@@ -1428,7 +1438,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   }// for PFJet
 
 
-
+  /*
   if(debugLevel_ > 0) std::cout << name() << ", fill jptjet collections" << std::endl;
 
   nJetColl = jptJetCollectionTags_.size();
@@ -1503,23 +1513,24 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   }// for JPTJet
 
-
+  */
 
 
   if( storeGenInfos_ && ! iEvent.isRealData() ) {
     if(debugLevel_ > 0) std::cout << name() << ", fill generated particle informations" << std::endl;
     fillGenInfos(iEvent, iSetup);
 
+    // event weighting variables, for example ptHat
     edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
     if(iEvent.getByLabel("generator",GenEventInfoHandle)) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
 
     //get PU summary info
     edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;
     bool foundPUSummaryInfo = false;
-    try { foundPUSummaryInfo = iEvent.getByLabel(PUSummaryInfoTag_, pPUSummaryInfo); }
+    try { foundPUSummaryInfo = iEvent.getByLabel(puSummaryInfoTag_, pPUSummaryInfo); }
     catch (cms::Exception& ex) {}
     if (!foundPUSummaryInfo) {
-      std::cerr << "No collection of type " << PUSummaryInfoTag_ << " found in run ";
+      std::cerr << "No collection of type " << puSummaryInfoTag_ << " found in run ";
       std::cerr << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
       std::cerr << iEvent.getLuminosityBlock().luminosityBlock() << ".\n";
     }
@@ -1628,7 +1639,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
         PUInfoForThisBX.trueNumInteractions = -1.0;
 
         //add PU summary info for this BX to the vector of PU summary info for this event
-        susyEvent_->PU.push_back(PUInfoForThisBX);
+        susyEvent_->pu.push_back(PUInfoForThisBX);
       }
     }
 

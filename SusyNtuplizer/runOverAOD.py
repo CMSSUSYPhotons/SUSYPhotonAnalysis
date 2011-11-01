@@ -22,14 +22,6 @@ process.load('Configuration.StandardSequences.Reconstruction_cff')
 process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
-if realData:
-    process.source.fileNames = cms.untracked.vstring('/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0000/003D325C-547B-E011-81D4-001A928116C2.root')
-    process.GlobalTag.globaltag = 'GR_R_42_V12::All'
-else:
-    process.source.fileNames = cms.untracked.vstring('dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root')
-    #process.source.fileNames = cms.untracked.vstring('/store/relval/CMSSW_4_2_3/RelValPhotonJets_Pt_10/GEN-SIM-RECO/START42_V12-v2/0062/AA819E58-077B-E011-8C9C-0018F3D095FC.root')
-    process.GlobalTag.globaltag = 'START42_V12::All'
-
 process.load("JetMETCorrections.Configuration.DefaultJEC_cff")
 
 # calculate rho & jetArea
@@ -37,20 +29,33 @@ process.load('RecoJets.Configuration.RecoPFJets_cff')
 process.kt6PFJets.doRhoFastjet = True
 process.ak5PFJets.doAreaFastjet = True
 
-
 # SusyNtuplizer options
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = cms.int32(0)
 
-# JEC
-process.jet = cms.Sequence(
-    process.kt6PFJets * process.ak5PFJets *
-    # CaloJets
-    process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
-    # PFJets
-    process.ak5PFJetsL2L3 * process.ak5PFJetsL1FastL2L3 *
-    # JPTJets
-    process.ak5JPTJetsL2L3 * process.ak5JPTJetsL1L2L3
+if realData:
+    process.source.fileNames = cms.untracked.vstring('/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0000/003D325C-547B-E011-81D4-001A928116C2.root')
+    process.GlobalTag.globaltag = 'GR_R_42_V19::All'
+    # JEC for data
+    process.jet = cms.Sequence(
+        process.kt6PFJets * process.ak5PFJets *
+        # CaloJets
+        process.ak5CaloJetsL2L3Residual * process.ak5CaloJetsL1L2L3Residual *
+        # PFJets
+        process.ak5PFJetsL2L3Residual * process.ak5PFJetsL1FastL2L3Residual
     )
+else:
+    process.source.fileNames = cms.untracked.vstring('dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root')
+    #process.source.fileNames = cms.untracked.vstring('/store/relval/CMSSW_4_2_3/RelValPhotonJets_Pt_10/GEN-SIM-RECO/START42_V12-v2/0062/AA819E58-077B-E011-8C9C-0018F3D095FC.root')
+    process.GlobalTag.globaltag = 'START42_V13::All'
+    # JEC for data
+    process.jet = cms.Sequence(
+        process.kt6PFJets * process.ak5PFJets *
+        # CaloJets
+        process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
+        # PFJets
+        process.ak5PFJetsL2L3 * process.ak5PFJetsL1FastL2L3
+    )
+
 
 process.p = cms.Path( process.jet * process.susyNtuplizer )

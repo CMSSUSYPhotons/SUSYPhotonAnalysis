@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.14 2011/06/08 16:28:39 dmason Exp $
+// $Id: SusyEvent.h,v 1.15 2011/10/31 19:57:42 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -251,6 +251,7 @@ namespace susy {
     Float_t        maxEnergyXtal;
     Float_t        sigmaEtaEta;
     Float_t        sigmaIetaIeta;
+    Float_t        sigmaIphiIphi;
     Float_t        r9;
 
     Float_t        ecalRecHitSumEtConeDR04;
@@ -680,15 +681,15 @@ namespace susy {
     std::map<TString,susy::PhotonCollection>    photons;
     std::map<TString,susy::CaloJetCollection>   caloJets;
     std::map<TString,susy::PFJetCollection>     pfJets;
-    std::map<TString,susy::JPTJetCollection>    jptJets;
+    std::map<TString,susy::JPTJetCollection>    jptJets;         // dropped for 2011B analysis
     std::map<TString,susy::PFParticleCollection> pfParticles;
 
     // optional collections
     std::vector<susy::Track>                    generalTracks;   // not stored by default
 
     // generated information. Valid only for isRealData == 0, i.e. MC
-    susy::PUSummaryInfoCollection               PU; //PU summary info
-    std::vector<TVector3>                       simVertices; // Geant vertex, primary only
+    susy::PUSummaryInfoCollection               pu; //PU summary info
+    std::vector<TVector3>                       simVertices; // Geant vertex, primary only, dropped for 2011B analysis
     std::vector<susy::Particle>                 genParticles;
     std::map<TString, Float_t>                  gridParams; // pairs of parameter name and value
 

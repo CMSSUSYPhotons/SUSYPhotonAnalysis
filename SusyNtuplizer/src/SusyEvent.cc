@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.11 2011/06/03 16:58:47 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.12 2011/10/31 19:57:42 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -109,6 +109,7 @@ void susy::Photon::Init() {
   maxEnergyXtal                   = 0;
   sigmaEtaEta                     = 0;
   sigmaIetaIeta                   = 0;
+  sigmaIphiIphi                   = 0;
   r9                              = 0;
 
   ecalRecHitSumEtConeDR04         = 0;
@@ -425,7 +426,7 @@ void susy::Event::Init() {
     
     generalTracks.clear();
 
-    PU.clear();
+    pu.clear();
     simVertices.clear();
     genParticles.clear();
     gridParams.clear();

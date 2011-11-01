@@ -1,5 +1,5 @@
 // Original Author:  Dongwook Jang
-// $Id: ana.C,v 1.6 2011/06/01 20:41:52 dwjang Exp $
+// $Id: ana.C,v 1.7 2011/06/03 16:58:46 dwjang Exp $
 //
 // Jet energy correction is possible at ntuple level.
 // $ cd ../jec/JetMETObjects
@@ -27,7 +27,7 @@ void ana(TString ds="relval", TString physics="ttbar") {
 
   // chain of inputs
   TChain* chain = new TChain("susyTree");
-  chain->Add("../susyEvent.root");
+  chain->Add("../susyEvents.root");
   //chain->Add("dcap:///pnfs/cms/WAX/resilient/lpcpjm/SusyNtuples/cms423v2_v1/Run2011A-May10ReReco-v1/Photon/susyEvent_1_1_dLs.root");
 
   SusyEventAnalyzer* sea = new SusyEventAnalyzer(chain);
@@ -44,7 +44,7 @@ void ana(TString ds="relval", TString physics="ttbar") {
   sea->SetProcessNEvents(10);             // number of events to be processed
 
   // as an example -- add your favorite Json here.  More than one can be "Include"ed
-  sea->IncludeAJson("Cert_161079-161352_7TeV_PromptReco_Collisions11_JSON_noESpbl_v2.txt");
+  //  sea->IncludeAJson("Cert_161079-161352_7TeV_PromptReco_Collisions11_JSON_noESpbl_v2.txt");
   //sea->IncludeAJson("anotherJSON.txt");
 
   TStopwatch ts;
