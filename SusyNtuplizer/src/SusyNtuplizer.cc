@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.16 2011/10/31 19:57:42 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.17 2011/11/01 22:14:51 dwjang Exp $
 //
 //
 
@@ -1271,7 +1271,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	reco::CaloJetRef jetRef(jetH,ijet++);
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-	float jecScale = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	float jecScale = corrL1L2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 	corrP4 *= jecScale;
 
 	if(corrP4.Pt() < jetThreshold_) continue;
@@ -1312,7 +1312,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 			       it->detectorP4().pz(),it->detectorP4().energy());
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 
 	// accessing Jet ID information
 	const reco::JetID& jetID = (*jetIDH)[jetRef];
@@ -1377,7 +1377,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	reco::PFJetRef jetRef(jetH,ijet++);
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-	float jecScale = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	float jecScale = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 	corrP4 *= jecScale;
 
 	if(corrP4.Pt() < jetThreshold_) continue;
@@ -1422,7 +1422,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.neutralMultiplicity = it->neutralMultiplicity();
 
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
