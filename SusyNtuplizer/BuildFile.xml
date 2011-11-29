@@ -48,5 +48,3 @@
    <use name="FWCore/PluginManager"/>
    <use name="FWCore/ParameterSet"/>
 </export>
-
-<Flags CXXFLAGS="-O0 -g -DDEBUG">
