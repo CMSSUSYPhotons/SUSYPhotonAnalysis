@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.17 2011/11/01 22:14:51 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.18 2011/11/29 09:58:23 yohay Exp $
 //
 //
 
@@ -614,10 +614,39 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     susyEvent_->rho = *rH;
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << "rho  is not available!!! " << e.what();
+    edm::LogError(name()) << "rho is not available!!! " << e.what();
   }
 
+  if(debugLevel_ > 0) std::cout << name() << ", fill rhoBarrel calculated from kt6PFJetsRhoBarrelOnly" << std::endl;
+  try {
+    edm::Handle<double> rBH;
+    iEvent.getByLabel("kt6PFJetsRhoBarrelOnly","rho",rBH);
+    susyEvent_->rhoBarrel = *rBH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "rhoBarrel is not available!!! " << e.what();
+  }
+  
+  if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
+  try {
+    edm::Handle<bool> noiseH;
+    iEvent.getByLabel("HBHENoiseFilterResultProducer","HBHENoiseFilterResult",noiseH);
+    susyEvent_->PassesHcalNoiseFilter = *noiseH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "HBHENoiseFilterResult is not available!!! " << e.what();
+  }
 
+  if(debugLevel_ > 0) std::cout << name() << ", fill PassesEcalDeadCellFilter calculated from ecalDeadCellTPfilter" << std::endl;
+  try {
+    edm::Handle<bool> DeadCellH;
+    iEvent.getByLabel("ecalDeadCellTPfilter",DeadCellH);
+    susyEvent_->PassesEcalDeadCellFilter = *DeadCellH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "ecalDeadCellTPfilter is not available!!! " << e.what();
+  }
+  
   if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
 
   edm::Handle<reco::PFCandidateCollection> pfH;

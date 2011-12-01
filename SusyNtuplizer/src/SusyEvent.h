@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.15 2011/10/31 19:57:42 dwjang Exp $
+// $Id: SusyEvent.h,v 1.16 2011/11/01 22:14:51 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -665,6 +665,9 @@ namespace susy {
     Float_t                                     intgRecLumi;
     UChar_t                                     cosmicFlag; // empty for now
     Float_t                                     rho; // from kt6PFJets
+    Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
+    Bool_t                                      PassesHcalNoiseFilter;
+    Bool_t                                      PassesEcalDeadCellFilter;
 
     TVector3                                    beamSpot;
 
