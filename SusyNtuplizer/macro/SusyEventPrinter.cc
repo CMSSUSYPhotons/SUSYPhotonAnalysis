@@ -342,6 +342,10 @@ void Print(const susy::Event& event) {
   std::cout << "avgInsRecLumi : " << event.avgInsRecLumi << std::endl;
   std::cout << "intgRecLumi : " << event.intgRecLumi << std::endl;
   std::cout << "cosmicFlag : " << int(event.cosmicFlag) << std::endl;
+  std::cout << "rho : " << event.rho << std::endl;
+  std::cout << "rhoBarrel : " << event.rhoBarrel << std::endl;
+  std::cout << "PassesHcalNoiseFilter : " << event.PassesHcalNoiseFilter << std::endl;
+  std::cout << "PassesEcalDeadCellFilter : " << event.PassesEcalDeadCellFilter << std::endl;
 
   std::cout << "beamSpot"; Print(event.beamSpot);
 
