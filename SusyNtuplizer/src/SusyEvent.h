@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.16 2011/11/01 22:14:51 dwjang Exp $
+// $Id: SusyEvent.h,v 1.17 2011/12/01 15:30:42 dmorse Exp $
 //
 
 #ifndef SusyEvent_h
@@ -27,8 +27,8 @@
 
 namespace susy {
 
-  const float etaGapBegin = 1.442;
-  const float etaGapEnd = 1.556;
+  const float etaGapBegin = 1.4442;
+  const float etaGapEnd = 1.566;
   const float etaGap = 1.499;
   const float etaMax = 2.5;
 
