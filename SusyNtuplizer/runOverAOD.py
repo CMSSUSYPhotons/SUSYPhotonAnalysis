@@ -87,7 +87,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
         '/store/data/Run2011A/DoubleElectron/AOD/May10ReReco-v1/0000/003D325C-547B-E011-81D4-001A928116C2.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_42_V19::All'
+    process.GlobalTag.globaltag = 'GR_R_42_V21A::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
@@ -105,7 +105,7 @@ else:
     process.source.fileNames = cms.untracked.vstring(
         'dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root'
         )
-    process.GlobalTag.globaltag = 'START42_V13::All'
+    process.GlobalTag.globaltag = 'START42_V15B::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
