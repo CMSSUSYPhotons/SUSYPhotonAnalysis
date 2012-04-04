@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.18 2011/11/29 09:58:23 yohay Exp $
+// $Id: SusyNtuplizer.cc,v 1.19 2011/12/01 15:30:42 dmorse Exp $
 //
 //
 
@@ -414,7 +414,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     // loop over L1 triggers
     for( ; iter != iter_end; iter++) {
       // get prescale from LumiSummary
-      Int_t prescale = lsH->l1info(iter->algoName()).prescale;
+      Int_t prescale = lsH->l1info(iter->algoBitNumber()).prescale;
       // check L1 bit
       susyEvent_->l1Map[TString(iter->algoName().c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(dWord[iter->algoBitNumber()]));
       if(debugLevel_ > 1) std::cout << iter->algoName() << " : " << dWord[iter->algoBitNumber()] << std::endl;
@@ -777,10 +777,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	// Cluster informations
 	if(!isPF) {
 	  if(it->superCluster().isNonnull()) {
-	    double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
-	    double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
-	    double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
-	    double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
+	    double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,1,0,0,0);
+	    double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,1,0,0);
+	    double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,1,0);
+	    double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,0,1);
 	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
 
 	    // from Shilei's request
