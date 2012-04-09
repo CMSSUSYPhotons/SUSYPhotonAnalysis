@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.19 2011/12/01 15:30:42 dmorse Exp $
+// $Id: SusyNtuplizer.cc,v 1.20 2012/04/04 22:09:17 dwjang Exp $
 //
 //
 
@@ -78,7 +78,7 @@
 #include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
 
 // simple geometry
-#include "RecoParticleFlow/PFProducer/interface/PFGeometry.h"
+#include "RecoParticleFlow/PFTracking/interface/PFGeometry.h"
 
 // for track extrapolation
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
@@ -109,8 +109,8 @@
 #include "Geometry/CaloEventSetup/interface/CaloTopologyRecord.h"
 #include "Calibration/IsolatedParticles/interface/eECALMatrix.h"
 
-#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgo.h"
-#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
+//#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgo.h"
+//#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
 #include "RecoEcal/EgammaCoreTools/interface/EcalClusterTools.h"
 
 // Jet Energy Correction
@@ -514,8 +514,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   edm::ESHandle<CaloTopology> ctH;
   const CaloTopology* caloTopology = 0;
 
-  edm::ESHandle<EcalSeverityLevelAlgo> sevlv;
-  const EcalSeverityLevelAlgo* sevLevel = 0;
+  //  edm::ESHandle<EcalSeverityLevelAlgo> sevlv;
+  //  const EcalSeverityLevelAlgo* sevLevel = 0;
 
   if(debugLevel_ > 0) std::cout << name() << ", get ecal rechits" << std::endl;
     
@@ -548,13 +548,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
   }
   
-  try {
-    iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
-    sevLevel = sevlv.product();
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
-  }
+//   try {
+//     iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
+//     sevLevel = sevlv.product();
+//   }
+//   catch(cms::Exception& e) {
+//     edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
+//   }
 
 
   if(debugLevel_ > 0) std::cout << name() << ", fill all kinds of met collections" << std::endl;

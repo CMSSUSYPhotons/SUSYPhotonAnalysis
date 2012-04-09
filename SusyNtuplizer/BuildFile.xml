@@ -32,6 +32,7 @@
 <use name="Calibration/IsolatedParticles"/>
 <use name="RecoLocalCalo/EcalRecAlgos"/>
 <use name="RecoEcal/EgammaCoreTools"/>
+<use name="RecoParticleFlow/PFTracking"/>
 
 <use name="JetMETCorrections/Objects"/>
 
