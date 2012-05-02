@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.17 2011/12/01 15:30:42 dmorse Exp $
+// $Id: SusyEvent.h,v 1.18 2011/12/02 10:47:40 dmorse Exp $
 //
 
 #ifndef SusyEvent_h
@@ -564,6 +564,16 @@ namespace susy {
     UChar_t        chargedMultiplicity;
     UChar_t        neutralMultiplicity;
 
+    Float_t	   discr_tche;
+    Float_t	   discr_tchp;
+    Float_t	   discr_jp;
+    Float_t	   discr_jbp;
+    Float_t	   discr_ssv;
+    Float_t	   discr_csv;
+    Float_t	   discr_csvmva;
+    Float_t	   discr_se;
+    Float_t	   discr_sm;
+
     TVector3       vertex;
     TLorentzVector momentum; // uncorrected momentum
 
@@ -668,6 +678,9 @@ namespace susy {
     Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
     Bool_t                                      PassesHcalNoiseFilter;
     Bool_t                                      PassesEcalDeadCellFilter;
+    Bool_t                                      PassesCSCTightHaloFilter;
+    Bool_t                                      PassesHcalLaserEventFilter;
+    Bool_t                                      PassesTrackingFailureFilter;
 
     TVector3                                    beamSpot;
 

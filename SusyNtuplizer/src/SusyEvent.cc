@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.13 2011/11/01 22:14:51 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.14 2011/12/01 15:30:42 dmorse Exp $
 //
 
 #include "SusyEvent.h"
@@ -341,6 +341,16 @@ void susy::PFJet::Init() {
   chargedMultiplicity       = 0;
   neutralMultiplicity       = 0;
 
+  discr_tche		    = -999.9;
+  discr_tchp		    = -999.9;
+  discr_jp		    = -999.9;
+  discr_jbp		    = -999.9;
+  discr_ssv		    = -999.9;
+  discr_csv		    = -999.9;
+  discr_csvmva		    = -999.9;
+  discr_se		    = -999.9;
+  discr_sm		    = -999.9;
+
   vertex                   *= 0;
   momentum                 *= 0;
 
@@ -408,6 +418,9 @@ void susy::Event::Init() {
     rhoBarrel                   = 0;
     PassesHcalNoiseFilter       = 0;
     PassesEcalDeadCellFilter    = 0;
+    PassesCSCTightHaloFilter    = 0;
+    PassesHcalLaserEventFilter  = 0;
+    PassesTrackingFailureFilter = 0;
 
     beamSpot                   *= 0;
 
