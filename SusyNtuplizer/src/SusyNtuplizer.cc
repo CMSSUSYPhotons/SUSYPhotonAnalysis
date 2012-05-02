@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.20 2012/04/04 22:09:17 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.21 2012/04/09 16:23:06 dwjang Exp $
 //
 //
 
@@ -32,12 +32,18 @@
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 
+#include "DataFormats/METReco/interface/BeamHaloSummary.h"
+
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetupFwd.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetup.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutRecord.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMapRecord.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMapFwd.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMap.h"
+#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMaps.h"
+
+#include "CondFormats/L1TObjects/interface/L1GtTriggerMenu.h"
+#include "CondFormats/DataRecord/interface/L1GtTriggerMenuRcd.h"
 
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "FWCore/Common/interface/TriggerNames.h"
@@ -123,6 +129,9 @@
 // pileup summary info
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
 
+// b-tagging info
+#include "DataFormats/BTauReco/interface/JetTag.h"
+
 // system include files
 #include <memory>
 #include <string>
@@ -198,6 +207,9 @@ private:
   HLTConfigProvider hltConfig_;
   bool changed_;
 
+  // for L1 menu
+  L1GtUtils l1GtUtils_;
+
   // debugLevel
   // 0 : default (no printout from this module)
   // 1 : minimal (function level printing)
@@ -234,6 +246,12 @@ private:
   // PFParticleThreshold
   double pfParticleThreshold_;
 
+  // List of bad runs for hcalLaserEventFilter
+  std::vector<uint> hcalLaserList_;
+
+  // Do btagging?
+  bool storeBtagging_;
+
   std::string outputFileName_;
 
   susy::Event* susyEvent_;
@@ -264,7 +282,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
   pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
-  puSummaryInfoTag_ = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
+  puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
@@ -276,6 +294,9 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
   recoMode_ = iConfig.getParameter<bool>("recoMode");
   outputFileName_ = iConfig.getParameter<std::string>("outputFileName");
+  storeBtagging_ = iConfig.getParameter<bool>("storeBtagging");
+
+  iConfig.getUntrackedParameter<std::vector<uint> >("BadRunEventNumbers", hcalLaserList_);
 
   susyEvent_ = new susy::Event;
 
@@ -378,78 +399,112 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   susyEvent_->luminosityBlockNumber = iEvent.luminosityBlock();
   susyEvent_->bunchCrossing = iEvent.bunchCrossing();
 
-  const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
-  edm::Handle<LumiSummary> lsH;
-
-  try {
-    lumiBlock.getByLabel(lumiSummaryTag_, lsH);
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "LumiSummary is not available!!! " << e.what();
-  }
-
-  susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
-  susyEvent_->intgRecLumi = lsH->intgRecLumi();
-
-
   if(debugLevel_ > 1) std::cout << name() << ", run " << iEvent.id().run()
 				<< ", event " << iEvent.id().event()
 				<< ", isRealData " << iEvent.isRealData()
 				<< ", lumiBlock " << iEvent.getLuminosityBlock().luminosityBlock() << std::endl;
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
-
-  edm::Handle<L1GlobalTriggerReadoutRecord>   gtRecord;
-  edm::Handle<L1GlobalTriggerObjectMapRecord> gtOMRec;
   
-  try {
-    iEvent.getByLabel(l1GTReadoutTag_, gtRecord);
-    iEvent.getByLabel(l1GTObjectMapTag_, gtOMRec);
-
-    const DecisionWord dWord = gtRecord->decisionWord();
- 
-    std::vector<L1GlobalTriggerObjectMap>::const_iterator iter_begin = gtOMRec->gtObjectMap().begin();
-    std::vector<L1GlobalTriggerObjectMap>::const_iterator iter_end = gtOMRec->gtObjectMap().end();
-    std::vector<L1GlobalTriggerObjectMap>::const_iterator iter = iter_begin;
-    // loop over L1 triggers
-    for( ; iter != iter_end; iter++) {
-      // get prescale from LumiSummary
-      Int_t prescale = lsH->l1info(iter->algoBitNumber()).prescale;
-      // check L1 bit
-      susyEvent_->l1Map[TString(iter->algoName().c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(dWord[iter->algoBitNumber()]));
-      if(debugLevel_ > 1) std::cout << iter->algoName() << " : " << dWord[iter->algoBitNumber()] << std::endl;
+  if(susyEvent_->isRealData) {
+    const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
+    edm::Handle<LumiSummary> lsH;
+    
+    try {
+      lumiBlock.getByLabel(lumiSummaryTag_, lsH);
     }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
-  }
-
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
-
-  edm::Handle<edm::TriggerResults> hltH;
-  try {
-    iEvent.getByLabel(hltCollectionTag_,hltH);
-    int nHlt = hltH->size();
-    const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
-    if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
-    // loop over hlt paths
-    for(int i=0; i<nHlt; i++) {
-      // get prescale from LumiSummary
-      // Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
-      Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
-      // check hlt bit
-      susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
-      if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "LumiSummary is not available!!! " << e.what();
     }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "TriggerResults is not available!!! " << e.what();
-  }
+    
+    susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
+    susyEvent_->intgRecLumi = lsH->intgRecLumi();
+    
+    if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
 
+    edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
+  
+    try {
+      iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
+      if( ! gtOMs.isValid() ) {
+	edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
+				<< "No L1 Objects and GTL results available for physics algorithms";
+      }
+      
+      // Get and cache L1 menu
+      const bool useL1EventSetup(true);
+      const bool useL1GtTriggerMenuLite(false);
+      l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
+      
+      edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
+      iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
+      L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
+      const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
+      
+      for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
+	const std::string & algoName( iAlgo->second.algoName() );
+	if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
+	  edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
+				  << "Skipping";
+	  continue;
+	}
+	
+	L1GtUtils::TriggerCategory category;
+	int bit;
+	if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
+				<< "Skipping";
+	  continue;
+	}
+	if( category != L1GtUtils::AlgorithmTrigger ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
+				<< "Skipping";
+	  continue;
+	}
+	
+	bool decisionBeforeMask;
+	bool decisionAfterMask;
+	int prescale;
+	int mask;
+	int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
+	if( error ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
+				<< "Skipping";
+	  continue;
+	}
+	
+	susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+      }
+    }
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
+    }
+    
+    
+    if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
+    
+    edm::Handle<edm::TriggerResults> hltH;
+    try {
+      iEvent.getByLabel(hltCollectionTag_,hltH);
+      int nHlt = hltH->size();
+      const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
+      if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
+      // loop over hlt paths
+      for(int i=0; i<nHlt; i++) {
+	// get prescale from LumiSummary
+	// Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
+	Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
+	// check hlt bit
+	susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
+	if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
+      }
+    }
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "TriggerResults is not available!!! " << e.what();
+    }
 
+  } // isRealData    
+    
   if(debugLevel_ > 0) std::cout << name() << ", fill beam spot" << std::endl;
-
+  
   edm::Handle<reco::BeamSpot> bsh;
   try {
     iEvent.getByType(bsh);
@@ -460,10 +515,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   catch(cms::Exception& e) {
     edm::LogError(name()) << "BeamSpot is not available!!! " << e.what();
   }
-
-
+  
+  
   if(debugLevel_ > 0) std::cout << name() << ", fill vertex - the first entry is the primary vertex" << std::endl;
-
+  
   edm::Handle<reco::VertexCollection> vtxH;
   try {
     iEvent.getByLabel(vtxCollectionTag_,vtxH);
@@ -482,10 +537,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "VertexCollection is not available!!! " << e.what();
   }
 
-
-
   if(debugLevel_ > 0) std::cout << name() << ", get general track collection" << std::endl;
-
+  
   edm::Handle<reco::TrackCollection> trackH;
   try {
     iEvent.getByLabel(trackCollectionTag_,trackH);
@@ -647,6 +700,47 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "ecalDeadCellTPfilter is not available!!! " << e.what();
   }
   
+  if (debugLevel_ > 0)
+    std::cout << name() << ", fill PassesCSCTightHaloFilter calculated by BeamHaloId" << std::endl;
+  try {
+    edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
+    iEvent.getByLabel("BeamHaloSummary", beamHaloSummary);
+
+    susyEvent_->PassesCSCTightHaloFilter = !(beamHaloSummary->CSCTightHaloId());
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "BeamHaloSummary is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesHcalLaserEventFiler checked against list" << std::endl;
+  try {
+    bool filterDecision = true;
+    for(uint i = 0; i+1 < hcalLaserList_.size(); i += 2) {
+      if(iEvent.id().run() == hcalLaserList_[i] &&
+	 iEvent.id().event() == hcalLaserList_[i+1]) {
+        filterDecision = false;
+        break;
+      }
+    }
+
+    susyEvent_->PassesHcalLaserEventFilter = filterDecision;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "BadRunEventNumbers is not available for HcalLaserEventFilter!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesTrackingFailureFilter" << std::endl;
+  try {
+    edm::Handle<bool> trackingFailH;
+    iEvent.getByLabel("trackingFailureFilterProducer", trackingFailH);
+    susyEvent_->PassesTrackingFailureFilter = *trackingFailH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "trackingFailureFilter is not available!!!" << e.what();
+  }
+
   if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
 
   edm::Handle<reco::PFCandidateCollection> pfH;
@@ -1131,7 +1225,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   for(int i=0; i<nMuIDC; i++) {
     edm::Handle<edm::ValueMap<Bool_t> > muIDCH;
     try {
-      iEvent.getByLabel(muonIDCollectionTags_[i], muIDCH);
+      iEvent.getByLabel("muons", muonIDCollectionTags_[i], muIDCH);
       muIds.push_back( muIDCH.product() );
     }
     catch(cms::Exception& e) {
@@ -1241,7 +1335,39 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "reco::Muon is not available!!! " << e.what();
   }
 
+  // Get b-tag information
+  edm::Handle<reco::JetTagCollection> bTagHandleTrackCountingHighEff;
+  edm::Handle<reco::JetTagCollection> bTagHandleTrackCountingHighPur;
+  edm::Handle<reco::JetTagCollection> bTagHandleJetProbability;
+  edm::Handle<reco::JetTagCollection> bTagHandleJetBProbability;
+  edm::Handle<reco::JetTagCollection> bTagHandleSimpleSecondaryVertex;
+  edm::Handle<reco::JetTagCollection> bTagHandleCombinedSecondaryVertex;
+  edm::Handle<reco::JetTagCollection> bTagHandleCombinedSecondaryVertexMVA;
+  edm::Handle<reco::JetTagCollection> bTagHandleSoftElectron;
+  edm::Handle<reco::JetTagCollection> bTagHandleSoftMuon;
+  
+  // b-gtag info for PFJets
+  if(storeBtagging_) {
+    iEvent.getByLabel( "newTrackCountingHighEffBJetTags"      , bTagHandleTrackCountingHighEff       );
+    iEvent.getByLabel( "newTrackCountingHighPurBJetTags"      , bTagHandleTrackCountingHighPur       );
+    iEvent.getByLabel( "newJetProbabilityBJetTags"            , bTagHandleJetProbability             );
+    iEvent.getByLabel( "newJetBProbabilityBJetTags"           , bTagHandleJetBProbability            );
+    iEvent.getByLabel( "newSimpleSecondaryVertexBJetTags"     , bTagHandleSimpleSecondaryVertex      );
+    iEvent.getByLabel( "newCombinedSecondaryVertexBJetTags"   , bTagHandleCombinedSecondaryVertex    );
+    iEvent.getByLabel( "newCombinedSecondaryVertexMVABJetTags", bTagHandleCombinedSecondaryVertexMVA );
+    iEvent.getByLabel( "newSoftElectronBJetTags"              , bTagHandleSoftElectron               );
+    iEvent.getByLabel( "newSoftMuonBJetTags"                  , bTagHandleSoftMuon                   );
+  }
 
+  const reco::JetTagCollection & bTagsTrackCountingHighEff       = *( bTagHandleTrackCountingHighEff.product()       );
+  const reco::JetTagCollection & bTagsTrackCountingHighPur       = *( bTagHandleTrackCountingHighPur.product()       );
+  const reco::JetTagCollection & bTagsJetProbability             = *( bTagHandleJetProbability.product()             );
+  const reco::JetTagCollection & bTagsJetBProbability            = *( bTagHandleJetBProbability.product()            );
+  const reco::JetTagCollection & bTagsSimpleSecondaryVertex      = *( bTagHandleSimpleSecondaryVertex.product()      );
+  const reco::JetTagCollection & bTagsCombinedSecondaryVertex    = *( bTagHandleCombinedSecondaryVertex.product()    );
+  const reco::JetTagCollection & bTagsCombinedSecondaryVertexMVA = *( bTagHandleCombinedSecondaryVertexMVA.product() );
+  const reco::JetTagCollection & bTagsSoftElectron               = *( bTagHandleSoftElectron.product()               );
+  const reco::JetTagCollection & bTagsSoftMuon                   = *( bTagHandleSoftMuon.product()                   );
 
   if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
 
@@ -1453,6 +1579,128 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
 	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 
+	if(storeBtagging_) {
+
+	  bool match = false;
+	  for(int i = 0; i != (int)bTagsTrackCountingHighEff.size(); ++i) {
+	    if(deltaR(jet.etaMean,
+		      jet.phiMean,
+		      bTagsTrackCountingHighEff[i].first->etaPhiStatistics().etaMean,
+		      bTagsTrackCountingHighEff[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	      jet.discr_tche = bTagsTrackCountingHighEff[i].second;
+	    match = true;
+	    break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in TCHE b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsTrackCountingHighPur.size(); ++i) 
+	    {  
+	      if(deltaR(jet.etaMean, 
+		        jet.phiMean, 
+		        bTagsTrackCountingHighPur[i].first->etaPhiStatistics().etaMean,  
+		        bTagsTrackCountingHighPur[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	        jet.discr_tchp = bTagsTrackCountingHighPur[i].second;
+	        match = true;
+	        break;
+	      }
+	    }
+	  if(!match) std::cout << "Jet without match in TCHP b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsJetProbability.size(); ++i) {  
+	    if(deltaR(jet.etaMean, 
+		       jet.phiMean,
+		       bTagsJetProbability[i].first->etaPhiStatistics().etaMean,  
+		       bTagsJetProbability[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	      jet.discr_jp = bTagsJetProbability[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in JP b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsJetBProbability.size(); ++i) {
+	    if(deltaR(jet.etaMean, 
+		       jet.phiMean, 
+		       bTagsJetBProbability[i].first->etaPhiStatistics().etaMean,   
+		       bTagsJetBProbability[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	      jet.discr_jbp = bTagsJetBProbability[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in JPB b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsSimpleSecondaryVertex.size(); ++i) {  
+	    if(deltaR(jet.etaMean,
+		      jet.phiMean,
+		      bTagsSimpleSecondaryVertex[i].first->etaPhiStatistics().etaMean,
+		      bTagsSimpleSecondaryVertex[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
+	      jet.discr_ssv = bTagsSimpleSecondaryVertex[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in SSV b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsCombinedSecondaryVertex.size(); ++i) {	    
+	    if(deltaR(jet.etaMean,
+		       jet.phiMean,
+		       bTagsCombinedSecondaryVertex[i].first->etaPhiStatistics().etaMean,
+		       bTagsCombinedSecondaryVertex[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
+	      jet.discr_csv = bTagsCombinedSecondaryVertex[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in CSV b-tag collection!!!" << std::endl;
+	      
+	  match = false;
+	  for(int i = 0; i != (int)bTagsCombinedSecondaryVertexMVA.size(); ++i) {		  
+	    if(deltaR(jet.etaMean,
+		      jet.phiMean,
+		      bTagsCombinedSecondaryVertexMVA[i].first->etaPhiStatistics().etaMean,
+		      bTagsCombinedSecondaryVertexMVA[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
+	      jet.discr_csvmva = bTagsCombinedSecondaryVertexMVA[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in CVSMVA b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsSoftElectron.size(); ++i) {		  
+	    if(deltaR(jet.etaMean,
+		       jet.phiMean,
+		       bTagsSoftElectron[i].first->etaPhiStatistics().etaMean,   
+		       bTagsSoftElectron[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	      jet.discr_se = bTagsSoftElectron[i].second;
+	      match = true;
+	      break;
+	    }
+	  } 
+	  if(!match) std::cout << "Jet without match in SE b-tag collection!!!" << std::endl;
+
+	  match = false;
+	  for(int i = 0; i != (int)bTagsSoftMuon.size(); ++i) {	    
+	    if(deltaR(jet.etaMean,
+		       jet.phiMean,
+		       bTagsSoftMuon[i].first->etaPhiStatistics().etaMean,
+		       bTagsSoftMuon[i].first->etaPhiStatistics().phiMean) < 0.001) {
+	      jet.discr_sm = bTagsSoftMuon[i].second;
+	      match = true;
+	      break;
+	    }
+	  }
+	  if(!match) std::cout << "Jet without match in SM b-tag collection!!!" << std::endl;
+
+	} // if(storeBtagging_)
+
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
 
@@ -1558,7 +1806,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     bool foundPUSummaryInfo = false;
     try { foundPUSummaryInfo = iEvent.getByLabel(puSummaryInfoTag_, pPUSummaryInfo); }
     catch (cms::Exception& ex) {}
-    if (!foundPUSummaryInfo) {
+    if(!foundPUSummaryInfo) {
       std::cerr << "No collection of type " << puSummaryInfoTag_ << " found in run ";
       std::cerr << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
       std::cerr << iEvent.getLuminosityBlock().luminosityBlock() << ".\n";
@@ -1566,8 +1814,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     else {
 
       //fill PUSummaryInfo object
-      if (debugLevel_ > 0) std::cout << name() << ", fill PU summary information" << std::endl;
-      if (debugLevel_ > 1) {
+      if(debugLevel_ > 0) std::cout << name() << ", fill PU summary information" << std::endl;
+      if(debugLevel_ > 1) {
         std::cout << "size of PileupSummaryInfo collection: " << pPUSummaryInfo->size();
         std::cout << std::endl;
       }
@@ -1595,8 +1843,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           std::cout << std::endl;
           std::cout << "BX ID for BX " << index << ": " << iPU->getBunchCrossing() << std::endl;
           //for MC samples earlier than CMSSWv4.2.8 or Fall11, comment out the following 2 lines
-          // std::cout << "True no. interactions for BX " << index << ": ";
-          // std::cout << iPU->getTrueNumInteractions() << std::endl;
+          std::cout << "True no. interactions for BX " << index << ": ";
+          std::cout << iPU->getTrueNumInteractions() << std::endl;
         }
         susy::PUSummaryInfo PUInfoForThisBX;
         PUInfoForThisBX.numInteractions = iPU->getPU_NumInteractions();
@@ -1663,9 +1911,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
         }
         PUInfoForThisBX.BX = iPU->getBunchCrossing();
         //for MC samples earlier than CMSSWv4.2.8 or Fall11, COMMENT OUT the following line
-//      PUInfoForThisBX.trueNumInteractions = iPU->getTrueNumInteractions();
+        PUInfoForThisBX.trueNumInteractions = iPU->getTrueNumInteractions();
         //for MC samples earlier than CMSSWv4.2.8 or Fall11, UNCOMMENT the following line
-        PUInfoForThisBX.trueNumInteractions = -1.0;
+        //PUInfoForThisBX.trueNumInteractions = -1.0;
 
         //add PU summary info for this BX to the vector of PU summary info for this event
         susyEvent_->pu.push_back(PUInfoForThisBX);
