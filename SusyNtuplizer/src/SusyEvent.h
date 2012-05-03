@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.18 2011/12/02 10:47:40 dmorse Exp $
+// $Id: SusyEvent.h,v 1.19 2012/05/02 15:57:03 bfrancis Exp $
 //
 
 #ifndef SusyEvent_h
@@ -275,13 +275,6 @@ namespace susy {
     Float_t        photonIso;
 
     Float_t        seedTime; // seed timing
-
-    // cluster shape variables (barrel only)
-    Float_t        sMaj;
-    Float_t        sMin;
-    Float_t        alpha;
-    Float_t        roundness;
-    Float_t        angle;
 
     // Conversion info
     Float_t        convDist;
@@ -564,15 +557,10 @@ namespace susy {
     UChar_t        chargedMultiplicity;
     UChar_t        neutralMultiplicity;
 
-    Float_t	   discr_tche;
-    Float_t	   discr_tchp;
-    Float_t	   discr_jp;
-    Float_t	   discr_jbp;
-    Float_t	   discr_ssv;
-    Float_t	   discr_csv;
-    Float_t	   discr_csvmva;
-    Float_t	   discr_se;
-    Float_t	   discr_sm;
+    // IMPORTANT: This vector of float stores btag-discriminator variables from various collections
+    // which defined in susyNtuplizer_cfi.py file. The order of variables are strongly
+    // dependent on the order of collections in python file.
+    std::vector<Float_t> bTagDiscriminators;
 
     TVector3       vertex;
     TLorentzVector momentum; // uncorrected momentum
@@ -664,6 +652,17 @@ namespace susy {
     // Initialize members
     void Init();
 
+    bool passCSCBeamHalo()     { return metFilterBit & (0x1 << 0); }
+    bool passHcalNoise()       { return metFilterBit & (0x1 << 1); }
+    bool passEcalDeadCellTP()  { return metFilterBit & (0x1 << 2); }
+    bool passEcalDeadCellBE()  { return metFilterBit & (0x1 << 3); }
+    bool passHcalLaser()       { return metFilterBit & (0x1 << 4); }
+    bool passTrackingFailure() { return metFilterBit & (0x1 << 5); }
+
+    // JetMET recommended met filters
+    bool passMetFilters() { return passCSCBeamHalo() && passHcalNoise() &&
+	passEcalDeadCellTP() && passHcalLaser(); }
+
     // Members are made as public intentionally for easy access
 
     UChar_t                                     isRealData;
@@ -676,11 +675,7 @@ namespace susy {
     UChar_t                                     cosmicFlag; // empty for now
     Float_t                                     rho; // from kt6PFJets
     Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
-    Bool_t                                      PassesHcalNoiseFilter;
-    Bool_t                                      PassesEcalDeadCellFilter;
-    Bool_t                                      PassesCSCTightHaloFilter;
-    Bool_t                                      PassesHcalLaserEventFilter;
-    Bool_t                                      PassesTrackingFailureFilter;
+    Int_t                                       metFilterBit;
 
     TVector3                                    beamSpot;
 

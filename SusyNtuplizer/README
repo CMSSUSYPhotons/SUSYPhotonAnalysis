@@ -1,0 +1,6 @@
+for 523 release, check out the following packages:
+
+cvs co -r lhx_14APR2012_v1 RecoMET/METFilters
+
+# this is not tagged yet as of May 2, 2012
+cvs co -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools

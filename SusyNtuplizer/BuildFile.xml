@@ -38,6 +38,7 @@
 
 <use name="SimDataFormats/Vertex"/>
 <use name="HLTrigger/HLTcore"/>
+<use name="EGamma/EGammaAnalysisTools"/>
 
 <use name="root"/>
 

@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.14 2011/12/01 15:30:42 dmorse Exp $
+// $Id: SusyEvent.cc,v 1.15 2012/05/02 15:57:13 bfrancis Exp $
 //
 
 #include "SusyEvent.h"
@@ -133,12 +133,6 @@ void susy::Photon::Init() {
   photonIso                       = 0;
 
   seedTime                        = 0;
-
-  sMaj                            = 0;
-  sMin                            = 0;
-  alpha                           = 0;
-  roundness                       = 0;
-  angle                           = 0;
 
   convDist                        = 999;
   convDcot                        = 999;
@@ -341,15 +335,7 @@ void susy::PFJet::Init() {
   chargedMultiplicity       = 0;
   neutralMultiplicity       = 0;
 
-  discr_tche		    = -999.9;
-  discr_tchp		    = -999.9;
-  discr_jp		    = -999.9;
-  discr_jbp		    = -999.9;
-  discr_ssv		    = -999.9;
-  discr_csv		    = -999.9;
-  discr_csvmva		    = -999.9;
-  discr_se		    = -999.9;
-  discr_sm		    = -999.9;
+  bTagDiscriminators.clear();
 
   vertex                   *= 0;
   momentum                 *= 0;
@@ -416,11 +402,7 @@ void susy::Event::Init() {
     cosmicFlag                  = 0;
     rho                         = 0;
     rhoBarrel                   = 0;
-    PassesHcalNoiseFilter       = 0;
-    PassesEcalDeadCellFilter    = 0;
-    PassesCSCTightHaloFilter    = 0;
-    PassesHcalLaserEventFilter  = 0;
-    PassesTrackingFailureFilter = 0;
+    metFilterBit                = 0;
 
     beamSpot                   *= 0;
 

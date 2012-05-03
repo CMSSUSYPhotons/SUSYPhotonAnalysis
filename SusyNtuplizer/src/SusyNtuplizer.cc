@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.21 2012/04/09 16:23:06 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.22 2012/05/02 15:58:01 bfrancis Exp $
 //
 //
 
@@ -132,6 +132,9 @@
 // b-tagging info
 #include "DataFormats/BTauReco/interface/JetTag.h"
 
+// PFIsolation
+#include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
+
 // system include files
 #include <memory>
 #include <string>
@@ -195,6 +198,7 @@ private:
   std::vector<std::string> jptJetCollectionTags_;
   std::vector<std::string> metCollectionTags_;
   std::vector<std::string> pfCandidateCollectionTags_;
+  std::vector<std::string> bTagCollectionTags_;
   edm::InputTag puSummaryInfoTag_;
 
   edm::ESHandle<MagneticField> magneticField_;
@@ -209,6 +213,9 @@ private:
 
   // for L1 menu
   L1GtUtils l1GtUtils_;
+
+  // PFIsolator
+  PFIsolationEstimator isolator03_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -246,12 +253,6 @@ private:
   // PFParticleThreshold
   double pfParticleThreshold_;
 
-  // List of bad runs for hcalLaserEventFilter
-  std::vector<uint> hcalLaserList_;
-
-  // Do btagging?
-  bool storeBtagging_;
-
   std::string outputFileName_;
 
   susy::Event* susyEvent_;
@@ -282,6 +283,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
   pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
+  bTagCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
   puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
@@ -294,9 +296,6 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
   recoMode_ = iConfig.getParameter<bool>("recoMode");
   outputFileName_ = iConfig.getParameter<std::string>("outputFileName");
-  storeBtagging_ = iConfig.getParameter<bool>("storeBtagging");
-
-  iConfig.getUntrackedParameter<std::vector<uint> >("BadRunEventNumbers", hcalLaserList_);
 
   susyEvent_ = new susy::Event;
 
@@ -308,6 +307,10 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
     susyTree_->SetAutoSave(10000000);     // 10 MB
     //    susyTree_->SetMaxTreeSize(500000000); // 500 MB
   }
+
+  // PFIsolator init
+  isolator03_.initializePhotonIsolation(kTRUE);
+  isolator03_.setConeSize(0.3);
 
   if(debugLevel_ > 0) std::cout << name() << " : ctor" << std::endl;
 
@@ -520,10 +523,12 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   if(debugLevel_ > 0) std::cout << name() << ", fill vertex - the first entry is the primary vertex" << std::endl;
   
   edm::Handle<reco::VertexCollection> vtxH;
+  const reco::Vertex* primVtx = 0;
   try {
     iEvent.getByLabel(vtxCollectionTag_,vtxH);
     for(reco::VertexCollection::const_iterator it = vtxH->begin();
 	it != vtxH->end(); it++){
+      if(!primVtx) primVtx = &*it;
       susy::Vertex vtx;
       vtx.chi2       = it->chi2();
       vtx.ndof       = it->ndof();
@@ -680,24 +685,35 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "rhoBarrel is not available!!! " << e.what();
   }
   
+
+  bool passCSCBeamHalo = false;
+  bool passHcalNoise = false;
+  bool passEcalDeadCellTP = false;
+  bool passEcalDeadCellBE = false;
+  bool passHcalLaser = false;
+  bool passTrackingFailure = false;
+
   if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
   try {
     edm::Handle<bool> noiseH;
     iEvent.getByLabel("HBHENoiseFilterResultProducer","HBHENoiseFilterResult",noiseH);
-    susyEvent_->PassesHcalNoiseFilter = *noiseH;
+    passHcalNoise = *noiseH;
   }
   catch(cms::Exception& e) {
     edm::LogError(name()) << "HBHENoiseFilterResult is not available!!! " << e.what();
   }
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill PassesEcalDeadCellFilter calculated from ecalDeadCellTPfilter" << std::endl;
+  if(debugLevel_ > 0) std::cout << name() << ", fill PassesEcalDeadCellFilter" << std::endl;
   try {
-    edm::Handle<bool> DeadCellH;
-    iEvent.getByLabel("ecalDeadCellTPfilter",DeadCellH);
-    susyEvent_->PassesEcalDeadCellFilter = *DeadCellH;
+    edm::Handle<bool> tpH;
+    iEvent.getByLabel("EcalDeadCellTriggerPrimitiveFilter",tpH);
+    passEcalDeadCellTP = *tpH;
+    edm::Handle<bool> beH;
+    iEvent.getByLabel("EcalDeadCellBoundaryEnergyFilter",beH);
+    passEcalDeadCellBE = *beH;
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << "ecalDeadCellTPfilter is not available!!! " << e.what();
+    edm::LogError(name()) << "ecalDeadCellfilter is not available!!! " << e.what();
   }
   
   if (debugLevel_ > 0)
@@ -706,7 +722,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
     iEvent.getByLabel("BeamHaloSummary", beamHaloSummary);
 
-    susyEvent_->PassesCSCTightHaloFilter = !(beamHaloSummary->CSCTightHaloId());
+    passCSCBeamHalo = !(beamHaloSummary->CSCTightHaloId());
   }
   catch(cms::Exception& e) {
     edm::LogError(name()) << "BeamHaloSummary is not available!!!" << e.what();
@@ -715,31 +731,38 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   if(debugLevel_ > 0)
     std::cout << name() << ", fill PassesHcalLaserEventFiler checked against list" << std::endl;
   try {
-    bool filterDecision = true;
-    for(uint i = 0; i+1 < hcalLaserList_.size(); i += 2) {
-      if(iEvent.id().run() == hcalLaserList_[i] &&
-	 iEvent.id().event() == hcalLaserList_[i+1]) {
-        filterDecision = false;
-        break;
-      }
-    }
+    edm::Handle<bool> hcalLaserH;
+    iEvent.getByLabel("hcalLaserEventFilter",hcalLaserH);
 
-    susyEvent_->PassesHcalLaserEventFilter = filterDecision;
+    passHcalLaser = *hcalLaserH;
   }
   catch(cms::Exception& e) {
-    edm::LogError(name()) << "BadRunEventNumbers is not available for HcalLaserEventFilter!!!" << e.what();
+    edm::LogError(name()) << "HcalLaserEventFilter is not available!!!" << e.what();
   }
 
   if(debugLevel_ > 0)
     std::cout << name() << ", fill PassesTrackingFailureFilter" << std::endl;
   try {
     edm::Handle<bool> trackingFailH;
-    iEvent.getByLabel("trackingFailureFilterProducer", trackingFailH);
-    susyEvent_->PassesTrackingFailureFilter = *trackingFailH;
+    iEvent.getByLabel("trackingFailureFilter", trackingFailH);
+    passTrackingFailure = *trackingFailH;
   }
   catch(cms::Exception& e) {
     edm::LogError(name()) << "trackingFailureFilter is not available!!!" << e.what();
   }
+
+
+  Int_t metFilterBit = 0;
+
+  metFilterBit |= (passCSCBeamHalo         << 0);
+  metFilterBit |= (passHcalNoise           << 1);
+  metFilterBit |= (passEcalDeadCellTP      << 2);
+  metFilterBit |= (passEcalDeadCellBE      << 3);
+  metFilterBit |= (passHcalLaser           << 4);
+  metFilterBit |= (passTrackingFailure     << 5);
+
+  susyEvent_->metFilterBit = metFilterBit;
+
 
   if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
 
@@ -860,10 +883,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.nTrkSolidConeDR03                 = it->nTrkSolidConeDR03();
 	pho.nTrkHollowConeDR03                = it->nTrkHollowConeDR03();
 
-	pho.chargedHadronIso                  = it->chargedHadronIso();
-	pho.neutralHadronIso                  = it->neutralHadronIso();
-	pho.photonIso                         = it->photonIso();
-
+	if(isPF) {
+	  pho.chargedHadronIso                  = it->chargedHadronIso();
+	  pho.neutralHadronIso                  = it->neutralHadronIso();
+	  pho.photonIso                         = it->photonIso();
+	}
+	else { // get pfIsolation for reco::Photon
+	  isolator03_.fGetIsolation(&*it,pfH.product(),const_cast<reco::Vertex&>(*primVtx),vtxH);
+	  pho.chargedHadronIso                  = isolator03_.getIsolationCharged();
+	  pho.neutralHadronIso                  = isolator03_.getIsolationNeutral();
+	  pho.photonIso                         = isolator03_.getIsolationPhoton();
+	}
 
 	// for timing
 	DetId seedId(0);
@@ -876,15 +906,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,1,0);
 	    double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,0,1);
 	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
-
-	    // from Shilei's request
-	    Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->superCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
-	    std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->superCluster()), *(barrelRecHitsHandle.product()), 1);
-	    pho.sMaj      = my2ndMoments.sMaj;
-	    pho.sMin      = my2ndMoments.sMin;
-	    pho.alpha     = my2ndMoments.alpha;
-	    pho.roundness = myVector[0];
-	    pho.angle     = myVector[1];
 
 	    std::vector<float> crysCov = EcalClusterTools::localCovariances(*(it->superCluster()->seed()), barrelRecHitsHandle.product(),caloTopology);
 	    pho.sigmaIphiIphi = std::sqrt(crysCov[2]);
@@ -920,35 +941,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  }// for id
 
 	}
-// 	else { // isPF
-// 	  if(it->photonCore().isNonnull() && it->pfSuperCluster().isNonnull()){
-// 	    double e1000 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,1,0,0,0);
-// 	    double e0100 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,1,0,0);
-// 	    double e0010 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,1,0);
-// 	    double e0001 = spr::eECALmatrix(it->pfSuperCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,sevLevel,0,0,0,1);
-// 	    pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
-
-// 	    // from Shilei's request
-// 	    Cluster2ndMoments my2ndMoments = EcalClusterTools::cluster2ndMoments(*(it->pfSuperCluster()),*(barrelRecHitsHandle.product()),0.8, 4.2, 1);
-// 	    std::vector<float> myVector = EcalClusterTools::roundnessBarrelSuperClusters(*(it->pfSuperCluster()), *(barrelRecHitsHandle.product()), 1);
-// 	    pho.sMaj      = my2ndMoments.sMaj;
-// 	    pho.sMin      = my2ndMoments.sMin;
-// 	    pho.alpha     = my2ndMoments.alpha;
-// 	    pho.roundness = myVector[0];
-// 	    pho.angle     = myVector[1];
-	    
-// 	    seedId = it->pfSuperCluster()->seed()->seed();
-// 	    pho.superClusterPreshowerEnergy = it->pfSuperCluster()->preshowerEnergy();
-// 	    pho.superClusterPhiWidth = it->pfSuperCluster()->phiWidth();
-// 	    pho.superClusterEtaWidth = it->pfSuperCluster()->etaWidth();
-// 	    susy::SuperCluster superCluster;
-// 	    fillCluster(it->pfSuperCluster(), superCluster, clusterIndex);
-// 	    pho.superClusterIndex = superClusterIndex;
-// 	    susyEvent_->superClusters.push_back(superCluster);
-// 	    superClusterIndex++;
-// 	  }
-// 	}
-
 
 	pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
 	pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
@@ -1336,38 +1328,15 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   }
 
   // Get b-tag information
-  edm::Handle<reco::JetTagCollection> bTagHandleTrackCountingHighEff;
-  edm::Handle<reco::JetTagCollection> bTagHandleTrackCountingHighPur;
-  edm::Handle<reco::JetTagCollection> bTagHandleJetProbability;
-  edm::Handle<reco::JetTagCollection> bTagHandleJetBProbability;
-  edm::Handle<reco::JetTagCollection> bTagHandleSimpleSecondaryVertex;
-  edm::Handle<reco::JetTagCollection> bTagHandleCombinedSecondaryVertex;
-  edm::Handle<reco::JetTagCollection> bTagHandleCombinedSecondaryVertexMVA;
-  edm::Handle<reco::JetTagCollection> bTagHandleSoftElectron;
-  edm::Handle<reco::JetTagCollection> bTagHandleSoftMuon;
-  
-  // b-gtag info for PFJets
-  if(storeBtagging_) {
-    iEvent.getByLabel( "newTrackCountingHighEffBJetTags"      , bTagHandleTrackCountingHighEff       );
-    iEvent.getByLabel( "newTrackCountingHighPurBJetTags"      , bTagHandleTrackCountingHighPur       );
-    iEvent.getByLabel( "newJetProbabilityBJetTags"            , bTagHandleJetProbability             );
-    iEvent.getByLabel( "newJetBProbabilityBJetTags"           , bTagHandleJetBProbability            );
-    iEvent.getByLabel( "newSimpleSecondaryVertexBJetTags"     , bTagHandleSimpleSecondaryVertex      );
-    iEvent.getByLabel( "newCombinedSecondaryVertexBJetTags"   , bTagHandleCombinedSecondaryVertex    );
-    iEvent.getByLabel( "newCombinedSecondaryVertexMVABJetTags", bTagHandleCombinedSecondaryVertexMVA );
-    iEvent.getByLabel( "newSoftElectronBJetTags"              , bTagHandleSoftElectron               );
-    iEvent.getByLabel( "newSoftMuonBJetTags"                  , bTagHandleSoftMuon                   );
-  }
+  if(debugLevel_ > 0) std::cout << name() << ", fill bTagCollections" << std::endl;
+  std::vector<edm::Handle<reco::JetTagCollection> > bTagHs;
 
-  const reco::JetTagCollection & bTagsTrackCountingHighEff       = *( bTagHandleTrackCountingHighEff.product()       );
-  const reco::JetTagCollection & bTagsTrackCountingHighPur       = *( bTagHandleTrackCountingHighPur.product()       );
-  const reco::JetTagCollection & bTagsJetProbability             = *( bTagHandleJetProbability.product()             );
-  const reco::JetTagCollection & bTagsJetBProbability            = *( bTagHandleJetBProbability.product()            );
-  const reco::JetTagCollection & bTagsSimpleSecondaryVertex      = *( bTagHandleSimpleSecondaryVertex.product()      );
-  const reco::JetTagCollection & bTagsCombinedSecondaryVertex    = *( bTagHandleCombinedSecondaryVertex.product()    );
-  const reco::JetTagCollection & bTagsCombinedSecondaryVertexMVA = *( bTagHandleCombinedSecondaryVertexMVA.product() );
-  const reco::JetTagCollection & bTagsSoftElectron               = *( bTagHandleSoftElectron.product()               );
-  const reco::JetTagCollection & bTagsSoftMuon                   = *( bTagHandleSoftMuon.product()                   );
+  for(std::vector<std::string>::iterator it = bTagCollectionTags_.begin();
+      it != bTagCollectionTags_.end(); it++) {
+    edm::Handle<reco::JetTagCollection> bTagH;
+    iEvent.getByLabel(*it, bTagH);
+    bTagHs.push_back(bTagH);
+  }
 
   if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
 
@@ -1579,127 +1548,19 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
 	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 
-	if(storeBtagging_) {
-
-	  bool match = false;
-	  for(int i = 0; i != (int)bTagsTrackCountingHighEff.size(); ++i) {
-	    if(deltaR(jet.etaMean,
-		      jet.phiMean,
-		      bTagsTrackCountingHighEff[i].first->etaPhiStatistics().etaMean,
-		      bTagsTrackCountingHighEff[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	      jet.discr_tche = bTagsTrackCountingHighEff[i].second;
-	    match = true;
-	    break;
-	    }
+	// add btag for this jet
+	for(std::vector<edm::Handle<reco::JetTagCollection> >::iterator ibtagH=bTagHs.begin();
+	    ibtagH != bTagHs.end(); ibtagH++){
+	  edm::Handle<reco::JetTagCollection>& bTagH = *ibtagH;
+	  float tagInfo = -999.0;
+	  for(reco::JetTagCollection::const_iterator it_tag = bTagH->begin();
+	      it_tag != bTagH->end(); it_tag++) {
+	    // this matching is ugly. It can be checked with Ref, but it needs to be careful to see whether "first" is same as "PFJetRef"
+	    double dR = deltaR(jet.etaMean,jet.phiMean,it_tag->first->etaPhiStatistics().etaMean,it_tag->first->etaPhiStatistics().phiMean);
+	    if(dR < 0.001) tagInfo = it_tag->second;
 	  }
-	  if(!match) std::cout << "Jet without match in TCHE b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsTrackCountingHighPur.size(); ++i) 
-	    {  
-	      if(deltaR(jet.etaMean, 
-		        jet.phiMean, 
-		        bTagsTrackCountingHighPur[i].first->etaPhiStatistics().etaMean,  
-		        bTagsTrackCountingHighPur[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	        jet.discr_tchp = bTagsTrackCountingHighPur[i].second;
-	        match = true;
-	        break;
-	      }
-	    }
-	  if(!match) std::cout << "Jet without match in TCHP b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsJetProbability.size(); ++i) {  
-	    if(deltaR(jet.etaMean, 
-		       jet.phiMean,
-		       bTagsJetProbability[i].first->etaPhiStatistics().etaMean,  
-		       bTagsJetProbability[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	      jet.discr_jp = bTagsJetProbability[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in JP b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsJetBProbability.size(); ++i) {
-	    if(deltaR(jet.etaMean, 
-		       jet.phiMean, 
-		       bTagsJetBProbability[i].first->etaPhiStatistics().etaMean,   
-		       bTagsJetBProbability[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	      jet.discr_jbp = bTagsJetBProbability[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in JPB b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsSimpleSecondaryVertex.size(); ++i) {  
-	    if(deltaR(jet.etaMean,
-		      jet.phiMean,
-		      bTagsSimpleSecondaryVertex[i].first->etaPhiStatistics().etaMean,
-		      bTagsSimpleSecondaryVertex[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
-	      jet.discr_ssv = bTagsSimpleSecondaryVertex[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in SSV b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsCombinedSecondaryVertex.size(); ++i) {	    
-	    if(deltaR(jet.etaMean,
-		       jet.phiMean,
-		       bTagsCombinedSecondaryVertex[i].first->etaPhiStatistics().etaMean,
-		       bTagsCombinedSecondaryVertex[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
-	      jet.discr_csv = bTagsCombinedSecondaryVertex[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in CSV b-tag collection!!!" << std::endl;
-	      
-	  match = false;
-	  for(int i = 0; i != (int)bTagsCombinedSecondaryVertexMVA.size(); ++i) {		  
-	    if(deltaR(jet.etaMean,
-		      jet.phiMean,
-		      bTagsCombinedSecondaryVertexMVA[i].first->etaPhiStatistics().etaMean,
-		      bTagsCombinedSecondaryVertexMVA[i].first->etaPhiStatistics().phiMean) < 0.001) {		    
-	      jet.discr_csvmva = bTagsCombinedSecondaryVertexMVA[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in CVSMVA b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsSoftElectron.size(); ++i) {		  
-	    if(deltaR(jet.etaMean,
-		       jet.phiMean,
-		       bTagsSoftElectron[i].first->etaPhiStatistics().etaMean,   
-		       bTagsSoftElectron[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	      jet.discr_se = bTagsSoftElectron[i].second;
-	      match = true;
-	      break;
-	    }
-	  } 
-	  if(!match) std::cout << "Jet without match in SE b-tag collection!!!" << std::endl;
-
-	  match = false;
-	  for(int i = 0; i != (int)bTagsSoftMuon.size(); ++i) {	    
-	    if(deltaR(jet.etaMean,
-		       jet.phiMean,
-		       bTagsSoftMuon[i].first->etaPhiStatistics().etaMean,
-		       bTagsSoftMuon[i].first->etaPhiStatistics().phiMean) < 0.001) {
-	      jet.discr_sm = bTagsSoftMuon[i].second;
-	      match = true;
-	      break;
-	    }
-	  }
-	  if(!match) std::cout << "Jet without match in SM b-tag collection!!!" << std::endl;
-
-	} // if(storeBtagging_)
+	  jet.bTagDiscriminators.push_back(tagInfo);
+	}
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
