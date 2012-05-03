@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.15 2012/05/02 15:57:13 bfrancis Exp $
+// $Id: SusyEvent.cc,v 1.16 2012/05/03 04:57:35 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -131,6 +131,9 @@ void susy::Photon::Init() {
   chargedHadronIso                = 0;
   neutralHadronIso                = 0;
   photonIso                       = 0;
+  chargedHadronIsoDeposit         = 0;
+  neutralHadronIsoDeposit         = 0;
+  photonIsoDeposit                = 0;
 
   seedTime                        = 0;
 

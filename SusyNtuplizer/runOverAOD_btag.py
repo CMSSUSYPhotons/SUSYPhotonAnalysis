@@ -114,6 +114,14 @@ else:
         process.kt6PFJetsRhoBarrelOnly
         )
 
+# IsoDeposit
+from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso
+process.eleIsoSequence = setupPFElectronIso(process, 'gsfElectrons')
+process.phoIsoSequence = setupPFPhotonIso(process, 'photons')
+
+process.isoDeposit = cms.Sequence( process.pfParticleSelectionSequence + process.eleIsoSequence + process.phoIsoSequence)
+
+
 # b-tagging stuff ===============================================================
 # Re-run b-tagging with PFJets as input
 
@@ -216,9 +224,6 @@ process.p = cms.Path(
     process.metAnalysisSequence *
     process.jet *
     process.metFiltersSequence *
+    process.isoDeposit *
     process.susyNtuplizer
     )
-
-outfile = open('config.py','w')
-print >> outfile,process.dumpPython()
-outfile.close()

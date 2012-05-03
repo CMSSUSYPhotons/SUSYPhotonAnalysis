@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.22 2012/05/02 15:58:01 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.23 2012/05/03 04:57:35 dwjang Exp $
 //
 //
 
@@ -133,6 +133,7 @@
 #include "DataFormats/BTauReco/interface/JetTag.h"
 
 // PFIsolation
+#include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
 #include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
 
 // system include files
@@ -157,6 +158,9 @@ class SusyNtuplizer : public edm::EDAnalyzer {
 public:
   explicit SusyNtuplizer(const edm::ParameterSet&);
   ~SusyNtuplizer();
+
+  typedef std::vector< edm::Handle< edm::ValueMap<reco::IsoDeposit> > > IsoDepositMaps;
+  typedef std::vector< edm::Handle< edm::ValueMap<double> > > IsoDepositVals;
 
 private:
   virtual void beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup);
@@ -191,6 +195,7 @@ private:
   std::vector<std::string> electronIDCollectionTags_;
   std::vector<std::string> photonCollectionTags_;
   std::vector<std::string> photonIDCollectionTags_;
+  std::vector<edm::InputTag> isoValPhotonTags_;   
   edm::InputTag genCollectionTag_;
   edm::InputTag simVertexCollectionTag_;
   std::vector<std::string> caloJetCollectionTags_;
@@ -276,6 +281,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   electronIDCollectionTags_  = iConfig.getParameter<std::vector<std::string> >("electronIDCollectionTags");
   photonCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("photonCollectionTags");
   photonIDCollectionTags_    = iConfig.getParameter<std::vector<std::string> >("photonIDCollectionTags");
+  isoValPhotonTags_          = iConfig.getParameter< std::vector<edm::InputTag> >("isoValPhotonTags");   
   genCollectionTag_          = iConfig.getParameter<edm::InputTag>("genCollectionTag");
   simVertexCollectionTag_    = iConfig.getParameter<edm::InputTag>("simVertexCollectionTag");
   caloJetCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags");
@@ -820,6 +826,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
   }
 
+  // get the iso deposits. 3 (charged hadrons, photons, neutral hadrons)
+  unsigned nTypes=3;
+  IsoDepositVals phoIsoDepositVals(nTypes);
+  for (size_t j = 0; j<isoValPhotonTags_.size(); ++j) {
+    iEvent.getByLabel(isoValPhotonTags_[j], phoIsoDepositVals[j]);
+  }
+
   edm::Handle<reco::PhotonCollection> photonH;
   for(unsigned int iPhoC=0; iPhoC<photonCollectionTags_.size(); iPhoC++) {
     try {
@@ -893,6 +906,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  pho.chargedHadronIso                  = isolator03_.getIsolationCharged();
 	  pho.neutralHadronIso                  = isolator03_.getIsolationNeutral();
 	  pho.photonIso                         = isolator03_.getIsolationPhoton();
+	  // isoDeposit
+	  pho.chargedHadronIsoDeposit           = (*phoIsoDepositVals[0])[phoRef];
+	  pho.neutralHadronIsoDeposit           = (*phoIsoDepositVals[2])[phoRef];
+	  pho.photonIsoDeposit                  = (*phoIsoDepositVals[1])[phoRef];
 	}
 
 	// for timing

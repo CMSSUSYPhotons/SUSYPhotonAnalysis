@@ -4,3 +4,7 @@ cvs co -r lhx_14APR2012_v1 RecoMET/METFilters
 
 # this is not tagged yet as of May 2, 2012
 cvs co -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
+
+# to get IsoDeposit
+addpkg CommonTools/ParticleFlow V00-03-10
+addpkg RecoParticleFlow/PFProducer  V15-01-08

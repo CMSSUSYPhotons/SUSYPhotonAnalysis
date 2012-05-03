@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.10 2011/06/06 19:31:47 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.11 2011/06/07 20:30:39 dwjang Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -163,12 +163,14 @@ void SusyEventAnalyzer::Loop() {
     // uncomment this to print all ntuple variables
     Print(*event);
 
-
     if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;
 
     bool duplicateEvent = ! (allEvents[event->runNumber].insert(event->eventNumber)).second;
     if(event->isRealData && duplicateEvent) continue;
  
+
+    // remove events filtered by optional met filters
+    if(!event->passMetFilters()) continue;
 
     if(printLevel > 0) std::cout << "Setup object vectors." << std::endl;
 
@@ -208,22 +210,19 @@ void SusyEventAnalyzer::Loop() {
 	  it != phoMap->second.end(); it++) {
 
 	// fiducial cuts. Look for only barrel now
-	if(std::abs(it->caloPosition.Eta()) > susy::etaGapBegin) continue;
+	if(!it->isEB()) continue;
 
 	// Et cuts, 25 GeV for trailing photons. Will apply tighter for the leading one.
 	if(it->momentum.Et() < 25.0) continue;
 
-	// cuts containing EE cases for later use, but EE is not used for the time being.
-
-        // Spike cleaning
-        bool isSpike = (it->isEB() && it->r9 > 0.98) || (it->isEE() && it->r9 > 1.0);
-        if(isSpike) continue;
+        // optional Spike cleaning
+        if(it->r9 > 1.0) continue;
 
         // H/E (in trigger, 0.15 for EB, 0.10 for EE)
-        bool heCut = (it->isEB() && it->hadronicOverEm < 0.05) || (it->isEE() && it->hadronicOverEm < 0.05);
+        bool heCut = (it->hadronicOverEm < 0.05);
         
         // sigma_ietaieta (in trigger 0.014 for EB, 0.034 for EE)
-        bool sIetaCut = (it->isEB() && it->sigmaIetaIeta < 0.013) || (it->isEE() && it->sigmaIetaIeta < 0.033);
+        bool sIetaCut = (it->sigmaIetaIeta < 0.013);
 
         // Ecal Isolation
         bool ecalIsoCut = (it->ecalRecHitSumEtConeDR04 < 4.2 + 0.006 * it->momentum.Et());
@@ -264,18 +263,6 @@ void SusyEventAnalyzer::Loop() {
     std::sort(ele_photons.begin(),ele_photons.end(),EtGreater<susy::Photon>);
     std::sort(fake_photons.begin(),fake_photons.end(),EtGreater<susy::Photon>);
 
-    // setup on-the-fly jet corrections for CaloJets
-    std::vector<JetCorrectorParameters> caloJECs;
-    caloJECs.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5Calo_L2Relative.txt"));
-    caloJECs.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5Calo_L3Absolute.txt"));
-    FactorizedJetCorrector caloJetCorrector(caloJECs);
-
-    // setup on-the-fly jet corrections for PFJets
-    std::vector<JetCorrectorParameters> pfJECs;
-    pfJECs.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5PF_L2Relative.txt"));
-    pfJECs.push_back(JetCorrectorParameters("../jec/Jec11_V1_AK5PF_L3Absolute.txt"));
-    FactorizedJetCorrector pfJetCorrector(pfJECs);
-
 
     if(printLevel > 0) std::cout << "Find caloJets in the event." << std::endl;
       
@@ -288,11 +275,6 @@ void SusyEventAnalyzer::Loop() {
       for(std::vector<susy::CaloJet>::iterator it = jetColl.begin();
 	  it != jetColl.end(); it++) {
 
-        caloJetCorrector.setJetEta(it->momentum.Eta());
-        caloJetCorrector.setJetPt(it->momentum.Pt());
-        double corr = caloJetCorrector.getCorrection();
-
-
 	std::map<TString,Float_t>::iterator s_it = it->jecScaleFactors.find("L2L3");
 	if (s_it == it->jecScaleFactors.end()) {
 	  std::cout << "JEC is not available for this jet!!!" << std::endl;
@@ -300,7 +282,7 @@ void SusyEventAnalyzer::Loop() {
 	}
 	float scale = s_it->second;
 
-        if(printLevel > 2) std::cout << "CaloJet stored (" << scale << "), onTheFly (" << corr << ")" << std::endl;
+        if(printLevel > 2) std::cout << "CaloJet stored (" << scale << ")" << std::endl;
 
 	TLorentzVector corrP4 = scale * it->momentum;
 
@@ -340,10 +322,6 @@ void SusyEventAnalyzer::Loop() {
       for(std::vector<susy::PFJet>::iterator it = jetColl.begin();
 	  it != jetColl.end(); it++) {
 
-        pfJetCorrector.setJetEta(it->momentum.Eta());
-        pfJetCorrector.setJetPt(it->momentum.Pt());
-        double corr = pfJetCorrector.getCorrection();
-
 	std::map<TString,Float_t>::iterator s_it = it->jecScaleFactors.find("L2L3");
 	if (s_it == it->jecScaleFactors.end()) {
 	  std::cout << "JEC is not available for this jet!!!" << std::endl;
@@ -351,7 +329,7 @@ void SusyEventAnalyzer::Loop() {
 	}
 	float scale = s_it->second;
 
-        if(printLevel > 2) std::cout << "PFJet stored (" << scale << "), onTheFly (" << corr << ")" << std::endl;
+        if(printLevel > 2) std::cout << "PFJet stored (" << scale << ")" << std::endl;
 
 	TLorentzVector corrP4 = scale * it->momentum;
 

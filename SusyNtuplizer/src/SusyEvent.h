@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.19 2012/05/02 15:57:03 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.20 2012/05/03 04:57:35 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -270,9 +270,15 @@ namespace susy {
     UChar_t        nTrkSolidConeDR03;
     UChar_t        nTrkHollowConeDR03;
 
+    // calculated from alternative code
     Float_t        chargedHadronIso;
     Float_t        neutralHadronIso;
     Float_t        photonIso;
+
+    // read from IsoDeposit
+    Float_t        chargedHadronIsoDeposit;
+    Float_t        neutralHadronIsoDeposit;
+    Float_t        photonIsoDeposit;
 
     Float_t        seedTime; // seed timing
 
@@ -652,15 +658,15 @@ namespace susy {
     // Initialize members
     void Init();
 
-    bool passCSCBeamHalo()     { return metFilterBit & (0x1 << 0); }
-    bool passHcalNoise()       { return metFilterBit & (0x1 << 1); }
-    bool passEcalDeadCellTP()  { return metFilterBit & (0x1 << 2); }
-    bool passEcalDeadCellBE()  { return metFilterBit & (0x1 << 3); }
-    bool passHcalLaser()       { return metFilterBit & (0x1 << 4); }
-    bool passTrackingFailure() { return metFilterBit & (0x1 << 5); }
+    bool passCSCBeamHalo()     const { return metFilterBit & (0x1 << 0); }
+    bool passHcalNoise()       const { return metFilterBit & (0x1 << 1); }
+    bool passEcalDeadCellTP()  const { return metFilterBit & (0x1 << 2); }
+    bool passEcalDeadCellBE()  const { return metFilterBit & (0x1 << 3); }
+    bool passHcalLaser()       const { return metFilterBit & (0x1 << 4); }
+    bool passTrackingFailure() const { return metFilterBit & (0x1 << 5); }
 
     // JetMET recommended met filters
-    bool passMetFilters() { return passCSCBeamHalo() && passHcalNoise() &&
+    bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&
 	passEcalDeadCellTP() && passHcalLaser(); }
 
     // Members are made as public intentionally for easy access

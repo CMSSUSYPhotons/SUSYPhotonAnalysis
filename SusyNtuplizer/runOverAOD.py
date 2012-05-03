@@ -80,6 +80,14 @@ process.metFiltersSequence = cms.Sequence(
     process.trackingFailureFilter
 )
 
+# IsoDeposit
+from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso
+process.eleIsoSequence = setupPFElectronIso(process, 'gsfElectrons')
+process.phoIsoSequence = setupPFPhotonIso(process, 'photons')
+
+process.isoDeposit = cms.Sequence( process.pfParticleSelectionSequence + process.eleIsoSequence + process.phoIsoSequence)
+
+
 if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
@@ -119,9 +127,6 @@ process.p = cms.Path(
     process.metAnalysisSequence *
     process.jet *
     process.metFiltersSequence *
+    process.isoDeposit *
     process.susyNtuplizer
     )
-
-outfile = open('config.py','w')
-print >> outfile,process.dumpPython()
-outfile.close()

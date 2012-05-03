@@ -97,12 +97,10 @@ void Print(const susy::Photon& p) {
   std::cout << "\tchargedHadronIso : " << p.chargedHadronIso << std::endl;
   std::cout << "\tneutralHadronIso : " << p.neutralHadronIso << std::endl;
   std::cout << "\tphotonIso : " << p.photonIso << std::endl;
+  std::cout << "\tchargedHadronIsoDeposit : " << p.chargedHadronIsoDeposit << std::endl;
+  std::cout << "\tneutralHadronIsoDeposit : " << p.neutralHadronIsoDeposit << std::endl;
+  std::cout << "\tphotonIsoDeposit : " << p.photonIsoDeposit << std::endl;
   std::cout << "\tseedTime : " << p.seedTime << std::endl;
-  std::cout << "\tsMaj : " << p.sMaj << std::endl;
-  std::cout << "\tsMin : " << p.sMin << std::endl;
-  std::cout << "\talpha : " << p.alpha << std::endl;
-  std::cout << "\troundness : " << p.roundness << std::endl;
-  std::cout << "\tangle : " << p.angle << std::endl;
   std::cout << "\tconvDist : " << p.convDist << std::endl;
   std::cout << "\tconvDcot : " << p.convDcot << std::endl;
   std::cout << "\tconvVtxChi2 : " << p.convVtxChi2 << std::endl;
@@ -217,6 +215,12 @@ void Print(const susy::PFJet& j) {
   for(std::map<TString, Float_t>::const_iterator it = j.jecScaleFactors.begin();
       it != j.jecScaleFactors.end(); it++) {
     std::cout << "(" << it->first << "," << it->second << ") ";
+  }
+  std::cout << std::endl;
+  std::cout << "\tbTagDiscriminators :";
+  for(std::vector<Float_t>::const_iterator it = j.bTagDiscriminators.begin();
+      it != j.bTagDiscriminators.end(); it++) {
+    std::cout << " " << *it;
   }
   std::cout << std::endl;
 }
@@ -344,8 +348,16 @@ void Print(const susy::Event& event) {
   std::cout << "cosmicFlag : " << int(event.cosmicFlag) << std::endl;
   std::cout << "rho : " << event.rho << std::endl;
   std::cout << "rhoBarrel : " << event.rhoBarrel << std::endl;
-  std::cout << "PassesHcalNoiseFilter : " << event.PassesHcalNoiseFilter << std::endl;
-  std::cout << "PassesEcalDeadCellFilter : " << event.PassesEcalDeadCellFilter << std::endl;
+  std::cout << "metFilterBit : " << event.metFilterBit << std::endl;
+  std::cout << "metFilterBit break down ===> ";
+  std::cout << "passCSCBeamHalo(" << event.passCSCBeamHalo() << ") ";
+  std::cout << "passHcalNoise(" << event.passHcalNoise() << ") ";
+  std::cout << "passEcalDeadCellTP(" << event.passEcalDeadCellTP() << ") ";
+  std::cout << "passEcalDeadCellBE(" << event.passEcalDeadCellBE() << ") ";
+  std::cout << "passHcalLaser(" << event.passHcalLaser() << ") ";
+  std::cout << "passTrackingFailure(" << event.passTrackingFailure() << ") ";
+  std::cout << "passMetFilters(" << event.passMetFilters() << ") ";
+  std::cout << std::endl;
 
   std::cout << "beamSpot"; Print(event.beamSpot);
 
