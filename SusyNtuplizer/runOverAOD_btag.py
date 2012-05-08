@@ -6,9 +6,9 @@ realData = 1
 process = cms.Process("RA3")
 
 process.load('FWCore/MessageService/MessageLogger_cfi')
-process.MessageLogger.cerr.FwkReport.reportEvery = 10
+process.MessageLogger.cerr.FwkReport.reportEvery = 100
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(5000) )
 
 process.source = cms.Source("PoolSource",
                             noEventSort = cms.untracked.bool(True),
@@ -99,9 +99,9 @@ if realData:
 
 else:
     process.source.fileNames = cms.untracked.vstring(
-        'dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root'
+	'dcap:///pnfs/cms/WAX/11/store/mc/Summer12/WJetsToLNu_TuneZ2Star_8TeV-madgraph-tarball/AODSIM/PU_S7_START52_V9-v1/0001/FE8F81B3-C494-E111-B50D-003048D476BC.root'
         )
-    process.GlobalTag.globaltag = 'START42_V15B::All'
+    process.GlobalTag.globaltag = 'START52_V9::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
@@ -113,6 +113,7 @@ else:
         # Barrel only Rho calculation
         process.kt6PFJetsRhoBarrelOnly
         )
+    process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
 
 # IsoDeposit
 from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso
@@ -217,13 +218,46 @@ process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingMu
 )
 
+process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 
-process.p = cms.Path(
-    process.newJetTracksAssociator *
-    process.newJetBtagging *
-    process.metAnalysisSequence *
-    process.jet *
-    process.metFiltersSequence *
-    process.isoDeposit *
-    process.susyNtuplizer
-    )
+process.myPartons = cms.EDProducer("PartonSelector",   
+                                   withLeptons = cms.bool(False),
+                                   src = cms.InputTag("genParticles")
+                                   )
+
+process.flavourByRef = cms.EDProducer("JetPartonMatcher",
+                                      #jets = cms.InputTag("iterativeCone5CaloJets"),
+                                      #jets = cms.InputTag("ak5CaloJetsL2L3"),
+                                      jets = cms.InputTag("ak5PFJetsL2L3"),
+                                      coneSizeToAssociate = cms.double(0.3),
+                                      partons = cms.InputTag("myPartons")
+                                      )
+
+process.JetFlavourMatching = cms.Sequence(
+    process.myPartons *
+    process.flavourByRef
+)
+
+if realData:
+    process.p = cms.Path(
+	process.newJetTracksAssociator *
+	process.newJetBtagging *
+	process.metAnalysisSequence *
+	process.jet *
+	process.metFiltersSequence *
+	process.isoDeposit *
+	process.susyNtuplizer
+	)
+
+else:
+    process.p = cms.Path(
+	process.newJetTracksAssociator *
+	process.newJetBtagging *
+	process.metAnalysisSequence *
+	process.jet *
+	process.JetFlavourMatching *
+	process.metFiltersSequence *
+	process.isoDeposit *
+	process.susyNtuplizer
+	)
+

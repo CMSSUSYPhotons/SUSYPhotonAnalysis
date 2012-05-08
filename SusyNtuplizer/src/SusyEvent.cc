@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.16 2012/05/03 04:57:35 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.17 2012/05/03 19:58:51 dwjang Exp $
 //
 
 #include "SusyEvent.h"
@@ -241,6 +241,22 @@ void susy::Muon::Init() {
     ecalIsoR05              = 0;
     hcalIsoR05              = 0;
 
+    sumChargedHadronPt03    = 0;
+    sumChargedParticlePt03  = 0;
+    sumNeutralHadronEt03    = 0;
+    sumPhotonEt03           = 0;
+    sumNeutralHadronEtHighThreshold03 = 0;
+    sumPhotonEtHighThreshold03        = 0;
+    sumPUPt03               = 0;
+
+    sumChargedHadronPt04    = 0;
+    sumChargedParticlePt04  = 0;
+    sumNeutralHadronEt04    = 0;
+    sumPhotonEt04           = 0;
+    sumNeutralHadronEtHighThreshold04 = 0;
+    sumPhotonEtHighThreshold04        = 0;
+    sumPUPt04               = 0;
+
     trackIndex              = -1;
     standAloneTrackIndex    = -1;
     combinedTrackIndex      = -1;
@@ -305,7 +321,8 @@ void susy::CaloJet::Init() {
 
 
 void susy::PFJet::Init() {
-  partonFlavour             = 0;
+  phyDefFlavour             = 0;
+  algDefFlavour             = 0;
   jetCharge                 = 0;
   etaMean                   = 0;
   phiMean                   = 0;

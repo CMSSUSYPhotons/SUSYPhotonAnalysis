@@ -5,15 +5,15 @@
 // 
 /**\class SusyNtuplizer SusyNtuplizer.cc SusyAnalysis/SusyNtuplizer/src/SusyNtuplizer.cc
 
- Description: Ntuple maker for SUSY analysis
+   Description: Ntuple maker for SUSY analysis
 
- Implementation:
-     Putting all header files in src area violates CMS coding rule,
-     but it is convenient for later use in standalone mode.
+   Implementation:
+   Putting all header files in src area violates CMS coding rule,
+   but it is convenient for later use in standalone mode.
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.23 2012/05/03 04:57:35 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.24 2012/05/03 19:58:51 dwjang Exp $
 //
 //
 
@@ -131,6 +131,7 @@
 
 // b-tagging info
 #include "DataFormats/BTauReco/interface/JetTag.h"
+#include "SimDataFormats/JetMatching/interface/JetMatchedPartons.h"
 
 // PFIsolation
 #include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
@@ -141,6 +142,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <utility>
 
 #include <TTree.h>
 #include <TFile.h>
@@ -237,6 +239,10 @@ private:
   // default : false
   bool storeGeneralTracks_;
 
+  // flag for storing parton flavour matches for ak5pf jets
+  // default : true (turned off in runOverAOD.py)
+  bool storePFJetPartonMatches_;
+
   // input RECO mode
   // false : default - reading from AOD
   //         no extrapolation info will be saved in ntuples
@@ -257,6 +263,11 @@ private:
 
   // PFParticleThreshold
   double pfParticleThreshold_;
+
+  // vector of ak5pf and pdgId matches
+  // JetPartonMatcher matches, and we store them in here to match to specific susy::PFJet later
+  std::vector< std::pair<reco::Jet, int> > physicsDefinitionMatches;
+  std::vector< std::pair<reco::Jet, int> > algorithmicDefinitionMatches;
 
   std::string outputFileName_;
 
@@ -300,6 +311,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   debugLevel_ = iConfig.getParameter<int>("debugLevel");
   storeGenInfos_ = iConfig.getParameter<bool>("storeGenInfos");
   storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
+  storePFJetPartonMatches_ = iConfig.getParameter<bool>("storePFJetPartonMatches");
   recoMode_ = iConfig.getParameter<bool>("recoMode");
   outputFileName_ = iConfig.getParameter<std::string>("outputFileName");
 
@@ -426,92 +438,124 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     
     susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
     susyEvent_->intgRecLumi = lsH->intgRecLumi();
-    
-    if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
+  } // isrealdata
 
-    edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
+  if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
+
+  edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
   
+  try {
+    iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
+    if( ! gtOMs.isValid() ) {
+      edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
+			      << "No L1 Objects and GTL results available for physics algorithms";
+    }
+      
+    // Get and cache L1 menu
+    const bool useL1EventSetup(true);
+    const bool useL1GtTriggerMenuLite(false);
+    l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
+      
+    edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
+    iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
+    L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
+    const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
+      
+    for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
+      const std::string & algoName( iAlgo->second.algoName() );
+      if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
+	edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
+				<< "Skipping";
+	continue;
+      }
+	
+      L1GtUtils::TriggerCategory category;
+      int bit;
+      if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
+	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
+			      << "Skipping";
+	continue;
+      }
+      if( category != L1GtUtils::AlgorithmTrigger ) {
+	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
+			      << "Skipping";
+	continue;
+      }
+	
+      bool decisionBeforeMask;
+      bool decisionAfterMask;
+      int prescale;
+      int mask;
+      int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
+      if( error ) {
+	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
+			      << "Skipping";
+	continue;
+      }
+	
+      susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+    }
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
+  }
+    
+    
+  if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
+    
+  edm::Handle<edm::TriggerResults> hltH;
+  try {
+    iEvent.getByLabel(hltCollectionTag_,hltH);
+    int nHlt = hltH->size();
+    const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
+    if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
+    // loop over hlt paths
+    for(int i=0; i<nHlt; i++) {
+      // get prescale from LumiSummary
+      // Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
+      Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
+      // check hlt bit
+      susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
+      if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
+    }
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "TriggerResults is not available!!! " << e.what();
+  }
+
+  if( ! susyEvent_->isRealData && storePFJetPartonMatches_) {
+
+    if(debugLevel_ > 0) std::cout << name() << ", fill ak5pf jet parton matches" << std::endl;
+
+    physicsDefinitionMatches.clear();
+    algorithmicDefinitionMatches.clear();
+
     try {
-      iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
-      if( ! gtOMs.isValid() ) {
-	edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
-				<< "No L1 Objects and GTL results available for physics algorithms";
+      edm::Handle<reco::JetMatchedPartonsCollection> matchCollH;
+      iEvent.getByLabel("flavourByRef", matchCollH);
+
+      for(reco::JetMatchedPartonsCollection::const_iterator p = matchCollH->begin(); p != matchCollH->end(); p++) {
+        const reco::Jet *aJet = (*p).first.get();
+	const reco::MatchedPartons aMatch = (*p).second;
+
+	const reco::GenParticleRef thePhyDef = aMatch.physicsDefinitionParton();
+	if(thePhyDef.isNonnull()) {
+	  physicsDefinitionMatches.push_back( make_pair(*aJet, (int)(thePhyDef.get()->pdgId())) );
+	}
+
+	const reco::GenParticleRef theAlgDef = aMatch.algoDefinitionParton();
+	if(theAlgDef.isNonnull()) {
+	  algorithmicDefinitionMatches.push_back( make_pair(*aJet, (int)(theAlgDef.get()->pdgId())) );
+	}
       }
-      
-      // Get and cache L1 menu
-      const bool useL1EventSetup(true);
-      const bool useL1GtTriggerMenuLite(false);
-      l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
-      
-      edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
-      iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
-      L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
-      const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
-      
-      for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
-	const std::string & algoName( iAlgo->second.algoName() );
-	if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
-	  edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
-				  << "Skipping";
-	  continue;
-	}
-	
-	L1GtUtils::TriggerCategory category;
-	int bit;
-	if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
-	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
-				<< "Skipping";
-	  continue;
-	}
-	if( category != L1GtUtils::AlgorithmTrigger ) {
-	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
-				<< "Skipping";
-	  continue;
-	}
-	
-	bool decisionBeforeMask;
-	bool decisionAfterMask;
-	int prescale;
-	int mask;
-	int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
-	if( error ) {
-	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
-				<< "Skipping";
-	  continue;
-	}
-	
-	susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
-      }
+
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
-    }
-    
-    
-    if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
-    
-    edm::Handle<edm::TriggerResults> hltH;
-    try {
-      iEvent.getByLabel(hltCollectionTag_,hltH);
-      int nHlt = hltH->size();
-      const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
-      if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
-      // loop over hlt paths
-      for(int i=0; i<nHlt; i++) {
-	// get prescale from LumiSummary
-	// Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
-	Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
-	// check hlt bit
-	susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
-	if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
-      }
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "TriggerResults is not available!!! " << e.what();
+      edm::LogError(name()) << "flavourByRef is not available!!!" << e.what();
     }
 
-  } // isRealData    
-    
+  } // if !isRealData
+
   if(debugLevel_ > 0) std::cout << name() << ", fill beam spot" << std::endl;
   
   edm::Handle<reco::BeamSpot> bsh;
@@ -612,13 +656,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
   }
   
-//   try {
-//     iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
-//     sevLevel = sevlv.product();
-//   }
-//   catch(cms::Exception& e) {
-//     edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
-//   }
+  //   try {
+  //     iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
+  //     sevLevel = sevlv.product();
+  //   }
+  //   catch(cms::Exception& e) {
+  //     edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
+  //   }
 
 
   if(debugLevel_ > 0) std::cout << name() << ", fill all kinds of met collections" << std::endl;
@@ -691,7 +735,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "rhoBarrel is not available!!! " << e.what();
   }
   
-
   bool passCSCBeamHalo = false;
   bool passHcalNoise = false;
   bool passEcalDeadCellTP = false;
@@ -756,7 +799,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   catch(cms::Exception& e) {
     edm::LogError(name()) << "trackingFailureFilter is not available!!!" << e.what();
   }
-
 
   Int_t metFilterBit = 0;
 
@@ -1274,6 +1316,22 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       mu.ecalIsoR05                         = it->isolationR05().emEt;
       mu.hcalIsoR05                         = it->isolationR05().hadEt;
 
+      mu.sumChargedHadronPt03               = it->pfIsolationR03().sumChargedHadronPt;
+      mu.sumChargedParticlePt03             = it->pfIsolationR03().sumChargedParticlePt;
+      mu.sumNeutralHadronEt03               = it->pfIsolationR03().sumNeutralHadronEt;
+      mu.sumPhotonEt03                      = it->pfIsolationR03().sumPhotonEt;
+      mu.sumNeutralHadronEtHighThreshold03  = it->pfIsolationR03().sumNeutralHadronEtHighThreshold;
+      mu.sumPhotonEtHighThreshold03         = it->pfIsolationR03().sumPhotonEtHighThreshold;
+      mu.sumPUPt03                          = it->pfIsolationR03().sumPUPt;
+
+      mu.sumChargedHadronPt04               = it->pfIsolationR04().sumChargedHadronPt;
+      mu.sumChargedParticlePt04             = it->pfIsolationR04().sumChargedParticlePt;
+      mu.sumNeutralHadronEt04               = it->pfIsolationR04().sumNeutralHadronEt;
+      mu.sumPhotonEt04                      = it->pfIsolationR04().sumPhotonEt;
+      mu.sumNeutralHadronEtHighThreshold04  = it->pfIsolationR04().sumNeutralHadronEtHighThreshold;
+      mu.sumPhotonEtHighThreshold04         = it->pfIsolationR04().sumPhotonEtHighThreshold;
+      mu.sumPUPt04                          = it->pfIsolationR04().sumPUPt;
+
       if(it->isTimeValid()){
 	mu.timeNDof                         = it->time().nDof;
 	mu.timeDirection                    = Int_t(it->time().direction());
@@ -1579,6 +1637,43 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  jet.bTagDiscriminators.push_back(tagInfo);
 	}
 
+	// if MC, add parton flavor id matches
+	if( ! susyEvent_->isRealData) {
+	  double min_dr_pdgid = 999.9;
+	  bool foundMatch = false;
+	  unsigned int matchIndex;
+
+	  for(unsigned int iMatch = 0; iMatch < physicsDefinitionMatches.size(); iMatch++) {
+	    //double current_dr_pdgid = deltaR(physicsDefinitionMatches[iMatch].first, it->p4());
+	    double current_dr_pdgid = deltaR(jet.etaMean, 
+					     jet.phiMean, 
+					     physicsDefinitionMatches[iMatch].first.etaPhiStatistics().etaMean, 
+					     physicsDefinitionMatches[iMatch].first.etaPhiStatistics().phiMean);
+	    if(current_dr_pdgid < min_dr_pdgid) {
+	      min_dr_pdgid = current_dr_pdgid;
+	      foundMatch = true;
+	      matchIndex = iMatch;
+	    }
+	  }
+
+	  if(foundMatch && min_dr_pdgid < 0.001) jet.phyDefFlavour = physicsDefinitionMatches[matchIndex].second;
+
+	  min_dr_pdgid = 999.9;
+	  foundMatch = false;
+
+	  for(unsigned int iMatch = 0; iMatch < algorithmicDefinitionMatches.size(); iMatch++) {
+            double current_dr_pdgid = deltaR(algorithmicDefinitionMatches[iMatch].first, it->p4());
+            if(current_dr_pdgid < min_dr_pdgid) {
+              min_dr_pdgid = current_dr_pdgid;
+              foundMatch = true;
+              matchIndex = iMatch;
+            }
+          }
+
+	  if(foundMatch && min_dr_pdgid < 0.001) jet.algDefFlavour = algorithmicDefinitionMatches[matchIndex].second;
+
+	} // if !isRealData
+
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
 
@@ -1594,10 +1689,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 
   /*
-  if(debugLevel_ > 0) std::cout << name() << ", fill jptjet collections" << std::endl;
+    if(debugLevel_ > 0) std::cout << name() << ", fill jptjet collections" << std::endl;
 
-  nJetColl = jptJetCollectionTags_.size();
-  for(int iJetC=0; iJetC < nJetColl; iJetC++) {
+    nJetColl = jptJetCollectionTags_.size();
+    for(int iJetC=0; iJetC < nJetColl; iJetC++) {
     susy::JPTJetCollection jetCollection;
     TString key(jptJetCollectionTags_[iJetC].c_str());
 
@@ -1608,65 +1703,65 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
     edm::Handle<reco::JPTJetCollection> jetH;
     try {
-      iEvent.getByLabel(edm::InputTag(jptJetCollectionTags_[iJetC]),jetH);
-      if(debugLevel_ > 1) std::cout << "size of " << key << " JetCollection : " << jetH->size() << std::endl;
-      int ijet = 0;
-      for(reco::JPTJetCollection::const_iterator it = jetH->begin();
-	  it != jetH->end(); it++){
+    iEvent.getByLabel(edm::InputTag(jptJetCollectionTags_[iJetC]),jetH);
+    if(debugLevel_ > 1) std::cout << "size of " << key << " JetCollection : " << jetH->size() << std::endl;
+    int ijet = 0;
+    for(reco::JPTJetCollection::const_iterator it = jetH->begin();
+    it != jetH->end(); it++){
 
-	reco::JPTJetRef jetRef(jetH,ijet++);
+    reco::JPTJetRef jetRef(jetH,ijet++);
 
-	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-	float jecScale = 1;
-	//	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
-	if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
-	else jecScale = corrL2L3->correction(it->p4());
-	corrP4 *= jecScale;
+    TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
+    float jecScale = 1;
+    //	if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
+    if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
+    else jecScale = corrL2L3->correction(it->p4());
+    corrP4 *= jecScale;
 
-	if(corrP4.Pt() < jetThreshold_) continue;
+    if(corrP4.Pt() < jetThreshold_) continue;
 
-	susy::JPTJet jet;
+    susy::JPTJet jet;
 
-	// Basic Jet
-	jet.etaMean         = it->etaPhiStatistics().etaMean;
-	jet.phiMean         = it->etaPhiStatistics().phiMean;
-	jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
-	jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
-	jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
-	jet.maxDistance     = it->maxDistance();
-	jet.jetArea         = it->jetArea();
-	jet.pileup          = it->pileup();
-	jet.nPasses         = it->nPasses();
-	jet.nConstituents   = it->nConstituents();
+    // Basic Jet
+    jet.etaMean         = it->etaPhiStatistics().etaMean;
+    jet.phiMean         = it->etaPhiStatistics().phiMean;
+    jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
+    jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
+    jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
+    jet.maxDistance     = it->maxDistance();
+    jet.jetArea         = it->jetArea();
+    jet.pileup          = it->pileup();
+    jet.nPasses         = it->nPasses();
+    jet.nConstituents   = it->nConstituents();
 
-	jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-	jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+    jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+    jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
-	jet.chargedHadronEnergy = it->chargedHadronEnergy();
-	jet.neutralHadronEnergy = it->neutralHadronEnergy();
-	jet.chargedEmEnergy     = it->chargedEmEnergy();
-	jet.neutralEmEnergy     = it->neutralEmEnergy();
-	jet.chargedMultiplicity = it->chargedMultiplicity();
-	jet.muonMultiplicity    = it->muonMultiplicity();
-	jet.elecMultiplicity    = it->elecMultiplicity();
-	jet.getZSPCor           = it->getZSPCor();
+    jet.chargedHadronEnergy = it->chargedHadronEnergy();
+    jet.neutralHadronEnergy = it->neutralHadronEnergy();
+    jet.chargedEmEnergy     = it->chargedEmEnergy();
+    jet.neutralEmEnergy     = it->neutralEmEnergy();
+    jet.chargedMultiplicity = it->chargedMultiplicity();
+    jet.muonMultiplicity    = it->muonMultiplicity();
+    jet.elecMultiplicity    = it->elecMultiplicity();
+    jet.getZSPCor           = it->getZSPCor();
 
-	jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-	//	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
-	jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
-	//	jet.jecScaleFactors["L1L2L3R"] = corrL1L2L3R->correction(it->p4());
+    jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+    //	jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
+    jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
+    //	jet.jecScaleFactors["L1L2L3R"] = corrL1L2L3R->correction(it->p4());
 
-	jetCollection.push_back(jet);
-	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
-      }// for it
+    jetCollection.push_back(jet);
+    if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
+    }// for it
     }
     catch(cms::Exception& e) {
-      edm::LogError(name()) << jptJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
+    edm::LogError(name()) << jptJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
     }
 
     susyEvent_->jptJets[key] = jetCollection;
 
-  }// for JPTJet
+    }// for JPTJet
 
   */
 
@@ -1677,7 +1772,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
     // event weighting variables, for example ptHat
     edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
-    if(iEvent.getByLabel("generator",GenEventInfoHandle)) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
+    if(iEvent.getByLabel("generator",GenEventInfoHandle) && GenEventInfoHandle->binningValues().size() > 0) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
 
     //get PU summary info
     edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;

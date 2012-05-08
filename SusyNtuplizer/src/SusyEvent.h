@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.20 2012/05/03 04:57:35 dwjang Exp $
+// $Id: SusyEvent.h,v 1.21 2012/05/03 19:58:51 dwjang Exp $
 //
 
 #ifndef SusyEvent_h
@@ -425,6 +425,7 @@ namespace susy {
     bool isTrackerMuon() {    return (type & (0x1 << 2)); }
     bool isStandAloneMuon() { return (type & (0x1 << 3)); }
     bool isCaloMuon() {       return (type & (0x1 << 4)); }
+    bool isPFMuon() {         return (type & (0x1 << 5)); }
 
     UChar_t        type;
     UChar_t        nMatches;
@@ -445,6 +446,22 @@ namespace susy {
     Float_t        trackIsoR05;
     Float_t        ecalIsoR05;
     Float_t        hcalIsoR05;
+
+    Float_t        sumChargedHadronPt03;
+    Float_t        sumChargedParticlePt03;
+    Float_t        sumNeutralHadronEt03;
+    Float_t        sumPhotonEt03;
+    Float_t        sumNeutralHadronEtHighThreshold03;
+    Float_t        sumPhotonEtHighThreshold03;
+    Float_t        sumPUPt03;
+
+    Float_t        sumChargedHadronPt04;
+    Float_t        sumChargedParticlePt04;
+    Float_t        sumNeutralHadronEt04;
+    Float_t        sumPhotonEt04;
+    Float_t        sumNeutralHadronEtHighThreshold04;
+    Float_t        sumPhotonEtHighThreshold04;
+    Float_t        sumPUPt04;
 
     Short_t        trackIndex;             // tracker only
     Short_t        standAloneTrackIndex;   // muon detector only
@@ -529,7 +546,8 @@ namespace susy {
     void Init();
 
     // Basic Jet Info
-    Float_t        partonFlavour;
+    Int_t          phyDefFlavour;
+    Int_t          algDefFlavour;
     Float_t        jetCharge;
     Float_t        etaMean;
     Float_t        phiMean;

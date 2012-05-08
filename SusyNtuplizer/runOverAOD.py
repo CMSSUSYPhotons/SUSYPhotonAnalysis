@@ -31,6 +31,7 @@ process.load("JetMETCorrections/Type1MET/caloMETCorrections_cff")
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = cms.int32(0)
 process.susyNtuplizer.bTagCollectionTags = cms.vstring()
+process.susyNtuplizer.storePFJetPartonMatches = cms.bool(False)
 
 process.metAnalysisSequence = cms.Sequence(process.producePFMETCorrections*
                                            process.produceCaloMETCorrections)
@@ -87,7 +88,6 @@ process.phoIsoSequence = setupPFPhotonIso(process, 'photons')
 
 process.isoDeposit = cms.Sequence( process.pfParticleSelectionSequence + process.eleIsoSequence + process.phoIsoSequence)
 
-
 if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
@@ -110,7 +110,7 @@ else:
     process.source.fileNames = cms.untracked.vstring(
         'dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root'
         )
-    process.GlobalTag.globaltag = 'START42_V15B::All'
+    process.GlobalTag.globaltag = 'START52_V9::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
@@ -122,6 +122,7 @@ else:
         # Barrel only Rho calculation
         process.kt6PFJetsRhoBarrelOnly
         )
+    process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
 
 process.p = cms.Path(
     process.metAnalysisSequence *

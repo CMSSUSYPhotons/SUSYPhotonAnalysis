@@ -64,6 +64,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
                                debugLevel = cms.int32(0),
                                storeGenInfos = cms.bool(True),
                                storeGeneralTracks = cms.bool(False),
+			       storePFJetPartonMatches = cms.bool(True),
                                recoMode = cms.bool(False),
                                outputFileName = cms.string("susyEvents.root")                               
 )
