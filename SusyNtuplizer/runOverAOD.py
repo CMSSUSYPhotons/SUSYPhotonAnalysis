@@ -1,7 +1,10 @@
 import FWCore.ParameterSet.Config as cms
 
 # change this to 0 if you run on MC files
-realData = 1
+realData = 0
+
+# change this to 0 if you run on FullSim MC
+isFastSim = 1
 
 process = cms.Process("RA3")
 
@@ -32,6 +35,8 @@ process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = cms.int32(0)
 process.susyNtuplizer.bTagCollectionTags = cms.vstring()
 process.susyNtuplizer.storePFJetPartonMatches = cms.bool(False)
+if isFastSim:
+    process.susyNtuplizer.isFastSim = cms.bool(True)
 
 process.metAnalysisSequence = cms.Sequence(process.producePFMETCorrections*
                                            process.produceCaloMETCorrections)
@@ -46,6 +51,16 @@ process.kt6PFJetsRhoBarrelOnly = process.kt4PFJets.clone(
     Rho_EtaMax=cms.double(1.4442),
     #Eta range of ghost jets to be considered for Rho calculation - must be greater than Rho_EtaMax
     Ghost_EtaMax=cms.double(2.5)
+    )
+
+#Calculate rho restricted to barrel for photon pileup subtraction
+process.kt6PFJetsRho25 = process.kt4PFJets.clone(
+    src = cms.InputTag('particleFlow'),
+    rParam = cms.double(0.6),
+    #Eta range of jets to be considered for Rho calculation
+    #Should be at most (jet acceptance - jet radius)
+    doRhoFastjet = cms.bool(True),
+    Rho_EtaMax=cms.double(2.5)
     )
 
 # HBHENoiseFilterResultProducer
@@ -72,14 +87,23 @@ process.load('RecoMET.METFilters.trackingFailureFilter_cfi')
 process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3Residual')
 
 #Add up all MET filters
-process.metFiltersSequence = cms.Sequence(
-    process.HBHENoiseFilterResultProducer *
-    process.hcalLaserEventFilter *
-    process.EcalDeadCellTriggerPrimitiveFilter *
-    process.EcalDeadCellBoundaryEnergyFilter *
-    process.goodVertices *
-    process.trackingFailureFilter
-)
+if realData or not isFastSim:
+    process.metFiltersSequence = cms.Sequence(
+        process.HBHENoiseFilterResultProducer *
+        process.hcalLaserEventFilter *
+        process.EcalDeadCellTriggerPrimitiveFilter *
+        process.EcalDeadCellBoundaryEnergyFilter *
+        process.goodVertices *
+        process.trackingFailureFilter
+        )
+else:
+    process.metFiltersSequence = cms.Sequence(
+        process.hcalLaserEventFilter *
+        process.EcalDeadCellTriggerPrimitiveFilter *
+        process.EcalDeadCellBoundaryEnergyFilter *  
+        process.goodVertices *
+        process.trackingFailureFilter
+        )
 
 # IsoDeposit
 from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso
@@ -103,7 +127,9 @@ if realData:
         # PFJets
         process.ak5PFJetsL2L3Residual * process.ak5PFJetsL1FastL2L3Residual *
         # Barrel only Rho calculation
-        process.kt6PFJetsRhoBarrelOnly
+        process.kt6PFJetsRhoBarrelOnly *
+	# Rho25 calculation
+	process.kt6PFJetsRho25
         )
 
 else:
@@ -120,9 +146,14 @@ else:
         # PFJets
         process.ak5PFJetsL2L3 * process.ak5PFJetsL1FastL2L3 *
         # Barrel only Rho calculation
-        process.kt6PFJetsRhoBarrelOnly
+        process.kt6PFJetsRhoBarrelOnly *
+	# Rho25 calculation
+	process.kt6PFJetsRho25
         )
     process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
+    if isFastSim:
+	process.susyNtuplizer.muonIDCollectionTags = cms.vstring()
+
 
 process.p = cms.Path(
     process.metAnalysisSequence *

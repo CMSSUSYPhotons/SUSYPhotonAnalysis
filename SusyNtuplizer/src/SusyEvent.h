@@ -699,6 +699,7 @@ namespace susy {
     UChar_t                                     cosmicFlag; // empty for now
     Float_t                                     rho; // from kt6PFJets
     Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
+    Float_t 					rho25; // from kt6PFJetsRho25
     Int_t                                       metFilterBit;
 
     TVector3                                    beamSpot;

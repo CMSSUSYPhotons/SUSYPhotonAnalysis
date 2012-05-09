@@ -422,6 +422,7 @@ void susy::Event::Init() {
     cosmicFlag                  = 0;
     rho                         = 0;
     rhoBarrel                   = 0;
+    rho25			= 0;
     metFilterBit                = 0;
 
     beamSpot                   *= 0;

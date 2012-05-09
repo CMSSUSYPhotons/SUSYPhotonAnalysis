@@ -249,6 +249,11 @@ private:
   // true : reading from RECO
   bool recoMode_;
 
+  // flag for whether or not MC is fastsim
+  // certain collections are not produced by FamosSequence so we skip them
+  // default: false (turned on in runOverAOD.py)
+  bool isFastSim_;
+
   // electronThreshold
   double electronThreshold_;
 
@@ -313,6 +318,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
   storePFJetPartonMatches_ = iConfig.getParameter<bool>("storePFJetPartonMatches");
   recoMode_ = iConfig.getParameter<bool>("recoMode");
+  isFastSim_ = iConfig.getParameter<bool>("isFastSim");
   outputFileName_ = iConfig.getParameter<std::string>("outputFileName");
 
   susyEvent_ = new susy::Event;
@@ -424,7 +430,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 				<< ", event " << iEvent.id().event()
 				<< ", isRealData " << iEvent.isRealData()
 				<< ", lumiBlock " << iEvent.getLuminosityBlock().luminosityBlock() << std::endl;
-  
+
+  // lumiSummary only available in data  
   if(susyEvent_->isRealData) {
     const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
     edm::Handle<LumiSummary> lsH;
@@ -438,68 +445,71 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     
     susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
     susyEvent_->intgRecLumi = lsH->intgRecLumi();
-  } // isrealdata
+  }
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
+  // L1 Info only available in data and FullSim
+  if(susyEvent_->isRealData || !isFastSim_ ) {
+    if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
 
-  edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
+    edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
   
-  try {
-    iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
-    if( ! gtOMs.isValid() ) {
-      edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
-			      << "No L1 Objects and GTL results available for physics algorithms";
+    try {
+      iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
+      if( ! gtOMs.isValid() ) {
+        edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
+			        << "No L1 Objects and GTL results available for physics algorithms";
+      }
+      
+      // Get and cache L1 menu
+      const bool useL1EventSetup(true);
+      const bool useL1GtTriggerMenuLite(false);
+      l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
+      
+      edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
+      iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
+      L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
+      const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
+      
+      for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
+        const std::string & algoName( iAlgo->second.algoName() );
+        if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
+	  edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
+				  << "Skipping";
+	  continue;
+        }
+	
+        L1GtUtils::TriggerCategory category;
+        int bit;
+        if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
+			        << "Skipping";
+	  continue;
+        }
+        if( category != L1GtUtils::AlgorithmTrigger ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
+			        << "Skipping";
+	  continue;
+        }
+	
+        bool decisionBeforeMask;
+        bool decisionAfterMask;
+        int prescale;
+        int mask;
+        int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
+        if( error ) {
+	  edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
+			        << "Skipping";
+	  continue;
+        }
+	
+        susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+      }
     }
-      
-    // Get and cache L1 menu
-    const bool useL1EventSetup(true);
-    const bool useL1GtTriggerMenuLite(false);
-    l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
-      
-    edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
-    iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
-    L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
-    const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
-      
-    for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
-      const std::string & algoName( iAlgo->second.algoName() );
-      if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
-	edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
-				<< "Skipping";
-	continue;
-      }
-	
-      L1GtUtils::TriggerCategory category;
-      int bit;
-      if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
-	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
-			      << "Skipping";
-	continue;
-      }
-      if( category != L1GtUtils::AlgorithmTrigger ) {
-	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
-			      << "Skipping";
-	continue;
-      }
-	
-      bool decisionBeforeMask;
-      bool decisionAfterMask;
-      int prescale;
-      int mask;
-      int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
-      if( error ) {
-	edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
-			      << "Skipping";
-	continue;
-      }
-	
-      susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
     }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
-  }
     
+  } // L1 only if data or fullsim
     
   if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
     
@@ -735,6 +745,16 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "rhoBarrel is not available!!! " << e.what();
   }
   
+  if(debugLevel_ > 0) std::cout << name() << ", fill rho25 calculated from kt6PFJetsRho25" << std::endl;
+  try {
+    edm::Handle<double> r25H;
+    iEvent.getByLabel("kt6PFJetsRho25","rho",r25H);
+    susyEvent_->rho25 = *r25H;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "rho25 is not available!!! " << e.what();
+  }
+
   bool passCSCBeamHalo = false;
   bool passHcalNoise = false;
   bool passEcalDeadCellTP = false;
@@ -742,15 +762,19 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   bool passHcalLaser = false;
   bool passTrackingFailure = false;
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
-  try {
-    edm::Handle<bool> noiseH;
-    iEvent.getByLabel("HBHENoiseFilterResultProducer","HBHENoiseFilterResult",noiseH);
-    passHcalNoise = *noiseH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "HBHENoiseFilterResult is not available!!! " << e.what();
-  }
+  // hcalnoise only available in data and FullSim
+  if(susyEvent_->isRealData || !isFastSim_) {
+    if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
+    try {
+      edm::Handle<bool> noiseH;
+      iEvent.getByLabel("HBHENoiseFilterResultProducer","HBHENoiseFilterResult",noiseH);
+      passHcalNoise = *noiseH;
+    }
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "HBHENoiseFilterResult is not available!!! " << e.what();
+    }
+
+  } // only for data and fullsim
 
   if(debugLevel_ > 0) std::cout << name() << ", fill PassesEcalDeadCellFilter" << std::endl;
   try {
@@ -764,18 +788,23 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   catch(cms::Exception& e) {
     edm::LogError(name()) << "ecalDeadCellfilter is not available!!! " << e.what();
   }
-  
-  if (debugLevel_ > 0)
-    std::cout << name() << ", fill PassesCSCTightHaloFilter calculated by BeamHaloId" << std::endl;
-  try {
-    edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
-    iEvent.getByLabel("BeamHaloSummary", beamHaloSummary);
 
-    passCSCBeamHalo = !(beamHaloSummary->CSCTightHaloId());
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "BeamHaloSummary is not available!!!" << e.what();
-  }
+  // BeamHaloSummary only available in data and FullSim
+  if(susyEvent_->isRealData || !isFastSim_) {  
+    if (debugLevel_ > 0)
+      std::cout << name() << ", fill PassesCSCTightHaloFilter calculated by BeamHaloId" << std::endl;
+    try {
+      edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
+      iEvent.getByLabel("BeamHaloSummary", beamHaloSummary);
+
+      passCSCBeamHalo = !(beamHaloSummary->CSCTightHaloId());
+    }
+    catch(cms::Exception& e) {
+      edm::LogError(name()) << "BeamHaloSummary is not available!!!" << e.what();
+    }
+
+  } // only for data and fullsim
+
 
   if(debugLevel_ > 0)
     std::cout << name() << ", fill PassesHcalLaserEventFiler checked against list" << std::endl;
