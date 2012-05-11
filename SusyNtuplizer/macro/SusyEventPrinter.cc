@@ -178,7 +178,8 @@ void Print(const susy::CaloJet& j) {
 
 
 void Print(const susy::PFJet& j) {
-  std::cout << "\tpartonFlavour : " << j.partonFlavour << std::endl;
+  std::cout << "\tphyDefFlavour : " << j.phyDefFlavour << std::endl;
+  std::cout << "\talgDefFlavour : " << j.algDefFlavour << std::endl;
   std::cout << "\tjetCharge : " << j.jetCharge << std::endl;
   std::cout << "\tetaMean : " << j.etaMean << std::endl;
   std::cout << "\tphiMean : " << j.phiMean << std::endl;
