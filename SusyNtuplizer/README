@@ -1,4 +1,4 @@
-for 523 release, check out the following packages:
+for 525 release, check out the following packages:
 
 cvs co -r lhx_14APR2012_v1 RecoMET/METFilters
 
