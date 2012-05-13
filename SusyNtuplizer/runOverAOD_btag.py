@@ -66,12 +66,15 @@ process.load('CommonTools/RecoAlgos/HBHENoiseFilterResultProducer_cfi')
 
 # HCAL laser events filter
 process.load("RecoMET.METFilters.hcalLaserEventFilter_cfi")
+process.hcalLaserEventFilter.taggingMode = cms.bool(True)
 
 # EcalDeadCellTriggerPrimitiveFilter
 process.load('RecoMET.METFilters.EcalDeadCellTriggerPrimitiveFilter_cfi')
+process.EcalDeadCellTriggerPrimitiveFilter.taggingMode = cms.bool(True)
 
 # EcalDeadCellBoundaryEnergyFilter
 process.load('RecoMET.METFilters.EcalDeadCellBoundaryEnergyFilter_cfi')
+process.EcalDeadCellBoundaryEnergyFilter.taggingMode = cms.bool(True)
 
 # Tracking failure filter
 # this is not recommended at the moment, but let's keep it for later use
@@ -83,6 +86,7 @@ process.goodVertices = cms.EDFilter(
 )
 process.load('RecoMET.METFilters.trackingFailureFilter_cfi')
 process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3Residual')
+process.trackingFailureFilter.taggingMode = cms.bool(True)
 
 #Add up all MET filters
 if realData or not isFastSim:
