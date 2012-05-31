@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.24 2012/05/03 19:58:51 dwjang Exp $
+// $Id: SusyNtuplizer.cc,v 1.26 2012/05/09 14:21:18 bfrancis Exp $
 //
 //
 
@@ -761,6 +761,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   bool passEcalDeadCellBE = false;
   bool passHcalLaser = false;
   bool passTrackingFailure = false;
+  bool passEEBadSC = false;
 
   // hcalnoise only available in data and FullSim
   if(susyEvent_->isRealData || !isFastSim_) {
@@ -829,6 +830,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "trackingFailureFilter is not available!!!" << e.what();
   }
 
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesEEBadSCFilter" << std::endl;
+  try {
+    edm::Handle<bool> eeBadSCH;
+    iEvent.getByLabel("eeBadScFilter", eeBadSCH);
+    passEEBadSC = *eeBadSCH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "eeBadScFilter is not available!!!" << e.what();
+  }  
+
   Int_t metFilterBit = 0;
 
   metFilterBit |= (passCSCBeamHalo         << 0);
@@ -837,6 +849,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   metFilterBit |= (passEcalDeadCellBE      << 3);
   metFilterBit |= (passHcalLaser           << 4);
   metFilterBit |= (passTrackingFailure     << 5);
+  metFilterBit |= (passEEBadSC		   << 6);
 
   susyEvent_->metFilterBit = metFilterBit;
 
@@ -973,7 +986,8 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  pho.photonIso                         = it->photonIso();
 	}
 	else { // get pfIsolation for reco::Photon
-	  isolator03_.fGetIsolation(&*it,pfH.product(),const_cast<reco::Vertex&>(*primVtx),vtxH);
+	  reco::VertexRef primVtxRef(vtxH, 0);
+	  isolator03_.fGetIsolation(&*it,pfH.product(),primVtxRef,vtxH);
 	  pho.chargedHadronIso                  = isolator03_.getIsolationCharged();
 	  pho.neutralHadronIso                  = isolator03_.getIsolationNeutral();
 	  pho.photonIso                         = isolator03_.getIsolationPhoton();

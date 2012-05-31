@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.21 2012/05/03 19:58:51 dwjang Exp $
+// $Id: SusyEvent.h,v 1.23 2012/05/09 14:21:18 bfrancis Exp $
 //
 
 #ifndef SusyEvent_h
@@ -682,10 +682,11 @@ namespace susy {
     bool passEcalDeadCellBE()  const { return metFilterBit & (0x1 << 3); }
     bool passHcalLaser()       const { return metFilterBit & (0x1 << 4); }
     bool passTrackingFailure() const { return metFilterBit & (0x1 << 5); }
+    bool passEEBadSC()	       const { return metFilterBit & (0x1 << 6); }
 
     // JetMET recommended met filters
     bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&
-	passEcalDeadCellTP() && passHcalLaser(); }
+	passEcalDeadCellTP() && passHcalLaser() && passTrackingFailure() && passEEBadSC(); }
 
     // Members are made as public intentionally for easy access
 

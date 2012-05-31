@@ -77,7 +77,6 @@ process.load('RecoMET.METFilters.EcalDeadCellBoundaryEnergyFilter_cfi')
 process.EcalDeadCellBoundaryEnergyFilter.taggingMode = cms.bool(True)
 
 # Tracking failure filter
-# this is not recommended at the moment, but let's keep it for later use
 process.goodVertices = cms.EDFilter(
   "VertexSelector",
   filter = cms.bool(False),
@@ -88,6 +87,10 @@ process.load('RecoMET.METFilters.trackingFailureFilter_cfi')
 process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3Residual')
 process.trackingFailureFilter.taggingMode = cms.bool(True)
 
+# EE Bad SC Filter
+process.load('RecoMET.METFilters.eeBadScFilter_cfi')
+process.eeBadScFilter.taggingMode = cms.bool(True)
+
 #Add up all MET filters
 if realData or not isFastSim:
     process.metFiltersSequence = cms.Sequence(
@@ -96,7 +99,8 @@ if realData or not isFastSim:
     	process.EcalDeadCellTriggerPrimitiveFilter *
     	process.EcalDeadCellBoundaryEnergyFilter *
     	process.goodVertices *
-   	process.trackingFailureFilter
+   	process.trackingFailureFilter *
+	process.eeBadScFilter
 	)
 else:
     process.metFiltersSequence = cms.Sequence(
@@ -104,7 +108,8 @@ else:
     	process.EcalDeadCellTriggerPrimitiveFilter *
     	process.EcalDeadCellBoundaryEnergyFilter *
     	process.goodVertices *
-   	process.trackingFailureFilter
+   	process.trackingFailureFilter *
+	process.eeBadScFilter
 	)
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
@@ -131,7 +136,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_52_V7::All'
+    process.GlobalTag.globaltag = 'GR_R_52_V8::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
