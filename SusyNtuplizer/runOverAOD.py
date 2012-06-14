@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 
 # change this to 0 if you run on MC files
-realData = 0
+realData = 1
 
 # change this to 0 if you run on FullSim MC
 isFastSim = 1
@@ -9,9 +9,9 @@ isFastSim = 1
 process = cms.Process("RA3")
 
 process.load('FWCore/MessageService/MessageLogger_cfi')
-process.MessageLogger.cerr.FwkReport.reportEvery = 10
+process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.source = cms.Source("PoolSource",
                             noEventSort = cms.untracked.bool(True),
@@ -125,7 +125,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_52_V8::All'
+    process.GlobalTag.globaltag = 'GR_R_52_V9::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
@@ -145,7 +145,7 @@ else:
     process.source.fileNames = cms.untracked.vstring(
         'dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root'
         )
-    process.GlobalTag.globaltag = 'START52_V9::All'
+    process.GlobalTag.globaltag = 'START52_V11::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
