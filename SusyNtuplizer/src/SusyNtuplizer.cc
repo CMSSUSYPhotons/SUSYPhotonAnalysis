@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.26 2012/05/09 14:21:18 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.27 2012/05/31 19:43:27 bfrancis Exp $
 //
 //
 
@@ -143,6 +143,8 @@
 #include <vector>
 #include <algorithm>
 #include <utility>
+#include <set>
+#include <list>
 
 #include <TTree.h>
 #include <TFile.h>
@@ -176,7 +178,7 @@ private:
   void fillTrack(const reco::GsfTrackRef& in, susy::Track& out);
   void fillCluster(const reco::CaloClusterPtr& in, susy::Cluster& out);
   void fillCluster(const reco::SuperClusterRef& in, susy::SuperCluster& out, int& basicClusterIndex); // basicClusterIndex will be incremented here
-  void fillParticle(const reco::GenParticle* in, susy::Particle& out, int momId);
+  void fillParticle(const reco::GenParticle* in, susy::Particle& out, short momIndex);
   void fillExtrapolations(const reco::Track* ttk, std::map<TString,TVector3>& positions);
   // If track is already stored, return its index, otherwise return -1.
   int sameTrack(const susy::Track& track, const std::vector<susy::Track>& tracks) const;
@@ -2078,12 +2080,12 @@ void SusyNtuplizer::fillCluster(const reco::SuperClusterRef& in, susy::SuperClus
 }
 
 
-void SusyNtuplizer::fillParticle(const reco::GenParticle* in, susy::Particle& out, int momId) {
+void SusyNtuplizer::fillParticle(const reco::GenParticle* in, susy::Particle& out, short momIndex) {
 
   if(in == 0) return;
 
   try {
-    out.motherId = momId;
+    out.motherIndex = momIndex;
     out.status = in->status();
     out.pdgId = in->pdgId();
     out.charge = in->charge();
@@ -2175,6 +2177,7 @@ void SusyNtuplizer::fillGenInfos(const edm::Event& iEvent, const edm::EventSetup
 
   // GenParticle : "genParticles"
   // GenParticles will be stored with status == 3 && pt > 1 GeV only
+  // the following algorithm will be much easier if we have a couple of auxiliary recursive functions
 
   edm::Handle<reco::GenParticleCollection> gpH;
   try {
@@ -2182,20 +2185,139 @@ void SusyNtuplizer::fillGenInfos(const edm::Event& iEvent, const edm::EventSetup
     reco::GenParticleCollection::const_iterator it_begin = gpH->begin();
     reco::GenParticleCollection::const_iterator it_end   = gpH->end();
 
+    std::set<reco::GenParticle const*> gps;
+    std::map<reco::GenParticle const*, reco::GenParticle const*> motherMap;
+    std::map<reco::GenParticle const*, std::list<reco::GenParticle const*> > daughterMap;
+
     for(reco::GenParticleCollection::const_iterator it = it_begin; it != it_end; it++){
-      bool passStatus = (it->status() == 3 || it->status() == 1);
-      if(!passStatus) continue;
-      if(it->pt() < 5.0) continue;
-      const reco::GenParticle* gp = &*it;
+      if(it->status() == 1 && it->pt() < 2.) continue;
+      if(it->numberOfDaughters() == 0 && it->status() != 1) continue;
+      gps.insert(&*it);
+    }
+
+    std::set<reco::GenParticle const*>::iterator gpend(gps.end());
+    std::list<reco::GenParticle const*> rootNodes;
+    for(std::set<reco::GenParticle const*>::iterator gItr(gps.begin()); gItr != gpend; ++gItr){
+      reco::GenParticle const* part(*gItr);
+      if(part->numberOfMothers() == 0){
+        rootNodes.push_back(part);
+        motherMap[part] = 0;
+      }
+
+      unsigned nD(part->numberOfDaughters());
+      for(unsigned iD(0); iD < nD; iD++){
+        reco::GenParticle const* daughter(static_cast<reco::GenParticle const*>(part->daughter(iD)));
+        if(gps.find(daughter) == gps.end()) continue;
+
+        if(motherMap.find(daughter) != motherMap.end()){
+          reco::GenParticle const* existing(motherMap[daughter]);
+
+          int thispdg(std::abs(part->pdgId()));
+          bool thishad((thispdg / 100) % 10 != 0 || thispdg == 21 || (thispdg > 80 && thispdg < 101));
+          int pdg(std::abs(existing->pdgId()));
+          bool had((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101));
+
+          bool takeAway(false);
+          if((thishad && had) || (!thishad && !had))
+            takeAway = part->pt() > existing->pt();
+          else if(!thishad && had)
+            takeAway = true;
+
+          if(!takeAway) continue;
+
+          std::list<reco::GenParticle const*>& daughters(daughterMap[existing]);
+          daughters.remove(daughter);
+        }
+
+        motherMap[daughter] = part;
+        daughterMap[part].push_back(daughter);
+      }
+    }
+
+    if(rootNodes.size() == 0) return;
+
+    std::map<reco::GenParticle const*, bool> cleanMap;
+    for(std::set<reco::GenParticle const*>::iterator gpItr(gps.begin()); gpItr != gps.end(); ++gpItr)
+      cleanMap[*gpItr] = false;
+
+    std::list<reco::GenParticle const*>* sisters(&rootNodes);
+    std::list<reco::GenParticle const*>::iterator pItr(sisters->begin());
+    std::list<reco::GenParticle const*>::iterator pEnd(sisters->end());
+
+    while(true){
+      reco::GenParticle const* part(*pItr);
+      reco::GenParticle const* mother(motherMap[part]);
+      std::list<reco::GenParticle const*>* daughters(&daughterMap[part]);
+      while(!cleanMap[part] && daughters->size() > 0){
+        mother = part;
+        sisters = daughters;
+        pItr = sisters->begin();
+        pEnd = sisters->end();
+        part = *pItr;
+        daughters = &daughterMap[part];
+      }
+
+      unsigned nD(daughters->size());
+      bool intermediateTerminal(nD == 0 && part->status() != 1);
+      bool noDecay(nD == 1 && part->pdgId() == daughters->front()->pdgId());
+      int pdg(std::abs(part->pdgId()));
+      bool hadronicIntermediate(mother && part->status() != 1 &&
+                                ((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101)));
+      int motherPdg(mother ? std::abs(mother->pdgId()) : 0);
+      bool firstHeavyHadron((motherPdg / 1000) % 10 < 4 && (motherPdg / 100) % 10 < 4 &&
+                            ((pdg / 1000) % 10 >= 4 || (pdg / 100) % 10 >= 4));
+      bool lightDecayToLight(pdg < 4);
+      std::list<reco::GenParticle const*>::iterator dEnd(daughters->end());
+      for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
+        if(std::abs((*dItr)->pdgId()) > 3){
+          lightDecayToLight = false;
+          break;
+        }
+      }
+      if(intermediateTerminal || noDecay || (hadronicIntermediate && !firstHeavyHadron) || lightDecayToLight){
+        for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
+          sisters->push_back(*dItr);
+          motherMap[*dItr] = mother;
+        }
+        gps.erase(part);
+        --pItr;
+        sisters->remove(part);
+        pEnd = sisters->end();
+      }
+
+      ++pItr;
+
+      if(pItr == pEnd){
+        if(!mother) break; // reached the end of root node array
+
+        part = mother;
+        mother = motherMap[part];
+        if(mother)
+          sisters = &daughterMap[mother];
+        else // mother is a root node
+          sisters = &rootNodes;
+
+        pItr = std::find(sisters->begin(), sisters->end(), part);
+        pEnd = sisters->end();
+        cleanMap[part] = true;
+      }
+    }
+
+    std::vector<reco::GenParticle const*> gpv;
+    gpend = gps.end();
+    for(std::set<reco::GenParticle const*>::iterator gItr(gps.begin()); gItr != gpend; ++gItr)
+      gpv.push_back(*gItr);
+
+    unsigned nP(gpv.size());
+    for(unsigned iP(0); iP < nP; iP++){
       susy::Particle part;
-
-      int momId = -1;
-      const reco::GenParticle* mom = (const reco::GenParticle*) gp->mother();
-      if(mom) momId = mom->pdgId();
-
-      fillParticle(gp,part,momId);
+      reco::GenParticle const* gp(gpv[iP]);
+      short iM(-1);
+      std::vector<reco::GenParticle const*>::iterator mItr(std::find(gpv.begin(), gpv.end(), motherMap[gp]));
+      if(mItr != gpv.end()) iM = mItr - gpv.begin();
+      fillParticle(gp, part, iM);
       susyEvent_->genParticles.push_back(part);
-    }// for
+    }
 
   }// try
   catch (cms::Exception& e) {

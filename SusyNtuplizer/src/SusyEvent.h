@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.23 2012/05/09 14:21:18 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.24 2012/05/31 19:42:52 bfrancis Exp $
 //
 
 #ifndef SusyEvent_h
@@ -76,7 +76,7 @@ namespace susy {
     void Init();
 
     UChar_t status;
-    Int_t   motherId;
+    Short_t   motherIndex;
     Int_t   pdgId;
     Char_t  charge;
     TVector3 vertex;

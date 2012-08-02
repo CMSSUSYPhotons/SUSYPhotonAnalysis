@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.17 2012/05/03 19:58:51 dwjang Exp $
+// $Id: SusyEvent.cc,v 1.19 2012/05/09 14:21:18 bfrancis Exp $
 //
 
 #include "SusyEvent.h"
@@ -31,12 +31,12 @@ void susy::PUSummaryInfo::Init() {
 }
 
 void susy::Particle::Init() {
-    status      = 0;
-    motherId    = -1;
-    pdgId       = 0;
-    charge      = 0;
-    vertex     *= 0;
-    momentum   *= 0;
+    status         = 0;
+    motherIndex    = -1;
+    pdgId          = 0;
+    charge         = 0;
+    vertex        *= 0;
+    momentum      *= 0;
 }
 
 void susy::CorrMETData::Init() {
