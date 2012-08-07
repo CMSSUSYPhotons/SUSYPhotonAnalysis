@@ -11,7 +11,7 @@ process = cms.Process("RA3")
 process.load('FWCore/MessageService/MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 
 process.source = cms.Source("PoolSource",
                             noEventSort = cms.untracked.bool(True),
@@ -20,7 +20,7 @@ process.source = cms.Source("PoolSource",
                             )
 
 process.load('Configuration.StandardSequences.Services_cff')
-process.load('Configuration.StandardSequences.Geometry_cff')
+process.load('Configuration.Geometry.GeometryIdeal_cff')
 process.load('Configuration.StandardSequences.Reconstruction_cff')
 process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
@@ -136,7 +136,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_52_V9::All'
+    process.GlobalTag.globaltag = 'GR_R_53_V8::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
