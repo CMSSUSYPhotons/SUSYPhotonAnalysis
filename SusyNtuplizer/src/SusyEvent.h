@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.24 2012/05/31 19:42:52 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.25 2012/08/02 09:51:00 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -240,7 +240,9 @@ namespace susy {
 
     Int_t          fidBit;
     Int_t          nPixelSeeds;
+    bool           passelectronveto;
     Float_t        hadronicOverEm;
+    Float_t        hadTowOverEm; //2012 hOverE
     Float_t        hadronicDepth1OverEm;
     Float_t        hadronicDepth2OverEm;
     Float_t        e1x2;
@@ -257,6 +259,7 @@ namespace susy {
     Float_t        ecalRecHitSumEtConeDR04;
     Float_t        hcalDepth1TowerSumEtConeDR04;
     Float_t        hcalDepth2TowerSumEtConeDR04;
+    Float_t        hcalIsoConeDR04_2012;
     Float_t        trkSumPtSolidConeDR04;
     Float_t        trkSumPtHollowConeDR04;
     UChar_t        nTrkSolidConeDR04;
@@ -265,6 +268,7 @@ namespace susy {
     Float_t        ecalRecHitSumEtConeDR03;
     Float_t        hcalDepth1TowerSumEtConeDR03;
     Float_t        hcalDepth2TowerSumEtConeDR03;
+    Float_t        hcalIsoConeDR03_2012;
     Float_t        trkSumPtSolidConeDR03;
     Float_t        trkSumPtHollowConeDR03;
     UChar_t        nTrkSolidConeDR03;
@@ -365,16 +369,21 @@ namespace susy {
     Float_t        e5x5;
     Float_t        hcalDepth1OverEcal;          // hadronic energy on depth1 / em enrgy
     Float_t        hcalDepth2OverEcal;          // hadronic energy on depth2 / em enrgy
+    Float_t        hcalOverEcalBc;   //2012 hOverE
 
     Float_t        dr03TkSumPt;
     Float_t        dr03EcalRecHitSumEt;
     Float_t        dr03HcalDepth1TowerSumEt;
     Float_t        dr03HcalDepth2TowerSumEt;
+    Float_t        dr03HcalDepth1TowerSumEtBc;  //2012 iso with new hOverE
+    Float_t        dr03HcalDepth2TowerSumEtBc;  //2012 iso with new hOverE
 
     Float_t        dr04TkSumPt;
     Float_t        dr04EcalRecHitSumEt;
     Float_t        dr04HcalDepth1TowerSumEt;
     Float_t        dr04HcalDepth2TowerSumEt;
+    Float_t        dr04HcalDepth1TowerSumEtBc;  //2012 iso with new hOverE
+    Float_t        dr04HcalDepth2TowerSumEtBc;  //2012 iso with new hOverE
 
     // Conversion info
     Float_t        convDist;

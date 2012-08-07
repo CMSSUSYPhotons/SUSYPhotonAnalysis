@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.27 2012/05/31 19:43:27 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.28 2012/08/02 09:51:00 yiiyama Exp $
 //
 //
 
@@ -104,6 +104,8 @@
 // for conversion finder related
 #include "RecoEgamma/EgammaTools/interface/ConversionFinder.h"
 
+//for conversion safe electron veto
+#include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
 
 // for ecal rechit related
 #include "DataFormats/EcalDetId/interface/EBDetId.h"
@@ -898,9 +900,37 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   if(debugLevel_ > 0) std::cout << name() << ", fill photon" << std::endl;
   
+  //need for conversion safe electron veto
+  edm::Handle<reco::BeamSpot> bsHandle;
+  try {
+    iEvent.getByLabel("offlineBeamSpot", bsHandle);
+  }
+  catch(cms::Exception& e){
+    edm::LogError(name()) << "offlineBeamSpot for conversion safe electron veto is not available!!! " << e.what();
+  }
+  const reco::BeamSpot &vetoBeamspot = *bsHandle.product();
+
+  edm::Handle<reco::ConversionCollection> hVetoConversions;
+  try {
+    iEvent.getByLabel("allConversions", hVetoConversions);
+  }
+  catch(cms::Exception& e){
+    edm::LogError(name()) << "conversions for conversion safe electron veto are not available!!! " << e.what();
+  }
+
+  edm::Handle<reco::GsfElectronCollection> hVetoElectrons;
+  try {
+    iEvent.getByLabel("gsfElectrons", hVetoElectrons);
+  }
+  catch(cms::Exception& e){
+    edm::LogError(name()) << "electrons for conversion safe electron veto are not available!!! " << e.what();
+  }
+  
+  //------------------------
+
   const int nPhoIDC = photonIDCollectionTags_.size();
   std::vector< const edm::ValueMap<Bool_t>* > phoIds;
-  
+
   for(int j=0; j<nPhoIDC; j++) {
     edm::Handle<edm::ValueMap<Bool_t> > phoIDCH;
     try {
@@ -956,6 +986,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.hadronicOverEm                    = it->hadronicOverEm();
 	pho.hadronicDepth1OverEm              = it->hadronicDepth1OverEm();
 	pho.hadronicDepth2OverEm              = it->hadronicDepth2OverEm();
+	pho.hadTowOverEm                      = it->hadTowOverEm();
 
 	pho.e1x5                              = it->e1x5();
 	pho.e2x5                              = it->e2x5();
@@ -964,11 +995,12 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.maxEnergyXtal                     = it->maxEnergyXtal();
 	pho.sigmaEtaEta                       = it->sigmaEtaEta();
 	pho.sigmaIetaIeta                     = it->sigmaIetaIeta();
-	if(!isPF) pho.r9                                = it->r9();
+	if(!isPF) pho.r9                      = it->r9();
 
 	pho.ecalRecHitSumEtConeDR04           = it->ecalRecHitSumEtConeDR04();
 	pho.hcalDepth1TowerSumEtConeDR04      = it->hcalDepth1TowerSumEtConeDR04();
 	pho.hcalDepth2TowerSumEtConeDR04      = it->hcalDepth2TowerSumEtConeDR04();
+	pho.hcalIsoConeDR04_2012              = it->hcalTowerSumEtConeDR04() + (it->hadronicOverEm() - it->hadTowOverEm())*it->superCluster()->energy()/cosh(it->superCluster()->eta());
 	pho.trkSumPtSolidConeDR04             = it->trkSumPtSolidConeDR04();
 	pho.trkSumPtHollowConeDR04            = it->trkSumPtHollowConeDR04();
 	pho.nTrkSolidConeDR04                 = it->nTrkSolidConeDR04();
@@ -977,6 +1009,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.ecalRecHitSumEtConeDR03           = it->ecalRecHitSumEtConeDR03();
 	pho.hcalDepth1TowerSumEtConeDR03      = it->hcalDepth1TowerSumEtConeDR03();
 	pho.hcalDepth2TowerSumEtConeDR03      = it->hcalDepth2TowerSumEtConeDR03();
+	pho.hcalIsoConeDR03_2012              = it->hcalTowerSumEtConeDR03() + (it->hadronicOverEm() - it->hadTowOverEm())*it->superCluster()->energy()/cosh(it->superCluster()->eta());
 	pho.trkSumPtSolidConeDR03             = it->trkSumPtSolidConeDR03();
 	pho.trkSumPtHollowConeDR03            = it->trkSumPtHollowConeDR03();
 	pho.nTrkSolidConeDR03                 = it->nTrkSolidConeDR03();
@@ -1027,6 +1060,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  }
 
 	  pho.nPixelSeeds                       = it->electronPixelSeeds().size();
+	  pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, vetoBeamspot.position());
 
 	  // conversion ID
 	  if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
@@ -1210,16 +1244,22 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  ele.hcalDepth2OverEcal                = it->hcalDepth2OverEcal();
 	}
 
-	ele.dr03TkSumPt              = it->dr03TkSumPt();
-	ele.dr03EcalRecHitSumEt      = it->dr03EcalRecHitSumEt();
-	ele.dr03HcalDepth1TowerSumEt = it->dr03HcalDepth1TowerSumEt();
-	ele.dr03HcalDepth2TowerSumEt = it->dr03HcalDepth2TowerSumEt();
+	ele.dr03TkSumPt                = it->dr03TkSumPt();
+	ele.dr03EcalRecHitSumEt        = it->dr03EcalRecHitSumEt();
+	ele.dr03HcalDepth1TowerSumEt   = it->dr03HcalDepth1TowerSumEt();
+	ele.dr03HcalDepth2TowerSumEt   = it->dr03HcalDepth2TowerSumEt();
+	ele.dr03HcalDepth1TowerSumEtBc = it->dr03HcalDepth1TowerSumEtBc();
+	ele.dr03HcalDepth2TowerSumEtBc = it->dr03HcalDepth2TowerSumEtBc();
  
-	ele.dr04TkSumPt              = it->dr04TkSumPt();
-	ele.dr04EcalRecHitSumEt      = it->dr04EcalRecHitSumEt();
-	ele.dr04HcalDepth1TowerSumEt = it->dr04HcalDepth1TowerSumEt();
-	ele.dr04HcalDepth2TowerSumEt = it->dr04HcalDepth2TowerSumEt();
+	ele.dr04TkSumPt                = it->dr04TkSumPt();
+	ele.dr04EcalRecHitSumEt        = it->dr04EcalRecHitSumEt();
+	ele.dr04HcalDepth1TowerSumEt   = it->dr04HcalDepth1TowerSumEt();
+	ele.dr04HcalDepth2TowerSumEt   = it->dr04HcalDepth2TowerSumEt();
+	ele.dr04HcalDepth1TowerSumEtBc = it->dr04HcalDepth1TowerSumEtBc();
+	ele.dr04HcalDepth2TowerSumEtBc = it->dr04HcalDepth2TowerSumEtBc();
  
+	ele.hcalOverEcalBc             = it->hcalOverEcalBc();
+
 	ele.chargedHadronIso = it->pfIsolationVariables().chargedHadronIso;
 	ele.neutralHadronIso = it->pfIsolationVariables().neutralHadronIso;
 	ele.photonIso = it->pfIsolationVariables().photonIso;

@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.19 2012/05/09 14:21:18 bfrancis Exp $
+// $Id: SusyEvent.cc,v 1.20 2012/08/02 09:51:00 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -98,7 +98,9 @@ void susy::Track::Init() {
 void susy::Photon::Init() {
   fidBit                          = 0;
   nPixelSeeds                     = 0;
+  passelectronveto                = 0;
   hadronicOverEm                  = 0;
+  hadTowOverEm                    = 0;
   hadronicDepth1OverEm            = 0;
   hadronicDepth2OverEm            = 0;
   e1x2                            = 0;
@@ -115,6 +117,7 @@ void susy::Photon::Init() {
   ecalRecHitSumEtConeDR04         = 0;
   hcalDepth1TowerSumEtConeDR04    = 0;
   hcalDepth2TowerSumEtConeDR04    = 0;
+  hcalIsoConeDR04_2012            = 0;
   trkSumPtSolidConeDR04           = 0;
   trkSumPtHollowConeDR04          = 0;
   nTrkSolidConeDR04               = 0;
@@ -123,6 +126,7 @@ void susy::Photon::Init() {
   ecalRecHitSumEtConeDR03         = 0;
   hcalDepth1TowerSumEtConeDR03    = 0;
   hcalDepth2TowerSumEtConeDR03    = 0;
+  hcalIsoConeDR03_2012            = 0;
   trkSumPtSolidConeDR03           = 0;
   trkSumPtHollowConeDR03          = 0;
   nTrkSolidConeDR03               = 0;
@@ -179,16 +183,21 @@ void susy::Electron::Init() {
   e5x5                             = 0;
   hcalDepth1OverEcal               = 0;
   hcalDepth2OverEcal               = 0;
+  hcalOverEcalBc                   = 0;
 
   dr03TkSumPt                      = 0;
   dr03EcalRecHitSumEt              = 0;
   dr03HcalDepth1TowerSumEt         = 0;
   dr03HcalDepth2TowerSumEt         = 0;
+  dr03HcalDepth1TowerSumEtBc       = 0;
+  dr03HcalDepth2TowerSumEtBc       = 0;
 
   dr04TkSumPt                      = 0;
   dr04EcalRecHitSumEt              = 0;
   dr04HcalDepth1TowerSumEt         = 0;
   dr04HcalDepth2TowerSumEt         = 0;
+  dr04HcalDepth1TowerSumEtBc       = 0;
+  dr04HcalDepth2TowerSumEtBc       = 0;
 
   convDist                         = 999;
   convDcot                         = 999;
