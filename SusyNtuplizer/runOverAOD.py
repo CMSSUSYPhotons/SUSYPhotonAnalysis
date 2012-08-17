@@ -125,7 +125,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
 	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_52_V9::All'
+    process.GlobalTag.globaltag = 'GR_R_53_V10::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
@@ -145,7 +145,7 @@ else:
     process.source.fileNames = cms.untracked.vstring(
         'dcap:///pnfs/cms/WAX/resilient/lpcpjm/PrivateMC/BinoSignalPoints_5_7_11/reco/1250_1200_225/reco_1250_1200_225_1.root'
         )
-    process.GlobalTag.globaltag = 'START52_V11::All'
+    process.GlobalTag.globaltag = 'START53_V10::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
@@ -165,8 +165,8 @@ else:
 
 
 process.p = cms.Path(
-    process.metAnalysisSequence *
     process.jet *
+    process.metAnalysisSequence *
     process.metFiltersSequence *
     process.isoDeposit *
     process.susyNtuplizer
