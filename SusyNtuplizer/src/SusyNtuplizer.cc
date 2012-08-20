@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.28 2012/08/02 09:51:00 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.29 2012/08/07 08:43:56 dmorse Exp $
 //
 //
 
@@ -134,6 +134,7 @@
 // b-tagging info
 #include "DataFormats/BTauReco/interface/JetTag.h"
 #include "SimDataFormats/JetMatching/interface/JetMatchedPartons.h"
+#include "SimDataFormats/JetMatching/interface/JetFlavourMatching.h"
 
 // PFIsolation
 #include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
@@ -1489,13 +1490,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   // Get b-tag information
   if(debugLevel_ > 0) std::cout << name() << ", fill bTagCollections" << std::endl;
-  std::vector<edm::Handle<reco::JetTagCollection> > bTagHs;
-
-  for(std::vector<std::string>::iterator it = bTagCollectionTags_.begin();
-      it != bTagCollectionTags_.end(); it++) {
-    edm::Handle<reco::JetTagCollection> bTagH;
-    iEvent.getByLabel(*it, bTagH);
-    bTagHs.push_back(bTagH);
+  std::vector<edm::Handle<reco::JetFloatAssociation::Container> > jetDiscriminators;
+  jetDiscriminators.resize(bTagCollectionTags_.size());
+  for(size_t i = 0; i < bTagCollectionTags_.size(); i++) {
+    iEvent.getByLabel(edm::InputTag(bTagCollectionTags_[i]), jetDiscriminators[i]);
   }
 
   if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
@@ -1658,7 +1656,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       for(reco::PFJetCollection::const_iterator it = jetH->begin();
 	  it != jetH->end(); it++){
 
-	reco::PFJetRef jetRef(jetH,ijet++);
+	edm::RefToBase<reco::Jet> jetRef(edm::Ref<reco::PFJetCollection>(jetH, ijet++));
 
 	TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
 	float jecScale = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
@@ -1709,55 +1707,22 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
 
 	// add btag for this jet
-	for(std::vector<edm::Handle<reco::JetTagCollection> >::iterator ibtagH=bTagHs.begin();
-	    ibtagH != bTagHs.end(); ibtagH++){
-	  edm::Handle<reco::JetTagCollection>& bTagH = *ibtagH;
-	  float tagInfo = -999.0;
-	  for(reco::JetTagCollection::const_iterator it_tag = bTagH->begin();
-	      it_tag != bTagH->end(); it_tag++) {
-	    // this matching is ugly. It can be checked with Ref, but it needs to be careful to see whether "first" is same as "PFJetRef"
-	    double dR = deltaR(jet.etaMean,jet.phiMean,it_tag->first->etaPhiStatistics().etaMean,it_tag->first->etaPhiStatistics().phiMean);
-	    if(dR < 0.001) tagInfo = it_tag->second;
-	  }
-	  jet.bTagDiscriminators.push_back(tagInfo);
-	}
-
-	// if MC, add parton flavor id matches
-	if( ! susyEvent_->isRealData) {
-	  double min_dr_pdgid = 999.9;
-	  bool foundMatch = false;
-	  unsigned int matchIndex;
-
-	  for(unsigned int iMatch = 0; iMatch < physicsDefinitionMatches.size(); iMatch++) {
-	    //double current_dr_pdgid = deltaR(physicsDefinitionMatches[iMatch].first, it->p4());
-	    double current_dr_pdgid = deltaR(jet.etaMean, 
-					     jet.phiMean, 
-					     physicsDefinitionMatches[iMatch].first.etaPhiStatistics().etaMean, 
-					     physicsDefinitionMatches[iMatch].first.etaPhiStatistics().phiMean);
-	    if(current_dr_pdgid < min_dr_pdgid) {
-	      min_dr_pdgid = current_dr_pdgid;
-	      foundMatch = true;
-	      matchIndex = iMatch;
-	    }
-	  }
-
-	  if(foundMatch && min_dr_pdgid < 0.001) jet.phyDefFlavour = physicsDefinitionMatches[matchIndex].second;
-
-	  min_dr_pdgid = 999.9;
-	  foundMatch = false;
-
-	  for(unsigned int iMatch = 0; iMatch < algorithmicDefinitionMatches.size(); iMatch++) {
-            double current_dr_pdgid = deltaR(algorithmicDefinitionMatches[iMatch].first, it->p4());
-            if(current_dr_pdgid < min_dr_pdgid) {
-              min_dr_pdgid = current_dr_pdgid;
-              foundMatch = true;
-              matchIndex = iMatch;
-            }
-          }
-
-	  if(foundMatch && min_dr_pdgid < 0.001) jet.algDefFlavour = algorithmicDefinitionMatches[matchIndex].second;
-
-	} // if !isRealData
+        for(size_t k = 0; k < jetDiscriminators.size(); k++) {
+          float value = (*(jetDiscriminators[k]))[jetRef];
+          jet.bTagDiscriminators.push_back(value);
+        }
+   
+   	// if MC, add parton flavor id matches
+        if( ! susyEvent_->isRealData) {
+  
+          edm::Handle<reco::JetFlavourMatchingCollection> jetFlavMatch;
+    	  iEvent.getByLabel("flavourAssociationAlg", jetFlavMatch);
+          jet.algDefFlavour = (*jetFlavMatch)[jetRef].getFlavour();
+    
+          iEvent.getByLabel("flavourAssociationPhy", jetFlavMatch);
+          jet.phyDefFlavour = (*jetFlavMatch)[jetRef].getFlavour();
+    
+        } // if !isRealData
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;

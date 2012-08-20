@@ -6,6 +6,11 @@ realData = 1
 # change this to 0 if you run on FullSim MC
 isFastSim = 1
 
+# This is for a temporary bugfix for b-tagging global tag in 52x PromptReco data as recommended by BTV.
+# See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_and_53x_Data
+# Change this to 0 if you run on anything except 52x data from 2012A or 2012B
+is52xPromptReco = 1
+
 process = cms.Process("RA3")
 
 process.load('FWCore/MessageService/MessageLogger_cfi')
@@ -120,16 +125,26 @@ process.myPartons = cms.EDProducer("PartonSelector",
                                    )
 
 process.flavourByRef = cms.EDProducer("JetPartonMatcher",
-                                      #jets = cms.InputTag("iterativeCone5CaloJets"),
-                                      #jets = cms.InputTag("ak5CaloJetsL2L3"),
-                                      jets = cms.InputTag("ak5PFJetsL2L3"),
+                                      jets = cms.InputTag("ak5PFJets"),
                                       coneSizeToAssociate = cms.double(0.3),
                                       partons = cms.InputTag("myPartons")
                                       )
 
+process.flavourAssociationAlg = cms.EDProducer("JetFlavourIdentifier",
+    srcByReference = cms.InputTag("flavourByRef"),
+    physicsDefinition = cms.bool(False)
+    )
+
+process.flavourAssociationPhy = cms.EDProducer("JetFlavourIdentifier",
+    srcByReference = cms.InputTag("flavourByRef"),
+    physicsDefinition = cms.bool(True)
+    )
+
 process.JetFlavourMatching = cms.Sequence(
     process.myPartons *
-    process.flavourByRef
+    process.flavourByRef *
+    process.flavourAssociationAlg *
+    process.flavourAssociationPhy
 )
 
 if realData:
@@ -142,6 +157,7 @@ if realData:
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
     # JEC for data
     process.jet = cms.Sequence(
+	process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3Residual * process.ak5CaloJetsL1L2L3Residual *
         # PFJets
@@ -161,6 +177,7 @@ else:
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
     process.jet = cms.Sequence(
+	process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
         # PFJets
@@ -188,13 +205,13 @@ process.isoDeposit = cms.Sequence( process.pfParticleSelectionSequence + process
 # Re-run b-tagging with PFJets as input
 
 # b-tagging general configuration
-process.load("RecoJets.JetAssociationProducers.ic5JetTracksAssociatorAtVertex_cfi")
+process.load("RecoJets.JetAssociationProducers.ic5PFJetTracksAssociatorAtVertex_cfi")
 process.load("RecoBTag.Configuration.RecoBTag_cff")
 
 # create a new jets and tracks associaiton
-process.newJetTracksAssociatorAtVertex = process.ic5JetTracksAssociatorAtVertex.clone()
-process.newJetTracksAssociatorAtVertex.jets = "ak5PFJets"
-#process.newJetTracksAssociatorAtVertex.tracks = "generalTracks"
+process.newJetTracksAssociatorAtVertex = process.ic5PFJetTracksAssociatorAtVertex.clone()
+process.newJetTracksAssociatorAtVertex.jets = cms.InputTag("ak5PFJets")
+process.newJetTracksAssociatorAtVertex.tracks = cms.InputTag("generalTracks")
 
 # impact parameter b-tag
 process.newImpactParameterTagInfos = process.impactParameterTagInfos.clone()
@@ -279,10 +296,20 @@ process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingMu
 )
 
+if is52xPromptReco and realData:
+    process.GlobalTag.toGet = cms.VPSet(
+        cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
+        tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
+        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
+    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+        tag = cms.string("TrackProbabilityCalibration_3D_2012DataTOT_v1_offline"),
+        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+    )
+
 process.p = cms.Path(
+    process.jet *
     process.newJetTracksAssociator *
     process.newJetBtagging *
-    process.jet *
     process.metAnalysisSequence *
     process.metFiltersSequence *
     process.isoDeposit *
