@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.25 2012/08/02 09:51:00 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.26 2012/08/07 08:43:49 dmorse Exp $
 //
 
 #ifndef SusyEvent_h
@@ -671,6 +671,7 @@ namespace susy {
   typedef std::vector<susy::JPTJet> JPTJetCollection;
   typedef std::vector<susy::PFParticle> PFParticleCollection;
   typedef std::vector<susy::PUSummaryInfo> PUSummaryInfoCollection;
+  typedef std::vector<susy::Muon> MuonCollection;
   typedef std::map<TString, std::pair<Int_t, UChar_t> > TriggerMap;
 
 
@@ -722,7 +723,7 @@ namespace susy {
     std::vector<susy::Track>                    tracks;          // only selected tracks associated with objects directly and photons with dR<0.4
     std::vector<susy::SuperCluster>             superClusters;   // only selected super clusters associated with objects
     std::vector<susy::Cluster>                  clusters;        // only selected basic clusters associated with super clusters
-    std::vector<susy::Muon>                     muons;
+    std::map<TString,susy::MuonCollection>      muons;
     std::map<TString,susy::ElectronCollection>  electrons;
     std::map<TString,susy::PhotonCollection>    photons;
     std::map<TString,susy::CaloJetCollection>   caloJets;

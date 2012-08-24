@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.29 2012/08/07 08:43:56 dmorse Exp $
+// $Id: SusyNtuplizer.cc,v 1.30 2012/08/20 12:09:25 bfrancis Exp $
 //
 //
 
@@ -196,7 +196,8 @@ private:
   edm::InputTag hltCollectionTag_;
   edm::InputTag vtxCollectionTag_;
   edm::InputTag trackCollectionTag_;
-  edm::InputTag muonCollectionTag_;
+//  edm::InputTag muonCollectionTag_;
+  std::vector<std::string> muonCollectionTags_;
   std::vector<std::string> muonIDCollectionTags_;
   std::vector<std::string> electronCollectionTags_;
   std::vector<std::string> electronIDCollectionTags_;
@@ -296,7 +297,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   hltCollectionTag_          = iConfig.getParameter<edm::InputTag>("hltCollectionTag");
   vtxCollectionTag_          = iConfig.getParameter<edm::InputTag>("vtxCollectionTag");
   trackCollectionTag_        = iConfig.getParameter<edm::InputTag>("trackCollectionTag");
-  muonCollectionTag_         = iConfig.getParameter<edm::InputTag>("muonCollectionTag");
+  muonCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("muonCollectionTags");
   muonIDCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("muonIDCollectionTags");
   electronCollectionTags_    = iConfig.getParameter<std::vector<std::string> >("electronCollectionTags");
   electronIDCollectionTags_  = iConfig.getParameter<std::vector<std::string> >("electronIDCollectionTags");
@@ -1370,9 +1371,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
   }
 
-  edm::Handle<reco::MuonCollection > muonH;
-  try {
-    iEvent.getByLabel(muonCollectionTag_,muonH);
+  const int nMuCols = muonCollectionTags_.size();
+  for (int iMuCol=0;iMuCol<nMuCols;iMuCol++) {
+   edm::Handle<reco::MuonCollection > muonH;
+   try {
+    iEvent.getByLabel(muonCollectionTags_[iMuCol],muonH);
     if(debugLevel_ > 1) std::cout << "size of MuonCollection : " << muonH->size() << std::endl;
     int imu = 0;
     for(reco::MuonCollection::const_iterator it = muonH->begin();
@@ -1477,16 +1480,20 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	mu.idPairs[ TString(muonIDCollectionTags_[k].c_str()) ] = (*muIds[k])[muRef];
       }// for id
 
-      susyEvent_->muons.push_back(mu);
+      susyEvent_->muons[TString(muonCollectionTags_[iMuCol].c_str())].push_back(mu);
+
+
       if(debugLevel_ > 2) std::cout << "type, emE, hadE, pt : " << it->type()
 				    << ", " << it->calEnergy().em
 				    << ", " << it->calEnergy().had
 				    << ", " << it->pt() << std::endl;
     }
+   }
+   catch(cms::Exception& e) {
+    edm::LogError(name()) << "reco::Muon collection "<< muonCollectionTags_[iMuCol] << " is not available!!! " << e.what();
+   }
   }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "reco::Muon is not available!!! " << e.what();
-  }
+
 
   // Get b-tag information
   if(debugLevel_ > 0) std::cout << name() << ", fill bTagCollections" << std::endl;
