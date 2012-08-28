@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.30 2012/08/20 12:09:25 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.31 2012/08/24 16:44:00 dmason Exp $
 //
 //
 
@@ -1688,6 +1688,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	
 	jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+        //std::cout << "vx,y,z " << it->vx() << ", " << it->vy() << ", " << it->vz() << std::endl; 
+        // current working theory is that these were never set in the first place -- living with zeros at the moment...
+
 	jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
 	jet.chargedHadronEnergy = it->chargedHadronEnergy();
@@ -1718,6 +1721,25 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           float value = (*(jetDiscriminators[k]))[jetRef];
           jet.bTagDiscriminators.push_back(value);
         }
+
+        // add tracks from this jet into track collection and tally up the local id's.
+        reco::TrackRefVector trkvec=it->getTrackRefs();
+        for (reco::TrackRefVector::const_iterator t_it = trkvec.begin(); t_it != trkvec.end();t_it++) {
+
+          susy::Track track;
+          fillTrack((*t_it),track);
+          int thisIndex = sameTrack(track,susyEvent_->tracks);
+          if(thisIndex < 0){
+            jet.tracklist.push_back(trackIndex);
+            susyEvent_->tracks.push_back(track);
+            trackIndex++;
+          } else {
+            jet.tracklist.push_back(thisIndex);
+          }
+
+        }
+
+
    
    	// if MC, add parton flavor id matches
         if( ! susyEvent_->isRealData) {

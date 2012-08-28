@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.26 2012/08/07 08:43:49 dmorse Exp $
+// $Id: SusyEvent.h,v 1.27 2012/08/24 16:44:00 dmason Exp $
 //
 
 #ifndef SusyEvent_h
@@ -589,6 +589,9 @@ namespace susy {
     UChar_t        HFEMMultiplicity;
     UChar_t        chargedMultiplicity;
     UChar_t        neutralMultiplicity;
+
+    // Should contain ntuple indices of tracks associated with this jet
+    std::vector<int> tracklist;
 
     // IMPORTANT: This vector of float stores btag-discriminator variables from various collections
     // which defined in susyNtuplizer_cfi.py file. The order of variables are strongly
