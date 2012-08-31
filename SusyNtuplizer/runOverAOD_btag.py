@@ -15,6 +15,7 @@ process = cms.Process("RA3")
 
 process.load('FWCore/MessageService/MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
+process.MessageLogger.suppressWarning = cms.untracked.vstring('newSecondaryVertexTagInfos')
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
@@ -192,6 +193,7 @@ else:
     process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
     if isFastSim:
 	process.susyNtuplizer.muonIDCollectionTags = cms.vstring()
+	process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
 
 # IsoDeposit
 from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso

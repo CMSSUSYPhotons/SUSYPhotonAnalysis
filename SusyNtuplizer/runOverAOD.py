@@ -162,6 +162,7 @@ else:
     process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
     if isFastSim:
 	process.susyNtuplizer.muonIDCollectionTags = cms.vstring()
+	process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
 
 
 process.p = cms.Path(

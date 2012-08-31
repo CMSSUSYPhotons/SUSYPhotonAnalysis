@@ -1330,8 +1330,9 @@ void SusyEventAnalyzer::Loop() {
       std::vector<susy::Muon*>   Muons;
       //loop over muon collection 
       //for(std::vector<susy::Muon>::iterator it_Mu = muMap->second.begin(); it_Mu != muMap->second.end(); it_Mu++) {
-      for(std::vector<susy::Muon>::iterator it_Mu = event->muons.begin();
-	  it_Mu != event->muons.end(); it_Mu++) {
+      map<TString, vector<susy::Muon> >::iterator muMap = event->muons.find("muons");
+      for(std::vector<susy::Muon>::iterator it_Mu = muMap->second.begin();
+	  it_Mu != muMap->second.end(); it_Mu++) {
 	if(printLevel > 1) cout<<"looping over muon collection"<<endl;
 	
 	MuCount->Fill(0);

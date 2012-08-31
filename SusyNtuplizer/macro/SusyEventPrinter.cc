@@ -230,7 +230,7 @@ void Print(const susy::PFJet& j) {
 
 void Print(const susy::Particle& p) {
   std::cout << "\tstatus : " << (int)p.status << std::endl;
-  std::cout << "\tmotherId : " << p.motherId << std::endl;
+  std::cout << "\tmotherIndex : " << p.motherIndex << std::endl;
   std::cout << "\tpdgId : " << p.pdgId << std::endl;
   std::cout << "\tcharge : " << (int)p.charge << std::endl;
   std::cout << "\tvertex : "; Print(p.vertex);
