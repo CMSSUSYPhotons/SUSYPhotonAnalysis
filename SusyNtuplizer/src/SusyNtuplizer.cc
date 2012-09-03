@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.31 2012/08/24 16:44:00 dmason Exp $
+// $Id: SusyNtuplizer.cc,v 1.32 2012/08/28 00:58:18 dmason Exp $
 //
 //
 
@@ -27,6 +27,7 @@
 #include "DataFormats/Luminosity/interface/LumiSummary.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
@@ -166,7 +167,6 @@ public:
   explicit SusyNtuplizer(const edm::ParameterSet&);
   ~SusyNtuplizer();
 
-  typedef std::vector< edm::Handle< edm::ValueMap<reco::IsoDeposit> > > IsoDepositMaps;
   typedef std::vector< edm::Handle< edm::ValueMap<double> > > IsoDepositVals;
 
 private:
@@ -204,6 +204,7 @@ private:
   std::vector<std::string> photonCollectionTags_;
   std::vector<std::string> photonIDCollectionTags_;
   std::vector<edm::InputTag> isoValPhotonTags_;   
+  std::vector<edm::InputTag> isoValElectronTags_;
   edm::InputTag genCollectionTag_;
   edm::InputTag simVertexCollectionTag_;
   std::vector<std::string> caloJetCollectionTags_;
@@ -304,6 +305,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   photonCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("photonCollectionTags");
   photonIDCollectionTags_    = iConfig.getParameter<std::vector<std::string> >("photonIDCollectionTags");
   isoValPhotonTags_          = iConfig.getParameter< std::vector<edm::InputTag> >("isoValPhotonTags");   
+  isoValElectronTags_        = iConfig.getParameter< std::vector<edm::InputTag> >("isoValElectronTags");   
   genCollectionTag_          = iConfig.getParameter<edm::InputTag>("genCollectionTag");
   simVertexCollectionTag_    = iConfig.getParameter<edm::InputTag>("simVertexCollectionTag");
   caloJetCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags");
@@ -898,6 +900,19 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   } // for
 
 
+  // get the PFIso deposits. 3 (charged hadrons, photons, neutral hadrons)
+  unsigned const nPFIsoTypes(3);
+
+  IsoDepositVals phoIsoDepositVals(nPFIsoTypes);
+  for (size_t j = 0; j<isoValPhotonTags_.size(); ++j) {
+    iEvent.getByLabel(isoValPhotonTags_.at(j), phoIsoDepositVals.at(j));
+  }
+
+  IsoDepositVals eleIsoDepositVals(nPFIsoTypes);
+  for (size_t j = 0; j<isoValElectronTags_.size(); ++j) {
+    iEvent.getByLabel(isoValElectronTags_.at(j), eleIsoDepositVals.at(j));
+  }
+
 
 
   if(debugLevel_ > 0) std::cout << name() << ", fill photon" << std::endl;
@@ -944,12 +959,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     }
   }
 
-  // get the iso deposits. 3 (charged hadrons, photons, neutral hadrons)
-  unsigned nTypes=3;
-  IsoDepositVals phoIsoDepositVals(nTypes);
-  for (size_t j = 0; j<isoValPhotonTags_.size(); ++j) {
-    iEvent.getByLabel(isoValPhotonTags_[j], phoIsoDepositVals[j]);
-  }
 
   edm::Handle<reco::PhotonCollection> photonH;
   for(unsigned int iPhoC=0; iPhoC<photonCollectionTags_.size(); iPhoC++) {
@@ -1262,9 +1271,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
  
 	ele.hcalOverEcalBc             = it->hcalOverEcalBc();
 
-	ele.chargedHadronIso = it->pfIsolationVariables().chargedHadronIso;
-	ele.neutralHadronIso = it->pfIsolationVariables().neutralHadronIso;
-	ele.photonIso = it->pfIsolationVariables().photonIso;
+	ele.chargedHadronIso = (*eleIsoDepositVals[0])[eleRef];
+	ele.neutralHadronIso = (*eleIsoDepositVals[2])[eleRef];
+	ele.photonIso = (*eleIsoDepositVals[1])[eleRef];
 
 	ele.convDist   = it->convDist();
 	ele.convDcot   = it->convDcot();
@@ -1387,14 +1396,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
       susy::Muon mu;
       mu.type                               = it->type();
-
+      mu.bestTrackType                      = it->muonBestTrackType();
       mu.caloCompatibility                  = it->caloCompatibility();
       mu.nMatches                           = it->numberOfMatches();
       mu.nChambers                          = it->numberOfChambers();
+      mu.nMatchedStations                   = it->numberOfMatchedStations();
       if(it->combinedMuon().isNonnull()){
 	mu.nValidHits                         = it->combinedMuon()->hitPattern().numberOfValidHits();
 	mu.nValidTrackerHits                  = it->combinedMuon()->hitPattern().numberOfValidTrackerHits();
 	mu.nValidMuonHits                     = it->combinedMuon()->hitPattern().numberOfValidMuonHits();
+        mu.nPixelLayersWithMeasurement      = it->combinedMuon()->hitPattern().pixelLayersWithMeasurement();
+        mu.nStripLayersWithMeasurement      = it->combinedMuon()->hitPattern().stripLayersWithMeasurement();
       }
       mu.emEnergy                           = it->calEnergy().em;
       mu.hadEnergy                          = it->calEnergy().had;
@@ -1476,12 +1488,16 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
       mu.momentum.SetXYZT(it->p4().px(),it->p4().py(),it->p4().pz(),it->p4().e());
 
-      for(int k=0; k<nMuIDC; k++){
-	mu.idPairs[ TString(muonIDCollectionTags_[k].c_str()) ] = (*muIds[k])[muRef];
-      }// for id
+      try{
+        for(int k=0; k<nMuIDC; k++){
+          mu.idPairs[ TString(muonIDCollectionTags_[k].c_str()) ] = (*muIds[k])[muRef];
+        }// for id
+      }
+      catch(edm::Exception& e){
+        if(e.categoryCode() != edm::errors::InvalidReference) throw;
+      }
 
       susyEvent_->muons[TString(muonCollectionTags_[iMuCol].c_str())].push_back(mu);
-
 
       if(debugLevel_ > 2) std::cout << "type, emE, hadE, pt : " << it->type()
 				    << ", " << it->calEnergy().em

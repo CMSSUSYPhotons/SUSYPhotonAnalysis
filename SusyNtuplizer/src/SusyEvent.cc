@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.20 2012/08/02 09:51:00 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.21 2012/08/07 08:43:49 dmorse Exp $
 //
 
 #include "SusyEvent.h"
@@ -231,11 +231,15 @@ void susy::Electron::Init() {
 
 void susy::Muon::Init() {
     type                    = 0;
+    bestTrackType           = 0;
     nMatches                = 0;
     nValidHits              = 0;
     nValidTrackerHits       = 0;
     nValidMuonHits          = 0;
+    nPixelLayersWithMeasurement = 0;
+    nStripLayersWithMeasurement = 0;
     nChambers               = 0;
+    nMatchedStations        = 0;
     timeNDof                = 0;
     timeDirection           = 0;
     timeAtIp                = 0;

@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.27 2012/08/24 16:44:00 dmason Exp $
+// $Id: SusyEvent.h,v 1.28 2012/08/28 00:58:17 dmason Exp $
 //
 
 #ifndef SusyEvent_h
@@ -435,13 +435,22 @@ namespace susy {
     bool isStandAloneMuon() { return (type & (0x1 << 3)); }
     bool isCaloMuon() {       return (type & (0x1 << 4)); }
     bool isPFMuon() {         return (type & (0x1 << 5)); }
+    Short_t bestTrackIndex() { switch(bestTrackType){
+      case 1: return trackIndex; case 2: return standAloneTrackIndex;
+      case 3: return combinedTrackIndex; default: return -1;
+      } }
 
+    // arbitration type is default
     UChar_t        type;
-    UChar_t        nMatches;
-    UChar_t        nValidHits;
-    UChar_t        nValidTrackerHits;
-    UChar_t        nValidMuonHits;
-    UChar_t        nChambers;
+    UChar_t        bestTrackType;
+    UChar_t        nMatches;               // number of muon chambers with matched segments (<= nChambers)
+    UChar_t        nValidHits;             // * 
+    UChar_t        nValidTrackerHits;      // *
+    UChar_t        nValidMuonHits;         // *
+    UChar_t        nPixelLayersWithMeasurement; // *
+    UChar_t        nStripLayersWithMeasurement; // * values from combinedMuon (= globalTrack)
+    UChar_t        nChambers;              // number of muon chambers the track traversed through (regardless of segment existence)
+    UChar_t        nMatchedStations;       // number of muon stations with matched segments (<= nMatches)
     UChar_t        timeNDof;
     Char_t         timeDirection;
     Float_t        timeAtIp;
