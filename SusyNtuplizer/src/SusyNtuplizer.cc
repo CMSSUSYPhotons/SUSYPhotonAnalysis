@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.32 2012/08/28 00:58:18 dmason Exp $
+// $Id: SusyNtuplizer.cc,v 1.33 2012/09/03 18:22:46 yiiyama Exp $
 //
 //
 
@@ -137,6 +137,9 @@
 #include "SimDataFormats/JetMatching/interface/JetMatchedPartons.h"
 #include "SimDataFormats/JetMatching/interface/JetFlavourMatching.h"
 
+// Pileup Jet Id
+#include "CMGTools/External/interface/PileupJetIdentifier.h"
+
 // PFIsolation
 #include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
 #include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
@@ -213,6 +216,7 @@ private:
   std::vector<std::string> metCollectionTags_;
   std::vector<std::string> pfCandidateCollectionTags_;
   std::vector<std::string> bTagCollectionTags_;
+  std::vector<std::string> puJetIdCollectionTags_;
   edm::InputTag puSummaryInfoTag_;
 
   edm::ESHandle<MagneticField> magneticField_;
@@ -313,7 +317,8 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
   metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
   pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
-  bTagCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
+  bTagCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
+  puJetIdCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("puJetIdCollectionTags");
   puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
@@ -771,6 +776,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   bool passTrackingFailure = false;
   bool passEEBadSC = false;
 
+  bool passEERingOfFire = false;
+  bool passInconsistentMuon = false;
+  bool passGreedyMuon = false;
+
   // hcalnoise only available in data and FullSim
   if(susyEvent_->isRealData || !isFastSim_) {
     if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
@@ -849,6 +858,39 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "eeBadScFilter is not available!!!" << e.what();
   }  
 
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesEERingOfFireFilter" << std::endl;
+  try {
+    edm::Handle<bool> eeROFH;
+    iEvent.getByLabel("eeNoiseFilter", eeROFH);
+    passEERingOfFire = *eeROFH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "eeNoiseFilter is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesInconstistentMuonFilter" << std::endl;
+  try {
+    edm::Handle<bool> inconstMuonH;
+    iEvent.getByLabel("inconsistentMuonPFCandidateFilter", inconstMuonH);
+    passInconsistentMuon = *inconstMuonH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "inconsistentMuonPFCandidateFilter is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesGreedyMuonPFCandidateFilter" << std::endl;
+  try {
+    edm::Handle<bool> greedyMuonH;
+    iEvent.getByLabel("greedyMuonPFCandidateFilter", greedyMuonH);
+    passGreedyMuon = *greedyMuonH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "greedyMuonPFCandidateFilter is not available!!!" << e.what();
+  }
+
   Int_t metFilterBit = 0;
 
   metFilterBit |= (passCSCBeamHalo         << 0);
@@ -861,6 +903,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
   susyEvent_->metFilterBit = metFilterBit;
 
+  Int_t metFilterBit_2 = 0;
+
+  metFilterBit_2 |= (passEERingOfFire << 0);
+  metFilterBit_2 |= (passInconsistentMuon << 1);
+  metFilterBit_2 |= (passGreedyMuon << 2);
+
+  susyEvent_->metFilterBit_2 = metFilterBit_2;
 
   if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
 
@@ -1519,6 +1568,17 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     iEvent.getByLabel(edm::InputTag(bTagCollectionTags_[i]), jetDiscriminators[i]);
   }
 
+  // Get Pileup Jet ID information
+  if(debugLevel_ > 0) std::cout << name() << ", fill puJetIdCollections" << std::endl;
+  std::vector<edm::Handle<edm::ValueMap<float> > > puJetIdMVACollections;
+  puJetIdMVACollections.resize(puJetIdCollectionTags_.size());
+  std::vector<edm::Handle<edm::ValueMap<int> > > puJetIdFlagCollections;
+  puJetIdFlagCollections.resize(puJetIdCollectionTags_.size());
+  for(size_t i = 0; i < puJetIdCollectionTags_.size(); i++) {
+    iEvent.getByLabel(edm::InputTag("recoPuJetMva", puJetIdCollectionTags_[i]+"Discriminant"), puJetIdMVACollections[i]);
+    iEvent.getByLabel(edm::InputTag("recoPuJetMva", puJetIdCollectionTags_[i]+"Id"), puJetIdFlagCollections[i]);
+  }
+
   if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
 
   // JEC naming scheme in JetMETCorrections/Configuration/python/DefaultJEC_cff.py
@@ -1754,8 +1814,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           }
 
         }
-
-
    
    	// if MC, add parton flavor id matches
         if( ! susyEvent_->isRealData) {
@@ -1768,6 +1826,14 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           jet.phyDefFlavour = (*jetFlavMatch)[jetRef].getFlavour();
     
         } // if !isRealData
+
+	// add puJetId variables
+	for(size_t k = 0; k < puJetIdCollectionTags_.size(); k++) {
+	  float mva = (*puJetIdMVACollections[k])[jetRef];
+	  int idFlag = (*puJetIdFlagCollections[k])[jetRef];
+	  jet.puJetIdDiscriminants.push_back(mva);
+	  jet.puJetIdFlags.push_back(idFlag);
+	}
 
 	jetCollection.push_back(jet);
 	if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;

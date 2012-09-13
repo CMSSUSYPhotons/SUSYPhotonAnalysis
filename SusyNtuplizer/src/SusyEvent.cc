@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.21 2012/08/07 08:43:49 dmorse Exp $
+// $Id: SusyEvent.cc,v 1.22 2012/09/03 18:22:46 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -373,6 +373,9 @@ void susy::PFJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
+  puJetIdDiscriminants.clear();
+  puJetIdFlags.clear();
+
   jecScaleFactors.clear();
 }
 
@@ -437,6 +440,7 @@ void susy::Event::Init() {
     rhoBarrel                   = 0;
     rho25			= 0;
     metFilterBit                = 0;
+    metFilterBit_2              = 0;
 
     beamSpot                   *= 0;
 

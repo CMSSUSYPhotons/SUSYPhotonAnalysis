@@ -97,6 +97,18 @@ process.trackingFailureFilter.taggingMode = cms.bool(True)
 process.load('RecoMET.METFilters.eeBadScFilter_cfi')
 process.eeBadScFilter.taggingMode = cms.bool(True)
 
+# EE ring of fire
+process.load('RecoMET.METFilters.eeNoiseFilter_cfi')
+process.eeNoiseFilter.taggingMode = cms.bool(True)
+
+# Inconsistent muon pf candidate filter
+process.load('RecoMET.METFilters.inconsistentMuonPFCandidateFilter_cfi')
+process.inconsistentMuonPFCandidateFilter.taggingMode = cms.bool(True)
+
+# Greedy muon pf candidate filter
+process.load('RecoMET.METFilters.greedyMuonPFCandidateFilter_cfi')
+process.greedyMuonPFCandidateFilter.taggingMode = cms.bool(True)
+
 #Add up all MET filters
 if realData or not isFastSim:
     process.metFiltersSequence = cms.Sequence(
@@ -106,7 +118,10 @@ if realData or not isFastSim:
     	process.EcalDeadCellBoundaryEnergyFilter *
     	process.goodVertices *
    	process.trackingFailureFilter *
-	process.eeBadScFilter
+	process.eeBadScFilter *
+	process.eeNoiseFilter *
+	process.inconsistentMuonPFCandidateFilter *
+	process.greedyMuonPFCandidateFilter
 	)
 else:
     process.metFiltersSequence = cms.Sequence(
@@ -115,7 +130,10 @@ else:
     	process.EcalDeadCellBoundaryEnergyFilter *
     	process.goodVertices *
    	process.trackingFailureFilter *
-	process.eeBadScFilter
+	process.eeBadScFilter *
+	process.eeNoiseFilter *
+	process.inconsistentMuonPFCandidateFilter *
+	process.greedyMuonPFCandidateFilter
 	)
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
@@ -146,6 +164,27 @@ process.JetFlavourMatching = cms.Sequence(
     process.flavourByRef *
     process.flavourAssociationAlg *
     process.flavourAssociationPhy
+)
+
+# PileupJetId
+from CMGTools.External.pujetidsequence_cff import puJetId, puJetMva
+
+process.recoPuJetId = puJetId.clone(
+   jets = cms.InputTag("ak5PFJets"),
+   applyJec = cms.bool(True),
+   inputIsCorrected = cms.bool(False)
+)
+
+process.recoPuJetMva = puJetMva.clone(
+   jets = cms.InputTag("ak5PFJets"),
+   applyJec = cms.bool(True),
+   inputIsCorrected = cms.bool(False),                
+   jetids = cms.InputTag("recoPuJetId")
+)
+
+process.recoPuJetIdSqeuence = cms.Sequence(
+    process.recoPuJetId * 
+    process.recoPuJetMva
 )
 
 if realData:
@@ -314,6 +353,7 @@ process.p = cms.Path(
     process.newJetBtagging *
     process.metAnalysisSequence *
     process.metFiltersSequence *
+    process.recoPuJetIdSqeuence *
     process.isoDeposit *
     process.susyNtuplizer
     )

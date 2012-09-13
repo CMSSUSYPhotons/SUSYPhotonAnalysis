@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.28 2012/08/28 00:58:17 dmason Exp $
+// $Id: SusyEvent.h,v 1.29 2012/09/03 18:22:46 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -32,6 +32,21 @@ namespace susy {
   const float etaGap = 1.499;
   const float etaMax = 2.5;
 
+  // b-tagging vector positions -- same as susyNtuplizer_cfi.py order
+  const unsigned int kTCHE = 0;
+  const unsigned int kTCHP = 1;
+  const unsigned int kJP = 2;
+  const	unsigned int kJBP = 3;
+  const	unsigned int kSSV = 4;
+  const	unsigned int kCSV = 5;
+  const	unsigned int kCSVMVA = 6;
+  const	unsigned int kSE = 7;
+  const	unsigned int kSM = 8;
+
+  // pileup jet id vector positions -- same as susyNtuplizer_cfi.py order
+  const	unsigned int kFull = 0;
+  const	unsigned int kCutBased = 1;
+  const	unsigned int kSimple = 2;
 
   class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time, 
                           or late)*/
@@ -602,6 +617,14 @@ namespace susy {
     // Should contain ntuple indices of tracks associated with this jet
     std::vector<int> tracklist;
 
+    // Pileup Jet Id info
+    std::vector<Float_t> puJetIdDiscriminants;
+    std::vector<Int_t> puJetIdFlags;
+
+    bool passPuJetIdLoose(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 2) ) != 0 : false ; }
+    bool passPuJetIdMedium(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 1) ) != 0 : false ; }
+    bool passPuJetIdTight(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 0) ) != 0 : false ; }
+
     // IMPORTANT: This vector of float stores btag-discriminator variables from various collections
     // which defined in susyNtuplizer_cfi.py file. The order of variables are strongly
     // dependent on the order of collections in python file.
@@ -706,6 +729,10 @@ namespace susy {
     bool passTrackingFailure() const { return metFilterBit & (0x1 << 5); }
     bool passEEBadSC()	       const { return metFilterBit & (0x1 << 6); }
 
+    bool passEERingOfFire()     const { return metFilterBit_2 & (0x1 << 0); }
+    bool passInconsistentMuon() const { return metFilterBit_2 & (0x1 << 1); }
+    bool passGreedyMuon()       const { return metFilterBit_2 & (0x1 << 2); }
+
     // JetMET recommended met filters
     bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&
 	passEcalDeadCellTP() && passHcalLaser() && passTrackingFailure() && passEEBadSC(); }
@@ -724,6 +751,7 @@ namespace susy {
     Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
     Float_t 					rho25; // from kt6PFJetsRho25
     Int_t                                       metFilterBit;
+    Int_t                                       metFilterBit_2;
 
     TVector3                                    beamSpot;
 
