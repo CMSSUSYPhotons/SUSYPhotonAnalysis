@@ -9,7 +9,7 @@ isFastSim = 1
 # This is for a temporary bugfix for b-tagging global tag in 52x PromptReco data as recommended by BTV.
 # See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_and_53x_Data
 # Change this to 0 if you run on anything except 52x data from 2012A or 2012B
-is52xPromptReco = 1
+is52xPromptReco = 0
 
 process = cms.Process("RA3")
 
@@ -61,8 +61,7 @@ process.kt6PFJetsRhoBarrelOnly = process.kt4PFJets.clone(
 process.kt6PFJetsRho25 = process.kt4PFJets.clone(
     src = cms.InputTag('particleFlow'),
     rParam = cms.double(0.6),
-    #Eta range of jets to be considered for Rho calculation
-    #Should be at most (jet acceptance - jet radius)
+    #Eta range of jets to be considered for Rho calculation    #Should be at most (jet acceptance - jet radius)
     doRhoFastjet = cms.bool(True),
     Rho_EtaMax=cms.double(2.5)
     )
@@ -189,7 +188,7 @@ process.recoPuJetIdSqeuence = cms.Sequence(
 
 if realData:
     process.source.fileNames = cms.untracked.vstring(
-	'/store/data/Run2012A/Photon/AOD/PromptReco-v1/000/190/706/DA8B61A9-BE83-E111-8BCB-001D09F2906A.root'
+        '/store/data/Run2012C/DoublePhoton/AOD/PromptReco-v2/000/202/016/D6785FDC-23F5-E111-9DA4-0030486780B4.root'
         )
     process.GlobalTag.globaltag = 'GR_R_53_V10::All'
 

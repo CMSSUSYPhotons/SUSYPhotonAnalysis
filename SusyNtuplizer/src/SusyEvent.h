@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.29 2012/09/03 18:22:46 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.30 2012/09/13 08:46:25 bfrancis Exp $
 //
 
 #ifndef SusyEvent_h
@@ -313,6 +313,9 @@ namespace susy {
     Float_t        superClusterPhiWidth;
     Float_t        superClusterEtaWidth;
     TVector3       caloPosition;
+
+    std::pair<double,double> MVAregEnergyAndErr;
+    TLorentzVector MVAcorrMomentum;
 
     TVector3 vertex; // photon vertex when reconstructed.
     TLorentzVector momentum;

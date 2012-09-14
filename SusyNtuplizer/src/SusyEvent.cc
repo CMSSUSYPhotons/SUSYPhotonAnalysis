@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.22 2012/09/03 18:22:46 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.23 2012/09/13 08:46:25 bfrancis Exp $
 //
 
 #include "SusyEvent.h"
@@ -154,6 +154,9 @@ void susy::Photon::Init() {
   caloPosition                   *= 0;
   vertex                         *= 0;
   momentum                       *= 0;
+  MVAregEnergyAndErr.first        = 0;
+  MVAregEnergyAndErr.second       = 0;
+  MVAcorrMomentum                *= 0;
   idPairs.clear();
 
 }

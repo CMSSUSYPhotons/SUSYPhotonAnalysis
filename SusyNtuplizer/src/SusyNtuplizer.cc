@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.33 2012/09/03 18:22:46 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.34 2012/09/13 08:46:26 bfrancis Exp $
 //
 //
 
@@ -143,6 +143,9 @@
 // PFIsolation
 #include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
 #include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
+
+//Photon SC energy MVA regression
+#include "RecoEgamma/EgammaTools/interface/EGEnergyCorrector.h"
 
 // system include files
 #include <memory>
@@ -284,6 +287,9 @@ private:
   // JetPartonMatcher matches, and we store them in here to match to specific susy::PFJet later
   std::vector< std::pair<reco::Jet, int> > physicsDefinitionMatches;
   std::vector< std::pair<reco::Jet, int> > algorithmicDefinitionMatches;
+
+  //Photon SC energy MVA regression
+  EGEnergyCorrector ecorr_;
 
   std::string outputFileName_;
 
@@ -1177,7 +1183,24 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  }
 	}// for track
 
-
+ 	//Photon SC energy MVA regression
+ 	if (!ecorr_.IsInitialized()) ecorr_.Initialize(iSetup,"gbrv3ph_52x.root");
+ 	
+ 	EcalClusterLazyTools lazyTools(iEvent, iSetup, edm::InputTag("reducedEcalRecHitsEB"),
+ 				       edm::InputTag("reducedEcalRecHitsEE")); 
+ 	
+ 	Handle<reco::VertexCollection> hVertexProduct;
+ 	iEvent.getByLabel("offlinePrimaryVerticesWithBS", hVertexProduct);     
+ 	
+ 	Handle<double> hRhoMVA;
+ 	iEvent.getByLabel(edm::InputTag("kt6PFJets","rho"), hRhoMVA);
+ 	
+ 	std::pair<double,double> cor = ecorr_.CorrectedEnergyWithErrorV3(*it, *hVertexProduct, *hRhoMVA, lazyTools, iSetup);
+ 	
+ 	//double energy = cor.first;
+ 	//double energyerr = cor.second;
+ 	pho.MVAregEnergyAndErr = cor;
+	pho.MVAcorrMomentum.SetXYZT(it->px(),it->py(),it->pz(),cor.first);
 
 	susyEvent_->photons[TString(photonCollectionTags_[iPhoC].c_str())].push_back(pho);
 
