@@ -61,7 +61,8 @@ process.kt6PFJetsRhoBarrelOnly = process.kt4PFJets.clone(
 process.kt6PFJetsRho25 = process.kt4PFJets.clone(
     src = cms.InputTag('particleFlow'),
     rParam = cms.double(0.6),
-    #Eta range of jets to be considered for Rho calculation    #Should be at most (jet acceptance - jet radius)
+    #Eta range of jets to be considered for Rho calculation
+    #Should be at most (jet acceptance - jet radius)
     doRhoFastjet = cms.bool(True),
     Rho_EtaMax=cms.double(2.5)
     )
