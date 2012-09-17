@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.34 2012/09/13 08:46:26 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.35 2012/09/14 12:02:11 dmorse Exp $
 //
 //
 
@@ -1080,6 +1080,13 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	pho.trkSumPtHollowConeDR03            = it->trkSumPtHollowConeDR03();
 	pho.nTrkSolidConeDR03                 = it->nTrkSolidConeDR03();
 	pho.nTrkHollowConeDR03                = it->nTrkHollowConeDR03();
+
+        pho.mipChi2                           = it->mipChi2();
+        pho.mipTotEnergy                      = it->mipTotEnergy();
+        pho.mipSlope                          = it->mipSlope();
+        pho.mipIntercept                      = it->mipIntercept();
+        pho.mipNhitCone                       = it->mipNhitCone();
+        pho.mipIsHalo                         = it->mipIsHalo();  
 
 	if(isPF) {
 	  pho.chargedHadronIso                  = it->chargedHadronIso();

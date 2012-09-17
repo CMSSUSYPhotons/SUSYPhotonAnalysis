@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.23 2012/09/13 08:46:25 bfrancis Exp $
+// $Id: SusyEvent.cc,v 1.24 2012/09/14 12:02:11 dmorse Exp $
 //
 
 #include "SusyEvent.h"
@@ -376,6 +376,8 @@ void susy::PFJet::Init() {
   vertex                   *= 0;
   momentum                 *= 0;
 
+  tracklist.clear();
+  
   puJetIdDiscriminants.clear();
   puJetIdFlags.clear();
 

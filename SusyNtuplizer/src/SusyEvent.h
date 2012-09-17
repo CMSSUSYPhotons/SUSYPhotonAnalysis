@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.30 2012/09/13 08:46:25 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.31 2012/09/14 12:02:11 dmorse Exp $
 //
 
 #ifndef SusyEvent_h
@@ -300,6 +300,15 @@ namespace susy {
     Float_t        photonIsoDeposit;
 
     Float_t        seedTime; // seed timing
+
+    // MIP Variables
+
+    Float_t        mipChi2;
+    Float_t        mipTotEnergy;
+    Float_t        mipSlope;
+    Float_t        mipIntercept;
+    Int_t          mipNhitCone;
+    bool           mipIsHalo;
 
     // Conversion info
     Float_t        convDist;
