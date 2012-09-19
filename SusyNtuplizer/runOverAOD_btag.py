@@ -6,10 +6,12 @@ realData = 1
 # change this to 0 if you run on FullSim MC
 isFastSim = 1
 
-# This is for a temporary bugfix for b-tagging global tag in 52x PromptReco data as recommended by BTV.
-# See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_and_53x_Data
-# Change this to 0 if you run on anything except 52x data from 2012A or 2012B
-is52xPromptReco = 0
+# These are fixes for the JetProbability b-tagger calibrations as recommended by BTV.
+# See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_Data_and_MC
+# Leaving these as all 0s results in no changes to the GlobalTag used.
+is52xData = 0
+is53xData = 0
+is53xMC = 0
 
 process = cms.Process("RA3")
 
@@ -339,7 +341,7 @@ process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingMu
 )
 
-if is52xPromptReco and realData:
+if is52xData and realData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
         tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
@@ -347,6 +349,26 @@ if is52xPromptReco and realData:
     cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
         tag = cms.string("TrackProbabilityCalibration_3D_2012DataTOT_v1_offline"),
         connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+    )
+
+if is53xData and realData:
+    process.GlobalTag.toGet = cms.VPSet(
+  	cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
+       	tag = cms.string("TrackProbabilityCalibration_2D_Data53X_v2"),
+       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
+    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+       	tag = cms.string("TrackProbabilityCalibration_3D_Data53X_v2"),
+       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+    )
+
+if is53xMC and not realData:
+    process.GlobalTag.toGet = cms.VPSet(
+  	cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
+        tag = cms.string("TrackProbabilityCalibration_2D_MC53X_v2"),
+        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
+    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+       	tag = cms.string("TrackProbabilityCalibration_3D_MC53X_v2"),
+       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
     )
 
 process.p = cms.Path(
