@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.35 2012/09/14 12:02:11 dmorse Exp $
+// $Id: SusyNtuplizer.cc,v 1.36 2012/09/17 20:29:24 dmason Exp $
 //
 //
 
@@ -221,6 +221,7 @@ private:
   std::vector<std::string> bTagCollectionTags_;
   std::vector<std::string> puJetIdCollectionTags_;
   edm::InputTag puSummaryInfoTag_;
+  std::string photonSCRegressionWeights_;
 
   edm::ESHandle<MagneticField> magneticField_;
   PropagatorWithMaterial* propagator_;
@@ -326,6 +327,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   bTagCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
   puJetIdCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("puJetIdCollectionTags");
   puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
+  photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
@@ -403,6 +405,21 @@ void SusyNtuplizer::beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup
   if(changed_) {
     std::cout << "HLT configuration changed to " << hltConfig_.tableName() << std::endl;
   }
+
+  // initialize Photon SC energy MVA regression
+  // first check that the weight file exists (EGEnergyCorrector seg faults if it doesn't)
+  TFile* photonSCWeights(0);
+  try{
+    photonSCWeights = TFile::Open(photonSCRegressionWeights_.c_str());
+  }
+  catch(cms::Exception& e){
+    edm::LogError(name()) << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
+    throw;
+  }
+  delete photonSCWeights;
+
+  // EventSetup is not used if the third argument is false
+  ecorr_.Initialize(iSetup, photonSCRegressionWeights_, false);
 }
 
 
@@ -1190,9 +1207,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  }
 	}// for track
 
- 	//Photon SC energy MVA regression
- 	if (!ecorr_.IsInitialized()) ecorr_.Initialize(iSetup,"gbrv3ph_52x.root");
- 	
  	EcalClusterLazyTools lazyTools(iEvent, iSetup, edm::InputTag("reducedEcalRecHitsEB"),
  				       edm::InputTag("reducedEcalRecHitsEE")); 
  	
