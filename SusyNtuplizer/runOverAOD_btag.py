@@ -41,6 +41,8 @@ process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = cms.int32(0)
 if isFastSim:
     process.susyNtuplizer.isFastSim = cms.bool(True)
+# For FNAL users
+#process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
 
 process.metAnalysisSequence = cms.Sequence(process.producePFMETCorrections*
                                            process.produceCaloMETCorrections)
@@ -191,7 +193,7 @@ if realData:
     process.source.fileNames = cms.untracked.vstring(
         '/store/data/Run2012C/DoublePhoton/AOD/PromptReco-v2/000/202/016/D6785FDC-23F5-E111-9DA4-0030486780B4.root'
         )
-    process.GlobalTag.globaltag = 'GR_R_53_V10::All'
+    process.GlobalTag.globaltag = 'GR_R_53_V14::All'
 
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
@@ -212,7 +214,7 @@ else:
     process.source.fileNames = cms.untracked.vstring(
 	'dcap:///pnfs/cms/WAX/11/store/mc/Summer12/WJetsToLNu_TuneZ2Star_8TeV-madgraph-tarball/AODSIM/PU_S7_START52_V9-v1/0001/FE8F81B3-C494-E111-B50D-003048D476BC.root'
         )
-    process.GlobalTag.globaltag = 'START53_V10::All'
+    process.GlobalTag.globaltag = 'START53_V11::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
