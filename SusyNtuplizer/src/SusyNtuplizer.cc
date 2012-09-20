@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.36 2012/09/17 20:29:24 dmason Exp $
+// $Id: SusyNtuplizer.cc,v 1.37 2012/09/19 09:50:36 yiiyama Exp $
 //
 //
 
@@ -1221,7 +1221,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
  	//double energy = cor.first;
  	//double energyerr = cor.second;
  	pho.MVAregEnergyAndErr = cor;
-	pho.MVAcorrMomentum.SetXYZT(it->px(),it->py(),it->pz(),cor.first);
+	//p_{x}=p_{T}*cos(phi)=E_{T}*cos(phi)=(E/cosh(eta))*cos(phi)
+	float mvaPx = (cor.first/cosh(it->caloPosition().eta()))*cos(it->caloPosition().phi());
+	float mvaPy = (cor.first/cosh(it->caloPosition().eta()))*sin(it->caloPosition().phi());
+	float mvaPz = (cor.first/cosh(it->caloPosition().eta()))*sinh(it->caloPosition().eta());
+	pho.MVAcorrMomentum.SetXYZT(mvaPx,mvaPy,mvaPz,cor.first);
 
 	susyEvent_->photons[TString(photonCollectionTags_[iPhoC].c_str())].push_back(pho);
 
