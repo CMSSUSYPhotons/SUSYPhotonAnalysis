@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.37 2012/09/19 09:50:36 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.38 2012/09/20 13:49:01 dmorse Exp $
 //
 //
 
@@ -28,6 +28,7 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/EDMException.h"
+#include "FWCore/ParameterSet/interface/FileInPath.h"
 
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
@@ -327,7 +328,10 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
   bTagCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
   puJetIdCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("puJetIdCollectionTags");
   puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
-  photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
+  if(iConfig.existsAs<std::string>("photonSCRegressionWeights"))
+    photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
+  else
+    photonSCRegressionWeights_ = iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath();
 
   muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
   electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
