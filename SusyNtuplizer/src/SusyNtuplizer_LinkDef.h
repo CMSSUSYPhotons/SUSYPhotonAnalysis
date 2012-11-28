@@ -10,10 +10,10 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.7 2011/06/03 16:58:47 dwjang Exp $
+// $Id: SusyNtuplizer_LinkDef.h,v 1.8 2011/10/31 19:57:42 dwjang Exp $
 //
 
-#include "SusyEvent.h"
+#include "../src/SusyEvent.h"
 
 #ifdef __CINT__
 

@@ -1,0 +1,3 @@
+<library name="SusyEvent" file="../src/SusyEvent.cc">
+  <use name="root"/>
+</library>
