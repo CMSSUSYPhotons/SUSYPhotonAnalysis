@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.31 2012/09/14 12:02:11 dmorse Exp $
+// $Id: SusyEvent.h,v 1.32 2012/09/17 20:29:24 dmason Exp $
 //
 
 #ifndef SusyEvent_h
@@ -311,11 +311,21 @@ namespace susy {
     bool           mipIsHalo;
 
     // Conversion info
+    Bool_t         convInfo;
     Float_t        convDist;
     Float_t        convDcot;
     Float_t        convVtxChi2;
-    UChar_t        convVtxNdof;
+    Float_t        convVtxNdof;
     TVector3       convVertex;
+    Float_t        convDxy;
+    Float_t        convDz;
+    Float_t        convLxy;
+    Float_t        convLz;
+    Float_t        convZofPVFromTracks;
+    Int_t          convTrackChargeProd;
+    Int_t          convTrack1nHit;
+    Int_t          convTrack2nHit;
+
 
     Short_t        superClusterIndex;
     Float_t        superClusterPreshowerEnergy;
