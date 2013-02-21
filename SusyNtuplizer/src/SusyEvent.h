@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.32 2012/09/17 20:29:24 dmason Exp $
+// $Id: SusyEvent.h,v 1.33 2013/01/28 17:54:52 askew Exp $
 //
 
 #ifndef SusyEvent_h
@@ -325,7 +325,18 @@ namespace susy {
     Int_t          convTrackChargeProd;
     Int_t          convTrack1nHit;
     Int_t          convTrack2nHit;
-
+    Float_t        convTrack1chi2;
+    Float_t        convTrack2chi2;
+    Float_t        convTrack1pT;
+    Float_t        convTrack2pT;
+    Float_t        convTrack1InnerZ;
+    Float_t        convTrack2InnerZ;
+    Float_t        convTrack1InnerX;
+    Float_t        convTrack2InnerX;
+    Float_t        convTrack1InnerY;
+    Float_t        convTrack2InnerY;
+    Float_t        convTrack1Signedd0;
+    Float_t        convTrack2Signedd0;
 
     Short_t        superClusterIndex;
     Float_t        superClusterPreshowerEnergy;

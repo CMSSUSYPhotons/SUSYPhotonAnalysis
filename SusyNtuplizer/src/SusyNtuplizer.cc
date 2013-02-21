@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.39 2012/09/22 15:44:05 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.40 2013/01/28 17:54:52 askew Exp $
 //
 //
 
@@ -1158,7 +1158,10 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	  pho.convInfo=kFALSE;
 	  pho.convVtxChi2 = -1;
 	  // conversion ID
-	  if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2 && it->conversions()[0]->conversionVertex().isValid() && !it->conversions()[0]->conversionVertex().isFake()) {
+	  if(it->conversions().size() > 0 
+	     && it->conversions()[0]->nTracks() == 2 
+	     && it->conversions()[0]->conversionVertex().isValid() 
+	     && !it->conversions()[0]->conversionVertex().isFake()) {
 	    
 	    pho.convInfo   = kTRUE;
 	    pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
@@ -1176,6 +1179,21 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
 	    pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
 	    pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
+	    pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
+	    pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
+	    pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
+	    pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
+	    std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
+	    pho.convTrack1InnerZ = InnerPos[0].z();
+	    pho.convTrack2InnerZ = InnerPos[1].z();
+	    pho.convTrack1InnerX = InnerPos[0].x();
+	    pho.convTrack2InnerX = InnerPos[1].x();
+	    pho.convTrack1InnerY = InnerPos[0].y();
+	    pho.convTrack2InnerY = InnerPos[1].y();
+	    std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
+	    pho.convTrack1Signedd0 = signedd0[0];
+	    pho.convTrack2Signedd0 = signedd0[1];
+
 	  }
 
 	  // Photon ID  
