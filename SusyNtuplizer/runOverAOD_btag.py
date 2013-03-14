@@ -46,7 +46,7 @@ process.susyNtuplizer.debugLevel = cms.int32(0)
 if isFastSim:
     process.susyNtuplizer.isFastSim = cms.bool(True)
 # For FNAL users
-process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
+#process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
 # For use in CRAB - mkdir SusyAnalysis/SusyNtuplizer/data; mv gbrv3ph_52x.root SusyAnalysis/SusyNtuplizer/data/
 #process.susyNtuplizer.photonSCRegressionWeights = cms.FileInPath("SusyAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root")
 
