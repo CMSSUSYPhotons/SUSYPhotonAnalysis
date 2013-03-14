@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.42 2013/03/14 18:30:44 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.43 2013/03/14 18:45:10 bfrancis Exp $
 //
 //
 
@@ -1215,9 +1215,15 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	  pho.nPixelSeeds                       = it->electronPixelSeeds().size();
 	  pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, vetoBeamspot.position());
-
+	  pho.convInfo=kFALSE;
+	  pho.convVtxChi2 = -1;
 	  // conversion ID
-	  if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
+	  if(it->conversions().size() > 0 
+	     && it->conversions()[0]->nTracks() == 2 
+	     && it->conversions()[0]->conversionVertex().isValid() 
+	     && !it->conversions()[0]->conversionVertex().isFake()) {
+	    
+	    pho.convInfo   = kTRUE;
 	    pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
 	    pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
 	    pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
@@ -1225,6 +1231,29 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
 				  it->conversions()[0]->conversionVertex().y(),
 				  it->conversions()[0]->conversionVertex().z());
+	    pho.convDxy = it->conversions()[0]->dxy(bsHandle->position());
+	    pho.convDz  = it->conversions()[0]->dz(bsHandle->position());
+	    pho.convLxy = it->conversions()[0]->lxy(bsHandle->position());
+	    pho.convLz  = it->conversions()[0]->lz(bsHandle->position());
+	    pho.convZofPVFromTracks = it->conversions()[0]->zOfPrimaryVertexFromTracks(bsHandle->position());
+	    pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
+	    pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
+	    pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
+	    pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
+	    pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
+	    pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
+	    pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
+	    std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
+	    pho.convTrack1InnerZ = InnerPos[0].z();
+	    pho.convTrack2InnerZ = InnerPos[1].z();
+	    pho.convTrack1InnerX = InnerPos[0].x();
+	    pho.convTrack2InnerX = InnerPos[1].x();
+	    pho.convTrack1InnerY = InnerPos[0].y();
+	    pho.convTrack2InnerY = InnerPos[1].y();
+	    std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
+	    pho.convTrack1Signedd0 = signedd0[0];
+	    pho.convTrack2Signedd0 = signedd0[1];
+
 	  }
 
 	  // Photon ID  
