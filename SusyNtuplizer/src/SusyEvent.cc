@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.24 2012/09/14 12:02:11 dmorse Exp $
+// $Id: SusyEvent.cc,v 1.25 2012/09/17 20:29:24 dmason Exp $
 //
 
 #include "SusyEvent.h"
@@ -223,6 +223,9 @@ void susy::Electron::Init() {
   closestCtfTrackIndex             = -1;
   electronClusterIndex             = -1;
   superClusterIndex                = -1;
+
+  nMissingHits                     = 999;
+  passConversionVeto               = 0;
 
   trackPositions.clear();
   trackMomentums.clear();

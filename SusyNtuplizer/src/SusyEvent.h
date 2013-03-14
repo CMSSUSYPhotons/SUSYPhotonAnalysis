@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.33 2013/01/28 17:54:52 askew Exp $
+// $Id: SusyEvent.h,v 1.32 2012/09/17 20:29:24 dmason Exp $
 //
 
 #ifndef SusyEvent_h
@@ -311,32 +311,11 @@ namespace susy {
     bool           mipIsHalo;
 
     // Conversion info
-    Bool_t         convInfo;
     Float_t        convDist;
     Float_t        convDcot;
     Float_t        convVtxChi2;
-    Float_t        convVtxNdof;
+    UChar_t        convVtxNdof;
     TVector3       convVertex;
-    Float_t        convDxy;
-    Float_t        convDz;
-    Float_t        convLxy;
-    Float_t        convLz;
-    Float_t        convZofPVFromTracks;
-    Int_t          convTrackChargeProd;
-    Int_t          convTrack1nHit;
-    Int_t          convTrack2nHit;
-    Float_t        convTrack1chi2;
-    Float_t        convTrack2chi2;
-    Float_t        convTrack1pT;
-    Float_t        convTrack2pT;
-    Float_t        convTrack1InnerZ;
-    Float_t        convTrack2InnerZ;
-    Float_t        convTrack1InnerX;
-    Float_t        convTrack2InnerX;
-    Float_t        convTrack1InnerY;
-    Float_t        convTrack2InnerY;
-    Float_t        convTrack1Signedd0;
-    Float_t        convTrack2Signedd0;
 
     Short_t        superClusterIndex;
     Float_t        superClusterPreshowerEnergy;
@@ -455,6 +434,9 @@ namespace susy {
     Short_t        closestCtfTrackIndex;
     Short_t        electronClusterIndex;
     Short_t        superClusterIndex;
+
+    Int_t          nMissingHits;
+    bool           passConversionVeto;
 
     // AtVtx, AtCalo
     std::map<TString,TVector3> trackPositions;
@@ -765,6 +747,13 @@ namespace susy {
     bool passEERingOfFire()     const { return metFilterBit_2 & (0x1 << 0); }
     bool passInconsistentMuon() const { return metFilterBit_2 & (0x1 << 1); }
     bool passGreedyMuon()       const { return metFilterBit_2 & (0x1 << 2); }
+    bool passHcalLaser2012()    const { return metFilterBit_2 & (0x1 << 3); }
+    bool passEcalLaserCorr()    const { return metFilterBit_2 & (0x1 << 4); }
+    bool passManyStripClus()    const { return metFilterBit_2 & (0x1 << 5); }
+    bool passTooManyStripClus() const { return metFilterBit_2 & (0x1 << 6); }
+    bool passLogErrorTooManyClusters() const { return metFilterBit_2 & (0x1 << 7); }
+
+    bool passTrkPOGFilters() const { return passManyStripClus() && passTooManyStripClus() && passLogErrorTooManyClusters(); }
 
     // JetMET recommended met filters
     bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&

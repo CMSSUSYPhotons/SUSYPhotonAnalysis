@@ -9,7 +9,7 @@ isFastSim = 1
 # These are fixes for the JetProbability b-tagger calibrations as recommended by BTV.
 # See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_Data_and_MC
 # Leaving these as all 0s results in no changes to the GlobalTag used.
-is52xData = 0
+is52xABData = 0
 is53xData = 0
 is53xMC = 0
 
@@ -18,6 +18,7 @@ process = cms.Process("RA3")
 process.load('FWCore/MessageService/MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 process.MessageLogger.suppressWarning = cms.untracked.vstring('newSecondaryVertexTagInfos')
+process.MessageLogger.suppressError = cms.untracked.vstring('ecalLaserCorrFilter')
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
@@ -35,6 +36,7 @@ process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.load("JetMETCorrections.Configuration.DefaultJEC_cff")
 process.load("JetMETCorrections.Type1MET.pfMETCorrections_cff")
+process.load("JetMETCorrections.Type1MET.pfMETsysShiftCorrections_cfi")
 process.load("JetMETCorrections/Configuration/JetCorrectionServices_cff")
 process.load("JetMETCorrections/Type1MET/caloMETCorrections_cff")
 
@@ -44,12 +46,42 @@ process.susyNtuplizer.debugLevel = cms.int32(0)
 if isFastSim:
     process.susyNtuplizer.isFastSim = cms.bool(True)
 # For FNAL users
-#process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
+process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
 # For use in CRAB - mkdir SusyAnalysis/SusyNtuplizer/data; mv gbrv3ph_52x.root SusyAnalysis/SusyNtuplizer/data/
 #process.susyNtuplizer.photonSCRegressionWeights = cms.FileInPath("SusyAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root")
 
-process.metAnalysisSequence = cms.Sequence(process.producePFMETCorrections*
-                                           process.produceCaloMETCorrections)
+# http://cmssw.cvs.cern.ch/cgi-bin/cmssw.cgi/CMSSW/JetMETCorrections/Type1MET/python/pfMETsysShiftCorrections_cfi.py?revision=1.6&view=markup
+# pfMEtSysShiftCorrParameters_2012runABCvsNvtx_data (_mc)
+if realData:
+    process.pfMEtSysShiftCorr.parameter = cms.PSet(
+        px = cms.string("+0.2661 + 0.3217*Nvtx"),
+        py = cms.string("-0.2251 - 0.1747*Nvtx")
+        )
+else:
+    process.pfMEtSysShiftCorr.parameter	= cms.PSet(
+        px = cms.string("+0.1166 + 0.0200*Nvtx"),
+        py = cms.string("+0.2764 - 0.1280*Nvtx")
+        )
+
+process.pfType1CorrectedMetsysShiftCorr = process.pfType1CorrectedMet.clone(
+    srcType1Corrections = cms.VInputTag(
+        cms.InputTag('pfJetMETcorr', 'type1') ,
+        cms.InputTag('pfMEtSysShiftCorr')  
+    )
+)
+
+process.pfType1p2CorrectedMetsysShiftCorr = process.pfType1p2CorrectedMet.clone(
+    srcType1Corrections = cms.VInputTag(
+        cms.InputTag('pfJetMETcorr', 'type1') ,
+        cms.InputTag('pfMEtSysShiftCorr')
+    )
+)
+
+process.metAnalysisSequence = cms.Sequence(process.pfMEtSysShiftCorrSequence*
+					   process.producePFMETCorrections*
+                                           process.produceCaloMETCorrections*
+					   process.pfType1CorrectedMetsysShiftCorr*
+					   process.pfType1p2CorrectedMetsysShiftCorr)
 
 #Calculate rho restricted to barrel for photon pileup subtraction
 process.kt6PFJetsRhoBarrelOnly = process.kt4PFJets.clone(
@@ -115,6 +147,19 @@ process.inconsistentMuonPFCandidateFilter.taggingMode = cms.bool(True)
 process.load('RecoMET.METFilters.greedyMuonPFCandidateFilter_cfi')
 process.greedyMuonPFCandidateFilter.taggingMode = cms.bool(True)
 
+# The ECAL laser correction filter (needs correct GT to work)
+process.load('RecoMET.METFilters.ecalLaserCorrFilter_cfi')
+process.ecalLaserCorrFilter.taggingMode = cms.bool(True)
+
+# The tracking POG filters
+process.load('RecoMET.METFilters.trackingPOGFilters_cff')
+process.manystripclus53X.taggedMode = cms.untracked.bool(True)
+process.manystripclus53X.forcedValue = cms.untracked.bool(False)
+process.toomanystripclus53X.taggedMode = cms.untracked.bool(True)
+process.toomanystripclus53X.forcedValue = cms.untracked.bool(False)
+process.logErrorTooManyClusters.taggedMode = cms.untracked.bool(True)
+process.logErrorTooManyClusters.forcedValue = cms.untracked.bool(False)
+
 #Add up all MET filters
 if realData or not isFastSim:
     process.metFiltersSequence = cms.Sequence(
@@ -127,7 +172,9 @@ if realData or not isFastSim:
 	process.eeBadScFilter *
 	process.eeNoiseFilter *
 	process.inconsistentMuonPFCandidateFilter *
-	process.greedyMuonPFCandidateFilter
+	process.greedyMuonPFCandidateFilter *
+	process.ecalLaserCorrFilter *
+	process.trkPOGFilters
 	)
 else:
     process.metFiltersSequence = cms.Sequence(
@@ -139,8 +186,13 @@ else:
 	process.eeBadScFilter *
 	process.eeNoiseFilter *
 	process.inconsistentMuonPFCandidateFilter *
-	process.greedyMuonPFCandidateFilter
+	process.greedyMuonPFCandidateFilter *
+	process.ecalLaserCorrFilter *
+	process.trkPOGFilters
 	)
+
+process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi') 
+process.eidMVASequence = cms.Sequence( process.mvaTrigV0 * process.mvaNonTrigV0 )
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 
@@ -343,7 +395,7 @@ process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingMu
 )
 
-if is52xData and realData:
+if is52xABData and realData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
         tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
@@ -375,6 +427,7 @@ if is53xMC and not realData:
 
 process.p = cms.Path(
     process.jet *
+    process.eidMVASequence *
     process.newJetTracksAssociator *
     process.newJetBtagging *
     process.metAnalysisSequence *

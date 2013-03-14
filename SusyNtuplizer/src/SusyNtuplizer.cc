@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.40 2013/01/28 17:54:52 askew Exp $
+// $Id: SusyNtuplizer.cc,v 1.39 2012/09/22 15:44:05 yiiyama Exp $
 //
 //
 
@@ -147,6 +147,9 @@
 
 //Photon SC energy MVA regression
 #include "RecoEgamma/EgammaTools/interface/EGEnergyCorrector.h"
+
+//HCAL laser events 2012 filter
+#include "PhysicsTools/Utilities/interface/EventFilterFromListStandAlone.h"
 
 // system include files
 #include <memory>
@@ -470,7 +473,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 				<< ", event " << iEvent.id().event()
 				<< ", isRealData " << iEvent.isRealData()
 				<< ", lumiBlock " << iEvent.getLuminosityBlock().luminosityBlock() << std::endl;
-
+/*
   // lumiSummary only available in data  
   if(susyEvent_->isRealData) {
     const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
@@ -486,7 +489,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
     susyEvent_->intgRecLumi = lsH->intgRecLumi();
   }
-
+*/
   // L1 Info only available in data and FullSim
   if(susyEvent_->isRealData || !isFastSim_ ) {
     if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
@@ -802,6 +805,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   bool passHcalLaser = false;
   bool passTrackingFailure = false;
   bool passEEBadSC = false;
+  bool passHcalLaser2012 = false;
+  bool passEcalLaserCorr = false;
+  bool passManyStripClus53X = false;
+  bool passTooManyStripClus53X = false;
+  bool passLogErrorTooManyClusters = false;
 
   bool passEERingOfFire = false;
   bool passInconsistentMuon = false;
@@ -885,6 +893,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "eeBadScFilter is not available!!!" << e.what();
   }  
 
+  EventFilterFromListStandAlone hcalLaser2012Filter("./HCALLaser2012AllDatasets.txt.gz");
+  passHcalLaser2012 = hcalLaser2012Filter.filter(iEvent.id().run(), iEvent.luminosityBlock(), iEvent.id().event());
+
   if(debugLevel_ > 0)
     std::cout << name() << ", fill PassesEERingOfFireFilter" << std::endl;
   try {
@@ -918,6 +929,50 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     edm::LogError(name()) << "greedyMuonPFCandidateFilter is not available!!!" << e.what();
   }
 
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesEcalLaserCorrFilter" << std::endl;
+  try {
+    edm::Handle<bool> ecalLaserCorrH;
+    iEvent.getByLabel("ecalLaserCorrFilter", ecalLaserCorrH);
+    passEcalLaserCorr = *ecalLaserCorrH;
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "ecalLaserCorrFilter is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesManyStripClus53X" << std::endl;
+  try {
+    edm::Handle<bool> manystripclus53X_H;
+    iEvent.getByLabel("manystripclus53X", manystripclus53X_H);
+    passManyStripClus53X = !(*manystripclus53X_H);
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "manystripclus53X is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesTooManyStripClus53X" << std::endl;
+  try {
+    edm::Handle<bool> toomanystripclus53X_H;
+    iEvent.getByLabel("toomanystripclus53X", toomanystripclus53X_H);
+    passTooManyStripClus53X = !(*toomanystripclus53X_H);
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "toomanystripclus53X is not available!!!" << e.what();
+  }
+
+  if(debugLevel_ > 0)
+    std::cout << name() << ", fill PassesLogErrorTooManyClusters" << std::endl;
+  try {
+    edm::Handle<bool> logErrorTooManyClusters_H;
+    iEvent.getByLabel("logErrorTooManyClusters", logErrorTooManyClusters_H);
+    passLogErrorTooManyClusters = !(*logErrorTooManyClusters_H);
+  }
+  catch(cms::Exception& e) {
+    edm::LogError(name()) << "logErrorTooManyClusters is not available!!!" << e.what();
+  }
+
   Int_t metFilterBit = 0;
 
   metFilterBit |= (passCSCBeamHalo         << 0);
@@ -935,6 +990,11 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   metFilterBit_2 |= (passEERingOfFire << 0);
   metFilterBit_2 |= (passInconsistentMuon << 1);
   metFilterBit_2 |= (passGreedyMuon << 2);
+  metFilterBit_2 |= (passHcalLaser2012 << 3);
+  metFilterBit_2 |= (passEcalLaserCorr << 4);
+  metFilterBit_2 |= (passManyStripClus53X << 5);
+  metFilterBit_2 |= (passTooManyStripClus53X << 6);
+  metFilterBit_2 |= (passLogErrorTooManyClusters << 7);
 
   susyEvent_->metFilterBit_2 = metFilterBit_2;
 
@@ -1155,15 +1215,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 
 	  pho.nPixelSeeds                       = it->electronPixelSeeds().size();
 	  pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, vetoBeamspot.position());
-	  pho.convInfo=kFALSE;
-	  pho.convVtxChi2 = -1;
+
 	  // conversion ID
-	  if(it->conversions().size() > 0 
-	     && it->conversions()[0]->nTracks() == 2 
-	     && it->conversions()[0]->conversionVertex().isValid() 
-	     && !it->conversions()[0]->conversionVertex().isFake()) {
-	    
-	    pho.convInfo   = kTRUE;
+	  if(it->conversions().size() > 0 && it->conversions()[0]->nTracks() == 2) {
 	    pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
 	    pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
 	    pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
@@ -1171,29 +1225,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
 				  it->conversions()[0]->conversionVertex().y(),
 				  it->conversions()[0]->conversionVertex().z());
-	    pho.convDxy = it->conversions()[0]->dxy(bsHandle->position());
-	    pho.convDz  = it->conversions()[0]->dz(bsHandle->position());
-	    pho.convLxy = it->conversions()[0]->lxy(bsHandle->position());
-	    pho.convLz  = it->conversions()[0]->lz(bsHandle->position());
-	    pho.convZofPVFromTracks = it->conversions()[0]->zOfPrimaryVertexFromTracks(bsHandle->position());
-	    pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
-	    pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
-	    pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
-	    pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
-	    pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
-	    pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
-	    pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
-	    std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
-	    pho.convTrack1InnerZ = InnerPos[0].z();
-	    pho.convTrack2InnerZ = InnerPos[1].z();
-	    pho.convTrack1InnerX = InnerPos[0].x();
-	    pho.convTrack2InnerX = InnerPos[1].x();
-	    pho.convTrack1InnerY = InnerPos[0].y();
-	    pho.convTrack2InnerY = InnerPos[1].y();
-	    std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
-	    pho.convTrack1Signedd0 = signedd0[0];
-	    pho.convTrack2Signedd0 = signedd0[1];
-
 	  }
 
 	  // Photon ID  
@@ -1405,6 +1436,9 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	ele.neutralHadronIso = (*eleIsoDepositVals[2])[eleRef];
 	ele.photonIso = (*eleIsoDepositVals[1])[eleRef];
 
+	ele.nMissingHits = it->gsfTrack()->trackerExpectedHitsInner().numberOfHits();
+	ele.passConversionVeto = !ConversionTools::hasMatchedConversion((*it), hVetoConversions, vetoBeamspot.position());
+
 	ele.convDist   = it->convDist();
 	ele.convDcot   = it->convDcot();
 	ele.convRadius = it->convRadius();
@@ -1478,7 +1512,6 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 	    ele.idPairs[ TString(electronIDCollectionTags_[k].c_str()) ] = (*eleIds[k])[eleRef];
 	  }// for id
 	}
-
 	susyEvent_->electrons[TString(electronCollectionTags_[iEleC].c_str())].push_back(ele);
 
 	if(debugLevel_ > 2) std::cout << "pt, e, hadEm : " << it->pt()

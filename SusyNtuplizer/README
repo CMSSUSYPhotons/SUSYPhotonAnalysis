@@ -1,6 +1,28 @@
-for 525 release, check out the following packages:
+Developing recipe for 538p3:
 
-cvs co -r V00-00-07 RecoMET/METFilters
-cvs co -r V00-00-17 -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
+setenv SCRAM_ARCH slc5_amd64_gcc462
+cmsrel CMSSW_5_3_8_patch3
+cd CMSSW_5_3_8_patch3/src
+cmsenv
+cvs co -r HEAD -d SusyAnalysis UserCode/LPCPJM/SusyAnalysis
+cvs co -r V00-00-13 RecoMET/METFilters
+cvs co -r V00-00-08 RecoMET/METAnalyzers
+cvs co -r V01-00-11-01 DPGAnalysis/Skims
+cvs co -r V00-11-17 DPGAnalysis/SiStripTools
+cvs co -r V00-00-08 DataFormats/TrackerCommon
+cvs co -r V01-09-05 RecoLocalTracker/SubCollectionProducers
+addpkg PhysicsTools/Utilities V08-03-20-03
+cvs co EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz
+mv EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz SusyAnalysis/SusyNtuplizer
+cvs co -r V00-00-30-00 -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
+cvs co -r V00-00-30-01 -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
+cd EGamma/EGammaAnalysisTools/data
+cat download.url | xargs wget
+cd ../../../
 addpkg CommonTools/ParticleFlow V00-03-10
-addpkg RecoParticleFlow/PFProducer  V15-01-08
+addpkg RecoParticleFlow/PFProducer  CMSSW_5_3_8
+cvs co -r V00-03-03 -d CMGTools/External UserCode/CMG/CMGTools/External
+cvs co -r regressionMay18a RecoEgamma/EgammaTools
+cvs co -r V05-08-20 RecoEcal/EgammaCoreTools
+scramv1 b -j 4
+cd SusyAnalysis/SusyNtuplizer/
