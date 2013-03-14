@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.39 2012/09/22 15:44:05 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.42 2013/03/14 18:30:44 bfrancis Exp $
 //
 //
 
@@ -473,7 +473,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
 				<< ", event " << iEvent.id().event()
 				<< ", isRealData " << iEvent.isRealData()
 				<< ", lumiBlock " << iEvent.getLuminosityBlock().luminosityBlock() << std::endl;
-/*
+
   // lumiSummary only available in data  
   if(susyEvent_->isRealData) {
     const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
@@ -489,7 +489,7 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
     susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
     susyEvent_->intgRecLumi = lsH->intgRecLumi();
   }
-*/
+
   // L1 Info only available in data and FullSim
   if(susyEvent_->isRealData || !isFastSim_ ) {
     if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
