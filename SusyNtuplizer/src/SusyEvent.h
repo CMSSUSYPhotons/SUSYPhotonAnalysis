@@ -2,7 +2,7 @@
 //
 // Package:    SusyNtuplizer
 // Class:      SusyEvent.h
-// 
+//
 /*
 
  Description: Objects definitions used for SusyNtuples
@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.35 2013/03/14 18:30:44 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.36 2013/03/14 18:55:44 bfrancis Exp $
 //
 
 #ifndef SusyEvent_h
@@ -36,19 +36,19 @@ namespace susy {
   const unsigned int kTCHE = 0;
   const unsigned int kTCHP = 1;
   const unsigned int kJP = 2;
-  const	unsigned int kJBP = 3;
-  const	unsigned int kSSV = 4;
-  const	unsigned int kCSV = 5;
-  const	unsigned int kCSVMVA = 6;
-  const	unsigned int kSE = 7;
-  const	unsigned int kSM = 8;
+  const unsigned int kJBP = 3;
+  const unsigned int kSSV = 4;
+  const unsigned int kCSV = 5;
+  const unsigned int kCSVMVA = 6;
+  const unsigned int kSE = 7;
+  const unsigned int kSM = 8;
 
   // pileup jet id vector positions -- same as susyNtuplizer_cfi.py order
-  const	unsigned int kFull = 0;
-  const	unsigned int kCutBased = 1;
-  const	unsigned int kSimple = 2;
+  const unsigned int kFull = 0;
+  const unsigned int kCutBased = 1;
+  const unsigned int kSimple = 2;
 
-  class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time, 
+  class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time,
                           or late)*/
 
   public:
@@ -58,24 +58,24 @@ namespace susy {
     void Init();
 
     //all info below from https://twiki.cern.ch/twiki/bin/view/CMS/PileupInformation
-    /*low_cut = 0.1 GeV, high_cut = 0.5 GeV, tracks summed/counted are TrackingParticles from 
+    /*low_cut = 0.1 GeV, high_cut = 0.5 GeV, tracks summed/counted are TrackingParticles from
       simulation truth info*/
     int numInteractions; //the number of pileup interactions that have been added to the event
-    std::vector<float> zPositions; /*the true primary vertex position along the z axis for each 
+    std::vector<float> zPositions; /*the true primary vertex position along the z axis for each
                                      added interaction*/
-    std::vector<float> sumPTLowPT; /*the sum of the transverse momentum of the tracks originating 
+    std::vector<float> sumPTLowPT; /*the sum of the transverse momentum of the tracks originating
                                      from each interaction, where track pT > low_cut*/
-    std::vector<float> sumPTHighPT; /*the sum of the transverse momentum of the tracks originating 
+    std::vector<float> sumPTHighPT; /*the sum of the transverse momentum of the tracks originating
                                       from each interaction, where track pT > high_cut*/
-    std::vector<int> numTracksLowPT; /*the number of tracks originating from each interaction, 
+    std::vector<int> numTracksLowPT; /*the number of tracks originating from each interaction,
                                        where track pT > low_cut*/
-    std::vector<int> numTracksHighPT; /*the number of tracks originating from each interaction, 
+    std::vector<int> numTracksHighPT; /*the number of tracks originating from each interaction,
                                         where track pT > high_cut*/
     std::vector<float> instLumi; //for PU from DataMixer
     std::vector<unsigned int> dataMixerRun;
     std::vector<unsigned int> dataMixerEvt;
     std::vector<unsigned int> dataMixerLumiSection;
-    int BX; /*to which bunch crossing does this interaction belong?  New in 3_11_3 and 4_1_3 or 
+    int BX; /*to which bunch crossing does this interaction belong?  New in 3_11_3 and 4_1_3 or
               later*/
     float trueNumInteractions;
 
@@ -141,7 +141,7 @@ namespace susy {
   class Vertex {
 
   public:
-    
+
     Vertex()  { Init(); }
     ~Vertex() { Init(); }
     void Init();
@@ -158,7 +158,7 @@ namespace susy {
   class Cluster {
 
   public:
-    
+
     Cluster()  { Init(); }
     ~Cluster() { Init(); }
     void Init();
@@ -171,9 +171,9 @@ namespace susy {
 
 
   class SuperCluster {
-    
+
   public:
-    
+
     SuperCluster()  { Init(); }
     ~SuperCluster() { Init(); }
     void Init();
@@ -185,7 +185,7 @@ namespace susy {
     Float_t  etaWidth;
     TVector3 position;
     std::vector<Int_t> basicClusterIndices;
-    
+
   };
 
 
@@ -226,7 +226,7 @@ namespace susy {
     TVector3       vertex;
     TLorentzVector momentum;
     std::map<TString,TVector3>  extrapolatedPositions;
-    
+
   };
 
 
@@ -317,25 +317,25 @@ namespace susy {
     Float_t        convVtxChi2;
     Float_t        convVtxNdof;
     TVector3       convVertex;
-    Float_t        convDxy;	 
-    Float_t        convDz;	 
-    Float_t        convLxy;	 
-    Float_t        convLz;	 
-    Float_t        convZofPVFromTracks;	 
-    Int_t          convTrackChargeProd;	 
-    Int_t          convTrack1nHit;	 
-    Int_t          convTrack2nHit;	 
-    Float_t        convTrack1chi2;	 
-    Float_t        convTrack2chi2;	 
-    Float_t        convTrack1pT;	 
-    Float_t        convTrack2pT;	 
-    Float_t        convTrack1InnerZ;	 
-    Float_t        convTrack2InnerZ;	 
-    Float_t        convTrack1InnerX;	 
-    Float_t        convTrack2InnerX;	 
-    Float_t        convTrack1InnerY;	 
-    Float_t        convTrack2InnerY;	 
-    Float_t        convTrack1Signedd0;	 
+    Float_t        convDxy;
+    Float_t        convDz;
+    Float_t        convLxy;
+    Float_t        convLz;
+    Float_t        convZofPVFromTracks;
+    Int_t          convTrackChargeProd;
+    Int_t          convTrack1nHit;
+    Int_t          convTrack2nHit;
+    Float_t        convTrack1chi2;
+    Float_t        convTrack2chi2;
+    Float_t        convTrack1pT;
+    Float_t        convTrack2pT;
+    Float_t        convTrack1InnerZ;
+    Float_t        convTrack2InnerZ;
+    Float_t        convTrack1InnerX;
+    Float_t        convTrack2InnerX;
+    Float_t        convTrack1InnerY;
+    Float_t        convTrack2InnerY;
+    Float_t        convTrack1Signedd0;
     Float_t        convTrack2Signedd0;
 
     Short_t        superClusterIndex;
@@ -495,7 +495,7 @@ namespace susy {
     UChar_t        type;
     UChar_t        bestTrackType;
     UChar_t        nMatches;               // number of muon chambers with matched segments (<= nChambers)
-    UChar_t        nValidHits;             // * 
+    UChar_t        nValidHits;             // *
     UChar_t        nValidTrackerHits;      // *
     UChar_t        nValidMuonHits;         // *
     UChar_t        nPixelLayersWithMeasurement; // *
@@ -545,7 +545,7 @@ namespace susy {
   class CaloJet {
 
   public:
-    
+
     CaloJet()  { Init(); }
     ~CaloJet() { Init(); }
     void Init();
@@ -609,7 +609,7 @@ namespace susy {
   class PFJet {
 
   public:
-    
+
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
@@ -676,7 +676,7 @@ namespace susy {
   class JPTJet {
 
   public:
-    
+
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
@@ -763,7 +763,7 @@ namespace susy {
     bool passEcalDeadCellBE()  const { return metFilterBit & (0x1 << 3); }
     bool passHcalLaser()       const { return metFilterBit & (0x1 << 4); }
     bool passTrackingFailure() const { return metFilterBit & (0x1 << 5); }
-    bool passEEBadSC()	       const { return metFilterBit & (0x1 << 6); }
+    bool passEEBadSC()         const { return metFilterBit & (0x1 << 6); }
 
     bool passEERingOfFire()     const { return metFilterBit_2 & (0x1 << 0); }
     bool passInconsistentMuon() const { return metFilterBit_2 & (0x1 << 1); }
@@ -778,7 +778,7 @@ namespace susy {
 
     // JetMET recommended met filters
     bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&
-	passEcalDeadCellTP() && passHcalLaser() && passTrackingFailure() && passEEBadSC(); }
+    passEcalDeadCellTP() && passHcalLaser() && passTrackingFailure() && passEEBadSC(); }
 
     // Members are made as public intentionally for easy access
 
@@ -792,7 +792,7 @@ namespace susy {
     UChar_t                                     cosmicFlag; // empty for now
     Float_t                                     rho; // from kt6PFJets
     Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
-    Float_t 					rho25; // from kt6PFJetsRho25
+    Float_t                                     rho25; // from kt6PFJetsRho25
     Int_t                                       metFilterBit;
     Int_t                                       metFilterBit_2;
 

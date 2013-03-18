@@ -2,7 +2,7 @@
 //
 // Package:    SusyNtuplizer
 // Class:      SusyEvent.cc
-// 
+//
 /*
 
  Description: Objects definitions used for SusyNtuples
@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.25 2012/09/17 20:29:24 dmason Exp $
+// $Id: SusyEvent.cc,v 1.26 2013/03/14 18:30:44 bfrancis Exp $
 //
 
 #include "SusyEvent.h"
@@ -380,7 +380,7 @@ void susy::PFJet::Init() {
   momentum                 *= 0;
 
   tracklist.clear();
-  
+
   puJetIdDiscriminants.clear();
   puJetIdFlags.clear();
 
@@ -427,7 +427,7 @@ void susy::PFParticle::Init() {
   rawHcalEnergy               = 0;
   pS1Energy                   = 0;
   pS2Energy                   = 0;
-  
+
   vertex                     *= 0;
   positionAtECALEntrance     *= 0;
   momentum                   *= 0;
@@ -446,7 +446,7 @@ void susy::Event::Init() {
     cosmicFlag                  = 0;
     rho                         = 0;
     rhoBarrel                   = 0;
-    rho25			= 0;
+    rho25                       = 0;
     metFilterBit                = 0;
     metFilterBit_2              = 0;
 
@@ -467,7 +467,7 @@ void susy::Event::Init() {
     pfJets.clear();
     jptJets.clear();
     pfParticles.clear();
-    
+
     generalTracks.clear();
 
     pu.clear();
