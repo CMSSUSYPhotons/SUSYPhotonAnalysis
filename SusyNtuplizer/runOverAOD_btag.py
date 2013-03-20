@@ -58,7 +58,7 @@ if realData:
         py = cms.string("-0.2251 - 0.1747*Nvtx")
         )
 else:
-    process.pfMEtSysShiftCorr.parameter	= cms.PSet(
+    process.pfMEtSysShiftCorr.parameter = cms.PSet(
         px = cms.string("+0.1166 + 0.0200*Nvtx"),
         py = cms.string("+0.2764 - 0.1280*Nvtx")
         )
@@ -66,7 +66,7 @@ else:
 process.pfType1CorrectedMetsysShiftCorr = process.pfType1CorrectedMet.clone(
     srcType1Corrections = cms.VInputTag(
         cms.InputTag('pfJetMETcorr', 'type1') ,
-        cms.InputTag('pfMEtSysShiftCorr')  
+        cms.InputTag('pfMEtSysShiftCorr')
     )
 )
 
@@ -78,10 +78,10 @@ process.pfType1p2CorrectedMetsysShiftCorr = process.pfType1p2CorrectedMet.clone(
 )
 
 process.metAnalysisSequence = cms.Sequence(process.pfMEtSysShiftCorrSequence*
-					   process.producePFMETCorrections*
+                                           process.producePFMETCorrections*
                                            process.produceCaloMETCorrections*
-					   process.pfType1CorrectedMetsysShiftCorr*
-					   process.pfType1p2CorrectedMetsysShiftCorr)
+                                           process.pfType1CorrectedMetsysShiftCorr*
+                                           process.pfType1p2CorrectedMetsysShiftCorr)
 
 #Calculate rho restricted to barrel for photon pileup subtraction
 process.kt6PFJetsRhoBarrelOnly = process.kt4PFJets.clone(
@@ -122,10 +122,10 @@ process.EcalDeadCellBoundaryEnergyFilter.taggingMode = cms.bool(True)
 
 # Tracking failure filter
 process.goodVertices = cms.EDFilter(
-  "VertexSelector",
-  filter = cms.bool(False),
-  src = cms.InputTag("offlinePrimaryVertices"),
-  cut = cms.string("!isFake && ndof > 4 && abs(z) <= 24 && position.rho < 2")
+    "VertexSelector",
+    filter = cms.bool(False),
+    src = cms.InputTag("offlinePrimaryVertices"),
+    cut = cms.string("!isFake && ndof > 4 && abs(z) <= 24 && position.rho < 2")
 )
 process.load('RecoMET.METFilters.trackingFailureFilter_cfi')
 process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3Residual')
@@ -163,40 +163,40 @@ process.logErrorTooManyClusters.forcedValue = cms.untracked.bool(False)
 #Add up all MET filters
 if realData or not isFastSim:
     process.metFiltersSequence = cms.Sequence(
-    	process.HBHENoiseFilterResultProducer *
-    	process.hcalLaserEventFilter *
-    	process.EcalDeadCellTriggerPrimitiveFilter *
-    	process.EcalDeadCellBoundaryEnergyFilter *
-    	process.goodVertices *
-   	process.trackingFailureFilter *
-	process.eeBadScFilter *
-	process.eeNoiseFilter *
-	process.inconsistentMuonPFCandidateFilter *
-	process.greedyMuonPFCandidateFilter *
-	process.ecalLaserCorrFilter *
-	process.trkPOGFilters
-	)
+        process.HBHENoiseFilterResultProducer *
+        process.hcalLaserEventFilter *
+        process.EcalDeadCellTriggerPrimitiveFilter *
+        process.EcalDeadCellBoundaryEnergyFilter *
+        process.goodVertices *
+        process.trackingFailureFilter *
+        process.eeBadScFilter *
+        process.eeNoiseFilter *
+        process.inconsistentMuonPFCandidateFilter *
+        process.greedyMuonPFCandidateFilter *
+        process.ecalLaserCorrFilter *
+        process.trkPOGFilters
+        )
 else:
     process.metFiltersSequence = cms.Sequence(
-    	process.hcalLaserEventFilter *
-    	process.EcalDeadCellTriggerPrimitiveFilter *
-    	process.EcalDeadCellBoundaryEnergyFilter *
-    	process.goodVertices *
-   	process.trackingFailureFilter *
-	process.eeBadScFilter *
-	process.eeNoiseFilter *
-	process.inconsistentMuonPFCandidateFilter *
-	process.greedyMuonPFCandidateFilter *
-	process.ecalLaserCorrFilter *
-	process.trkPOGFilters
-	)
+        process.hcalLaserEventFilter *
+        process.EcalDeadCellTriggerPrimitiveFilter *
+        process.EcalDeadCellBoundaryEnergyFilter *
+        process.goodVertices *
+        process.trackingFailureFilter *
+        process.eeBadScFilter *
+        process.eeNoiseFilter *
+        process.inconsistentMuonPFCandidateFilter *
+        process.greedyMuonPFCandidateFilter *
+        process.ecalLaserCorrFilter *
+        process.trkPOGFilters
+        )
 
-process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi') 
+process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi')
 process.eidMVASequence = cms.Sequence( process.mvaTrigV0 * process.mvaNonTrigV0 )
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 
-process.myPartons = cms.EDProducer("PartonSelector",   
+process.myPartons = cms.EDProducer("PartonSelector",
                                    withLeptons = cms.bool(False),
                                    src = cms.InputTag("genParticles")
                                    )
@@ -228,20 +228,20 @@ process.JetFlavourMatching = cms.Sequence(
 from CMGTools.External.pujetidsequence_cff import puJetId, puJetMva
 
 process.recoPuJetId = puJetId.clone(
-   jets = cms.InputTag("ak5PFJets"),
-   applyJec = cms.bool(True),
-   inputIsCorrected = cms.bool(False)
+    jets = cms.InputTag("ak5PFJets"),
+    applyJec = cms.bool(True),
+    inputIsCorrected = cms.bool(False)
 )
 
 process.recoPuJetMva = puJetMva.clone(
-   jets = cms.InputTag("ak5PFJets"),
-   applyJec = cms.bool(True),
-   inputIsCorrected = cms.bool(False),                
-   jetids = cms.InputTag("recoPuJetId")
+    jets = cms.InputTag("ak5PFJets"),
+    applyJec = cms.bool(True),
+    inputIsCorrected = cms.bool(False),
+    jetids = cms.InputTag("recoPuJetId")
 )
 
 process.recoPuJetIdSqeuence = cms.Sequence(
-    process.recoPuJetId * 
+    process.recoPuJetId *
     process.recoPuJetMva
 )
 
@@ -255,42 +255,42 @@ if realData:
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
     # JEC for data
     process.jet = cms.Sequence(
-	process.ak5PFJets *
+        process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3Residual * process.ak5CaloJetsL1L2L3Residual *
         # PFJets
         process.ak5PFJetsL2L3Residual * process.ak5PFJetsL1FastL2L3Residual *
         # Barrel only Rho calculation
         process.kt6PFJetsRhoBarrelOnly *
-	# Rho25 calculation
-	process.kt6PFJetsRho25
+        # Rho25 calculation
+        process.kt6PFJetsRho25
         )
 
 else:
     process.source.fileNames = cms.untracked.vstring(
-	'dcap:///pnfs/cms/WAX/11/store/mc/Summer12/WJetsToLNu_TuneZ2Star_8TeV-madgraph-tarball/AODSIM/PU_S7_START52_V9-v1/0001/FE8F81B3-C494-E111-B50D-003048D476BC.root'
+        'dcap:///pnfs/cms/WAX/11/store/mc/Summer12/WJetsToLNu_TuneZ2Star_8TeV-madgraph-tarball/AODSIM/PU_S7_START52_V9-v1/0001/FE8F81B3-C494-E111-B50D-003048D476BC.root'
         )
     process.GlobalTag.globaltag = 'START53_V11::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
     process.jet = cms.Sequence(
-	process.ak5PFJets *
+        process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
         # PFJets
         process.ak5PFJetsL2L3 * process.ak5PFJetsL1FastL2L3 *
         # Barrel only Rho calculation
         process.kt6PFJetsRhoBarrelOnly *
-	# Rho25 calculation
-	process.kt6PFJetsRho25 *
-	# Jet-flavour matching for b-tagging
-	process.JetFlavourMatching
+        # Rho25 calculation
+        process.kt6PFJetsRho25 *
+        # Jet-flavour matching for b-tagging
+        process.JetFlavourMatching
         )
     process.trackingFailureFilter.JetSource = cms.InputTag('ak5PFJetsL2L3')
     if isFastSim:
-	process.susyNtuplizer.muonIDCollectionTags = cms.vstring()
-	process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
+        process.susyNtuplizer.muonIDCollectionTags = cms.vstring()
+        process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
 
 # IsoDeposit
 from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setupPFPhotonIso
@@ -330,10 +330,10 @@ process.newSecondaryVertexTagInfos.trackIPTagInfos = "newImpactParameterTagInfos
 process.newSimpleSecondaryVertexBJetTags = process.simpleSecondaryVertexBJetTags.clone()
 process.newSimpleSecondaryVertexBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSecondaryVertexTagInfos") )
 process.newCombinedSecondaryVertexBJetTags = process.combinedSecondaryVertexBJetTags.clone()
-process.newCombinedSecondaryVertexBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"), 
+process.newCombinedSecondaryVertexBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
 cms.InputTag("newSecondaryVertexTagInfos") )
 process.newCombinedSecondaryVertexMVABJetTags = process.combinedSecondaryVertexMVABJetTags.clone()
-process.newCombinedSecondaryVertexMVABJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"), 
+process.newCombinedSecondaryVertexMVABJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
 cms.InputTag("newSecondaryVertexTagInfos") )
 
 # soft electron b-tag
@@ -375,7 +375,7 @@ process.newJetBtaggingSV = cms.Sequence(
 )
 
 process.newJetBtaggingEle = cms.Sequence(
-    process.softElectronCands * 
+    process.softElectronCands *
     process.newSoftElectronTagInfos *
     process.newSoftElectronBJetTags
 )
@@ -398,31 +398,37 @@ process.newJetBtagging = cms.Sequence(
 if is52xABData and realData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
-        tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
-        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
-    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
-        tag = cms.string("TrackProbabilityCalibration_3D_2012DataTOT_v1_offline"),
-        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+            tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        ),
+        cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+            tag = cms.string("TrackProbabilityCalibration_3D_2012DataTOT_v1_offline"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        )
     )
 
 if is53xData and realData:
     process.GlobalTag.toGet = cms.VPSet(
-  	cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
-       	tag = cms.string("TrackProbabilityCalibration_2D_Data53X_v2"),
-       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
-    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
-       	tag = cms.string("TrackProbabilityCalibration_3D_Data53X_v2"),
-       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+        cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
+            tag = cms.string("TrackProbabilityCalibration_2D_Data53X_v2"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        ),
+        cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+            tag = cms.string("TrackProbabilityCalibration_3D_Data53X_v2"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        )
     )
 
 if is53xMC and not realData:
     process.GlobalTag.toGet = cms.VPSet(
-  	cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
-        tag = cms.string("TrackProbabilityCalibration_2D_MC53X_v2"),
-        connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")),
-    cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
-       	tag = cms.string("TrackProbabilityCalibration_3D_MC53X_v2"),
-       	connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU"))
+        cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
+            tag = cms.string("TrackProbabilityCalibration_2D_MC53X_v2"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        ),
+        cms.PSet(record = cms.string("BTagTrackProbability3DRcd"),
+            tag = cms.string("TrackProbabilityCalibration_3D_MC53X_v2"),
+            connect = cms.untracked.string("frontier://FrontierPrep/CMS_COND_BTAU")
+        )
     )
 
 process.p = cms.Path(
