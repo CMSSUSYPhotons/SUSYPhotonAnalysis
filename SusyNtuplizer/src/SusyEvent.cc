@@ -10,10 +10,15 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.26 2013/03/14 18:30:44 bfrancis Exp $
+// $Id: SusyEvent.cc,v 1.27 2013/03/18 19:56:42 kiesel Exp $
 //
 
 #include "SusyEvent.h"
+
+#include <limits>
+
+// Use for initialization of variables that can have a value 0 and are not always filled
+float const BIGVALUE(std::numeric_limits<float>::max());
 
 void susy::PUSummaryInfo::Init() {
   numInteractions = 0;
@@ -103,7 +108,7 @@ void susy::Photon::Init() {
   hadTowOverEm                    = 0;
   hadronicDepth1OverEm            = 0;
   hadronicDepth2OverEm            = 0;
-  e1x2                            = 0;
+  e1x2                            = BIGVALUE;
   e1x5                            = 0;
   e2x5                            = 0;
   e3x3                            = 0;
@@ -111,7 +116,7 @@ void susy::Photon::Init() {
   maxEnergyXtal                   = 0;
   sigmaEtaEta                     = 0;
   sigmaIetaIeta                   = 0;
-  sigmaIphiIphi                   = 0;
+  sigmaIphiIphi                   = BIGVALUE;
   r9                              = 0;
 
   ecalRecHitSumEtConeDR04         = 0;
@@ -135,17 +140,45 @@ void susy::Photon::Init() {
   chargedHadronIso                = 0;
   neutralHadronIso                = 0;
   photonIso                       = 0;
-  chargedHadronIsoDeposit         = 0;
-  neutralHadronIsoDeposit         = 0;
-  photonIsoDeposit                = 0;
+  chargedHadronIsoDeposit         = BIGVALUE;
+  neutralHadronIsoDeposit         = BIGVALUE;
+  photonIsoDeposit                = BIGVALUE;
 
-  seedTime                        = 0;
+  seedTime                        = BIGVALUE;
 
-  convDist                        = 999;
-  convDcot                        = 999;
+  mipChi2                         = 0.;
+  mipTotEnergy                    = 0.;
+  mipSlope                        = 0.;
+  mipIntercept                    = 0.;
+  mipNhitCone                     = 0.;
+  mipIsHalo                       = kFALSE;
+
+  convInfo                        = kFALSE;
+  convDist                        = 0.;
+  convDcot                        = 0.;
   convVtxChi2                     = 0;
   convVtxNdof                     = 0;
   convVertex                     *= 0;
+  convDxy                         = 0.;
+  convDz                          = 0.;
+  convLxy                         = 0.;
+  convLz                          = 0.;
+  convZofPVFromTracks             = 0.;
+  convTrackChargeProd             = 0;
+  convTrack1nHit                  = 0;
+  convTrack2nHit                  = 0;
+  convTrack1chi2                  = 0.;
+  convTrack2chi2                  = 0.;
+  convTrack1pT                    = 0.;
+  convTrack2pT                    = 0.;
+  convTrack1InnerZ                = 0.;
+  convTrack2InnerZ                = 0.;
+  convTrack1InnerX                = 0.;
+  convTrack2InnerX                = 0.;
+  convTrack1InnerY                = 0.;
+  convTrack2InnerY                = 0.;
+  convTrack1Signedd0              = 0.;
+  convTrack2Signedd0              = 0.;
 
   superClusterIndex               = -1;
   superClusterPreshowerEnergy     = 0;
@@ -202,13 +235,14 @@ void susy::Electron::Init() {
   dr04HcalDepth1TowerSumEtBc       = 0;
   dr04HcalDepth2TowerSumEtBc       = 0;
 
-  convDist                         = 999;
-  convDcot                         = 999;
-  convRadius                       = 0;
+  convDist                         = 0.;
+  convDcot                         = 0.;
+  convRadius                       = 0.;
 
-  chargedHadronIso                 = 0;
-  neutralHadronIso                 = 0;
-  photonIso                        = 0;
+  chargedHadronIso                 = BIGVALUE;
+  neutralHadronIso                 = BIGVALUE;
+  photonIso                        = BIGVALUE;
+
   mvaStatus                        = 0;
   mva                              = 0;
 

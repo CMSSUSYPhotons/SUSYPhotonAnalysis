@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.44 2013/03/14 18:53:01 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.45 2013/03/18 19:56:42 kiesel Exp $
 //
 //
 
@@ -27,10 +27,15 @@
 #include "DataFormats/Luminosity/interface/LumiSummary.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
 
+#include "DataFormats/Common/interface/RefToPtr.h"
+
+#include "DataFormats/Math/interface/Point3D.h"
+#include "DataFormats/Math/interface/deltaR.h"
+
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
+
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 
@@ -53,7 +58,6 @@
 
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
-
 
 #include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/CaloRecHit/interface/CaloClusterFwd.h"
@@ -119,16 +123,10 @@
 #include "Geometry/CaloEventSetup/interface/CaloTopologyRecord.h"
 #include "Calibration/IsolatedParticles/interface/eECALMatrix.h"
 
-//#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgo.h"
-//#include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
 #include "RecoEcal/EgammaCoreTools/interface/EcalClusterTools.h"
 
 // Jet Energy Correction
 #include "JetMETCorrections/Objects/interface/JetCorrector.h"
-
-// Geant vertex
-#include "SimDataFormats/Vertex/interface/SimVertex.h"
-#include "SimDataFormats/Vertex/interface/SimVertexContainer.h"
 
 // pileup summary info
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
@@ -159,6 +157,7 @@
 #include <utility>
 #include <set>
 #include <list>
+#include <map>
 
 #include <TTree.h>
 #include <TFile.h>
@@ -166,82 +165,89 @@
 
 #include "SusyEvent.h"
 
-const int nJECFlavours = 5;
-const std::string jecFlavours[nJECFlavours] = {"gluon", "uds", "charm", "bottom", "none"};
-
-
 // Class definition
 class SusyNtuplizer : public edm::EDAnalyzer {
 
 public:
-  explicit SusyNtuplizer(const edm::ParameterSet&);
+  explicit SusyNtuplizer(edm::ParameterSet const&);
   ~SusyNtuplizer();
 
-  typedef std::vector< edm::Handle< edm::ValueMap<double> > > IsoDepositVals;
-
 private:
-  virtual void beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup);
-  virtual void beginJob() ;
-  virtual void analyze(const edm::Event&, const edm::EventSetup&);
-  virtual void endJob() ;
+  void beginRun(edm::Run const&, edm::EventSetup const&);
+  void beginJob();
+  void analyze(edm::Event const&, edm::EventSetup const&);
+  void endJob();
 
-  std::string name() { return "SusyNtuplizer"; }
-  void fillGenInfos(const edm::Event&, const edm::EventSetup&);
-  void fillTrack(const reco::TrackRef& in, susy::Track& out);
-  void fillTrack(const reco::GsfTrackRef& in, susy::Track& out);
-  void fillCluster(const reco::CaloClusterPtr& in, susy::Cluster& out);
-  void fillCluster(const reco::SuperClusterRef& in, susy::SuperCluster& out, int& basicClusterIndex); // basicClusterIndex will be incremented here
-  void fillParticle(const reco::GenParticle* in, susy::Particle& out, short momIndex);
-  void fillExtrapolations(const reco::Track* ttk, std::map<TString,TVector3>& positions);
-  // If track is already stored, return its index, otherwise return -1.
-  int sameTrack(const susy::Track& track, const std::vector<susy::Track>& tracks) const;
+  std::string name() const { return "SusyNtuplizer"; }
+
+  void fillLumiSummary(edm::Event const&, edm::EventSetup const&);
+  void fillBeamSpot(edm::Event const&, edm::EventSetup const&);
+  void fillRhos(edm::Event const&, edm::EventSetup const&);
+  void fillTriggerMaps(edm::Event const&, edm::EventSetup const&);
+  void fillVertices(edm::Event const&, edm::EventSetup const&);
+  void fillGeneralTracks(edm::Event const&, edm::EventSetup const&);
+  void fillMetFilters(edm::Event const&, edm::EventSetup const&);
+  void fillPFParticles(edm::Event const&, edm::EventSetup const&);
+  void fillGenInfo(edm::Event const&, edm::EventSetup const&);
+  void fillGenParticles(edm::Event const&, edm::EventSetup const&);
+
+  void fillMet(edm::Event const&, edm::EventSetup const&);
+  void fillMuons(edm::Event const&, edm::EventSetup const&);
+  void fillElectrons(edm::Event const&, edm::EventSetup const&);
+  void fillPhotons(edm::Event const&, edm::EventSetup const&);
+  void fillCaloJets(edm::Event const&, edm::EventSetup const&);
+  void fillPFJets(edm::Event const&, edm::EventSetup const&);
+  void fillJPTJets(edm::Event const&, edm::EventSetup const&);
+
+  unsigned fillTrack(reco::TrackRef const&);
+  unsigned fillGsfTrack(reco::GsfTrackRef const&);
+  unsigned fillSuperCluster(reco::SuperClusterRef const&);
+  unsigned fillCluster(reco::CaloClusterPtr const&);
+
+  unsigned fillTrackCommon(edm::Ptr<reco::Track> const&, bool&);
+
+  void fillTracksAround(reco::Candidate const&, double, edm::Handle<reco::TrackCollection> const&);
+
+  void finalize();
 
   // ----------member data ---------------------------
 
   // InputTags
 
-  edm::InputTag lumiSummaryTag_;
-  edm::InputTag l1GTReadoutTag_;
-  edm::InputTag l1GTObjectMapTag_;
-  edm::InputTag hltCollectionTag_;
-  edm::InputTag vtxCollectionTag_;
-  edm::InputTag trackCollectionTag_;
-//  edm::InputTag muonCollectionTag_;
+  std::string lumiSummaryTag_;
+  //  std::string triggerEventTag_;
+  std::string vtxCollectionTag_;
+  std::string trackCollectionTag_;
+  std::string pfCandidateCollectionTag_;
+  std::string genCollectionTag_;
+  std::string puSummaryInfoTag_;
   std::vector<std::string> muonCollectionTags_;
-  std::vector<std::string> muonIDCollectionTags_;
   std::vector<std::string> electronCollectionTags_;
-  std::vector<std::string> electronIDCollectionTags_;
   std::vector<std::string> photonCollectionTags_;
-  std::vector<std::string> photonIDCollectionTags_;
-  std::vector<edm::InputTag> isoValPhotonTags_;
-  std::vector<edm::InputTag> isoValElectronTags_;
-  edm::InputTag genCollectionTag_;
-  edm::InputTag simVertexCollectionTag_;
   std::vector<std::string> caloJetCollectionTags_;
   std::vector<std::string> pfJetCollectionTags_;
   std::vector<std::string> jptJetCollectionTags_;
   std::vector<std::string> metCollectionTags_;
-  std::vector<std::string> pfCandidateCollectionTags_;
   std::vector<std::string> bTagCollectionTags_;
-  std::vector<std::string> puJetIdCollectionTags_;
-  edm::InputTag puSummaryInfoTag_;
+  std::map<std::string, std::vector<std::string> > muonIdCollectionTags_;
+  std::map<std::string, std::vector<std::string> > electronIdCollectionTags_;
+  std::map<std::string, std::vector<std::string> > photonIdCollectionTags_;
+  std::map<std::string, std::vector<std::string> > photonIsoDepTags_;
+  std::map<std::string, std::vector<std::string> > electronIsoDepTags_;
+  std::map<std::string, std::vector<std::string> > puJetIdCollectionTags_;
   std::string photonSCRegressionWeights_;
 
-  edm::ESHandle<MagneticField> magneticField_;
   PropagatorWithMaterial* propagator_;
-  edm::ESHandle<TransientTrackBuilder> transientTrackBuilder_;
-
-  PFGeometry pfGeom_;
+  TransientTrackBuilder const* transientTrackBuilder_;
 
   //for HLT prescales
-  HLTConfigProvider hltConfig_;
-  bool changed_;
+  HLTConfigProvider* hltConfig_;
 
   // for L1 menu
-  L1GtUtils l1GtUtils_;
+  L1GtUtils* l1GtUtils_;
 
   // PFIsolator
-  PFIsolationEstimator isolator03_;
+  PFIsolationEstimator* isolator03_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -250,9 +256,17 @@ private:
   // 3 : print the values of objects in the collection
   int debugLevel_;
 
+  // flag for storing L1 information
+  // default : true
+  bool storeL1Info_;
+
+  // flag for storing HLT information
+  // default : true
+  bool storeHLTInfo_;
+
   // flag for storing generated informations in ntuples
   // default : false
-  bool storeGenInfos_;
+  bool storeGenInfo_;
 
   // flag for storing generalTracks collection
   // default : false
@@ -272,6 +286,9 @@ private:
   // certain collections are not produced by FamosSequence so we skip them
   // default: false (turned on in runOverAOD.py)
   bool isFastSim_;
+
+  // flag for recording TriggerEvent into a separate tree (susyTriggers)
+  //  bool storeTriggerEvents_;
 
   // electronThreshold
   double electronThreshold_;
@@ -294,298 +311,252 @@ private:
   std::vector< std::pair<reco::Jet, int> > algorithmicDefinitionMatches;
 
   //Photon SC energy MVA regression
-  EGEnergyCorrector ecorr_;
+  EGEnergyCorrector scEnergyCorrector_;
 
-  std::string outputFileName_;
+  // since we deal with both reco::Track and reco::GsfTrack, the reference needs to be polymorphic
+  typedef std::map<edm::Ptr<reco::Track>, unsigned> TrackStore;
+  typedef std::map<reco::SuperClusterRef, unsigned> SuperClusterStore;
+  typedef std::map<reco::CaloClusterPtr, unsigned> CaloClusterStore;
+  struct ProductStore {
+    void clear() { tracks.clear(); superClusters.clear(); basicClusters.clear(); }
+    TrackStore tracks;
+    SuperClusterStore superClusters;
+    CaloClusterStore basicClusters;
+  } productStore_;
 
   susy::Event* susyEvent_;
   TTree*       susyTree_;
 
+  //  susy::TriggerEvent* triggerEvent_;
 };
 
 
 // Constructor - passing parameters, memory allocation to ntuple variables
-SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) {
+SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
+  lumiSummaryTag_(iConfig.getParameter<std::string>("lumiSummaryTag")),
+  //  triggerEventTag_(iConfig.getParameter<std::string>("triggerEventTag")),
+  vtxCollectionTag_(iConfig.getParameter<std::string>("vtxCollectionTag")),
+  trackCollectionTag_(iConfig.getParameter<std::string>("trackCollectionTag")),
+  pfCandidateCollectionTag_(iConfig.getParameter<std::string>("pfCandidateCollectionTag")),
+  genCollectionTag_(iConfig.getParameter<std::string>("genCollectionTag")),
+  puSummaryInfoTag_(iConfig.getParameter<std::string>("puSummaryInfoTag")),
+  muonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("muonCollectionTags")),
+  electronCollectionTags_(iConfig.getParameter<std::vector<std::string> >("electronCollectionTags")),
+  photonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("photonCollectionTags")),
+  caloJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags")),
+  pfJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("pfJetCollectionTags")),
+  jptJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags")),
+  metCollectionTags_(iConfig.getParameter<std::vector<std::string> >("metCollectionTags")),
+  bTagCollectionTags_(iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags")),
+  muonIdCollectionTags_(),
+  electronIdCollectionTags_(),
+  photonIdCollectionTags_(),
+  photonIsoDepTags_(),
+  electronIsoDepTags_(),
+  puJetIdCollectionTags_(),
+  photonSCRegressionWeights_(""),
+  propagator_(0),
+  transientTrackBuilder_(0),
+  hltConfig_(0),
+  l1GtUtils_(0),
+  isolator03_(0),
+  debugLevel_(iConfig.getParameter<int>("debugLevel")),
+  storeL1Info_(iConfig.getParameter<bool>("storeL1Info")),
+  storeHLTInfo_(iConfig.getParameter<bool>("storeHLTInfo")),
+  storeGenInfo_(iConfig.getParameter<bool>("storeGenInfo")),
+  storeGeneralTracks_(iConfig.getParameter<bool>("storeGeneralTracks")),
+  storePFJetPartonMatches_(iConfig.getParameter<bool>("storePFJetPartonMatches")),
+  recoMode_(iConfig.getParameter<bool>("recoMode")),
+  isFastSim_(iConfig.getParameter<bool>("isFastSim")),
+  //  storeTriggerEvents_(iConfig.getParameter<bool>("storeTriggerEvents")),
+  electronThreshold_(iConfig.getParameter<double>("electronThreshold")),
+  muonThreshold_(iConfig.getParameter<double>("muonThreshold")),
+  photonThreshold_(iConfig.getParameter<double>("photonThreshold")),
+  jetThreshold_(iConfig.getParameter<double>("jetThreshold")),
+  pfParticleThreshold_(iConfig.getParameter<double>("pfParticleThreshold")),
+  physicsDefinitionMatches(),
+  algorithmicDefinitionMatches(),
+  scEnergyCorrector_(),
+  productStore_(),
+  susyEvent_(0),
+  susyTree_(0)
+  //  triggerEvent_(0)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "ctor";
 
-  lumiSummaryTag_            = iConfig.getParameter<edm::InputTag>("lumiSummaryTag");
-  l1GTReadoutTag_            = iConfig.getParameter<edm::InputTag>("l1GTReadoutTag");
-  l1GTObjectMapTag_          = iConfig.getParameter<edm::InputTag>("l1GTObjectMapTag");
-  hltCollectionTag_          = iConfig.getParameter<edm::InputTag>("hltCollectionTag");
-  vtxCollectionTag_          = iConfig.getParameter<edm::InputTag>("vtxCollectionTag");
-  trackCollectionTag_        = iConfig.getParameter<edm::InputTag>("trackCollectionTag");
-  muonCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("muonCollectionTags");
-  muonIDCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("muonIDCollectionTags");
-  electronCollectionTags_    = iConfig.getParameter<std::vector<std::string> >("electronCollectionTags");
-  electronIDCollectionTags_  = iConfig.getParameter<std::vector<std::string> >("electronIDCollectionTags");
-  photonCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("photonCollectionTags");
-  photonIDCollectionTags_    = iConfig.getParameter<std::vector<std::string> >("photonIDCollectionTags");
-  isoValPhotonTags_          = iConfig.getParameter< std::vector<edm::InputTag> >("isoValPhotonTags");
-  isoValElectronTags_        = iConfig.getParameter< std::vector<edm::InputTag> >("isoValElectronTags");
-  genCollectionTag_          = iConfig.getParameter<edm::InputTag>("genCollectionTag");
-  simVertexCollectionTag_    = iConfig.getParameter<edm::InputTag>("simVertexCollectionTag");
-  caloJetCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags");
-  pfJetCollectionTags_       = iConfig.getParameter<std::vector<std::string> >("pfJetCollectionTags");
-  jptJetCollectionTags_      = iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags");
-  metCollectionTags_         = iConfig.getParameter<std::vector<std::string> >("metCollectionTags");
-  pfCandidateCollectionTags_ = iConfig.getParameter<std::vector<std::string> >("pfCandidateCollectionTags");
-  bTagCollectionTags_        = iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags");
-  puJetIdCollectionTags_     = iConfig.getParameter<std::vector<std::string> >("puJetIdCollectionTags");
-  puSummaryInfoTag_          = iConfig.getParameter<edm::InputTag>("puSummaryInfoTag");
   if(iConfig.existsAs<std::string>("photonSCRegressionWeights"))
     photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
   else
     photonSCRegressionWeights_ = iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath();
 
-  muonThreshold_ = iConfig.getParameter<double>("muonThreshold");
-  electronThreshold_ = iConfig.getParameter<double>("electronThreshold");
-  photonThreshold_ = iConfig.getParameter<double>("photonThreshold");
-  jetThreshold_ = iConfig.getParameter<double>("jetThreshold");
-  pfParticleThreshold_ = iConfig.getParameter<double>("pfParticleThreshold");
-  debugLevel_ = iConfig.getParameter<int>("debugLevel");
-  storeGenInfos_ = iConfig.getParameter<bool>("storeGenInfos");
-  storeGeneralTracks_ = iConfig.getParameter<bool>("storeGeneralTracks");
-  storePFJetPartonMatches_ = iConfig.getParameter<bool>("storePFJetPartonMatches");
-  recoMode_ = iConfig.getParameter<bool>("recoMode");
-  isFastSim_ = iConfig.getParameter<bool>("isFastSim");
-  outputFileName_ = iConfig.getParameter<std::string>("outputFileName");
+  // check if the file exists
+  TFile* dummyFile(TFile::Open(photonSCRegressionWeights_.c_str()));
+  if(!dummyFile || dummyFile->IsZombie())
+    throw cms::Exception("IOError") << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
+  delete dummyFile;
 
-  susyEvent_ = new susy::Event;
-
-  TFile* outF = new TFile(outputFileName_.c_str(),"RECREATE");
-  //  TH1::AddDirectory(kTRUE);
-  if(outF) {
-    susyTree_ = new TTree("susyTree","SUSY Event");
-    susyTree_->Branch("susyEvent","susy::Event",&susyEvent_);
-    susyTree_->SetAutoSave(10000000);     // 10 MB
-    //    susyTree_->SetMaxTreeSize(500000000); // 500 MB
+  edm::ParameterSet const& muonIdTags(iConfig.getParameterSet("muonIdTags"));
+  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
+    if(muonIdTags.existsAs<std::vector<std::string> >(*tItr))
+      muonIdCollectionTags_[*tItr] = muonIdTags.getParameter<std::vector<std::string> >(*tItr);
   }
 
-  // PFIsolator init
-  isolator03_.initializePhotonIsolation(kTRUE);
-  isolator03_.setConeSize(0.3);
+  edm::ParameterSet const& electronIdTags(iConfig.getParameterSet("electronIdTags"));
+  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
+    if(electronIdTags.existsAs<std::vector<std::string> >(*tItr))
+      electronIdCollectionTags_[*tItr] = electronIdTags.getParameter<std::vector<std::string> >(*tItr);
+  }
 
-  if(debugLevel_ > 0) std::cout << name() << " : ctor" << std::endl;
+  edm::ParameterSet const& photonIdTags(iConfig.getParameterSet("photonIdTags"));
+  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
+    if(photonIdTags.existsAs<std::vector<std::string> >(*tItr))
+      photonIdCollectionTags_[*tItr] = photonIdTags.getParameter<std::vector<std::string> >(*tItr);
+  }
 
+  edm::ParameterSet const& photonIsoDepTags(iConfig.getParameterSet("photonIsoDepTags"));
+  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
+    if(!photonIsoDepTags.existsAs<edm::ParameterSet>(*tItr)) continue;
+    edm::ParameterSet const& tagsPSet(photonIsoDepTags.getParameterSet(*tItr));
+
+    std::vector<std::string>& tags(photonIsoDepTags_[*tItr]);
+    tags.resize(susy::nPFIsoTypes);
+
+    tags[susy::kChargedHadron] = tagsPSet.getParameter<std::string>("chargedHadron");
+    tags[susy::kNeutralHadron] = tagsPSet.getParameter<std::string>("neutralHadron");
+    tags[susy::kPhoton] = tagsPSet.getParameter<std::string>("photon");
+  }
+
+  edm::ParameterSet const& electronIsoDepTags(iConfig.getParameterSet("electronIsoDepTags"));
+  for(std::vector<std::string>::iterator tItr(electronCollectionTags_.begin()); tItr != electronCollectionTags_.end(); ++tItr){
+    if(!electronIsoDepTags.existsAs<edm::ParameterSet>(*tItr)) continue;
+    edm::ParameterSet const& tagsPSet(electronIsoDepTags.getParameterSet(*tItr));
+
+    std::vector<std::string>& tags(electronIsoDepTags_[*tItr]);
+    tags.resize(susy::nPFIsoTypes);
+
+    tags[susy::kChargedHadron] = tagsPSet.getParameter<std::string>("chargedHadron");
+    tags[susy::kNeutralHadron] = tagsPSet.getParameter<std::string>("neutralHadron");
+    tags[susy::kPhoton] = tagsPSet.getParameter<std::string>("photon");
+  }
+
+  edm::ParameterSet const& puJetIdTags(iConfig.getParameterSet("puJetIdTags"));
+  for(std::vector<std::string>::iterator tItr(pfJetCollectionTags_.begin()); tItr != pfJetCollectionTags_.end(); ++tItr){
+    if(puJetIdTags.existsAs<std::vector<std::string> >(*tItr))
+      puJetIdCollectionTags_[*tItr] = puJetIdTags.getParameter<std::vector<std::string> >(*tItr);
+  }
+
+  TString outputFileName(iConfig.getParameter<std::string>("outputFileName"));
+
+  TFile* outF(TFile::Open(outputFileName, "RECREATE"));
+  if(!outF || outF->IsZombie())
+    throw cms::Exception("IOError") << "Cannot create file " << outputFileName;
+
+  outF->cd();    
+  susyEvent_ = new susy::Event;
+  susyTree_ = new TTree("susyTree", "SUSY Event");
+  susyTree_->Branch("susyEvent", "susy::Event", &susyEvent_);
+  susyTree_->SetAutoSave(10000000); // 10M events
+
+//   if(storeTriggerEvents_){
+//     TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
+
+//     triggerEvent_ = new susy::TriggerEvent;
+//     triggerEvent_->bookTrees(triggerFileName);
+//   }
 }
 
+SusyNtuplizer::~SusyNtuplizer()
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "dtor";
 
-// Destructor - free up memory used
-SusyNtuplizer::~SusyNtuplizer() {
-
-  if(debugLevel_ > 0) std::cout << name() << " : dtor" << std::endl;
-
-  if(susyEvent_) delete susyEvent_;
-
+  finalize();
 }
 
 // ------------ method called once each job just before starting event loop  ------------
-// Open output file and setup tree structures
-void SusyNtuplizer::beginJob() {
+void
+SusyNtuplizer::beginJob()
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "beginJob";
 
-  if(debugLevel_ > 0) std::cout << name() << " : beginJob" << std::endl;
-
+  if(photonCollectionTags_.size() != 0){
+    // PFIsolator init
+    isolator03_ = new PFIsolationEstimator;
+    isolator03_->initializePhotonIsolation(true); // bool applyVeto
+    isolator03_->setConeSize(0.3);
+  }
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
-// Write the tree to the output
-void SusyNtuplizer::endJob() {
-
-  if(debugLevel_ > 0) std::cout << name() << " : endJob" << std::endl;
-
-  susyTree_->GetCurrentFile()->cd();
-  //  susyTree_->GetCurrentFile()->Write();
-  susyTree_->Write();
-  susyTree_->GetCurrentFile()->Close();
-
+void
+SusyNtuplizer::endJob()
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "endJob";
 }
-
 
 // ---- method called once each job just before starting event loop  ---
-void SusyNtuplizer::beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup){
+void
+SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "beginRun";
 
-  //intialize HLTConfigProvider
-  if(!hltConfig_.init(iRun,iSetup,"HLT",changed_) ){
-    edm::LogError("SusyNtuplizer") <<
-      "Error! Can't initialize HLTConfigProvider";
-    throw cms::Exception("HLTConfigProvider::init() returned non 0");
-  }
-  if(changed_) {
-    std::cout << "HLT configuration changed to " << hltConfig_.tableName() << std::endl;
-  }
-
-  // initialize Photon SC energy MVA regression
-  // first check that the weight file exists (EGEnergyCorrector seg faults if it doesn't)
-  TFile* photonSCWeights(0);
   try{
-    photonSCWeights = TFile::Open(photonSCRegressionWeights_.c_str());
+    if(storeL1Info_){
+      if(!l1GtUtils_) l1GtUtils_ = new L1GtUtils;
+      l1GtUtils_->getL1GtRunCache(iRun, iSetup, true, false); // use event setup, do not use L1TriggerMenuLite
+    }
+
+    if(storeHLTInfo_){
+      //intialize HLTConfigProvider
+      if(!hltConfig_) hltConfig_ = new HLTConfigProvider;
+      bool menuChanged;
+      if(!hltConfig_->init(iRun, iSetup, "HLT", menuChanged))
+        throw cms::Exception("RuntimeError") << "HLTConfigProvider::init() returned non 0";
+
+      if(menuChanged) edm::LogInfo(name()) << "beginRun: HLT configuration changed to " << hltConfig_->tableName();
+    }
+
+    if(photonCollectionTags_.size() != 0){
+      // initialize Photon SC energy MVA regression
+      // EventSetup is not used if the third argument is false
+      scEnergyCorrector_.Initialize(iSetup, photonSCRegressionWeights_, false);
+    }
   }
-  catch(cms::Exception& e){
-    edm::LogError(name()) << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
+  catch(...){
+    finalize();
     throw;
   }
-  delete photonSCWeights;
-
-  // EventSetup is not used if the third argument is false
-  ecorr_.Initialize(iSetup, photonSCRegressionWeights_, false);
 }
-
 
 // ------------ method called to for each event  ------------
 // fill the tree variables
-void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+void
+SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& iSetup)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze";
 
-  if(debugLevel_ > 0) std::cout << name() << " : initial event setup" << std::endl;
+  // Event processing is in one big try block to exit gracefully in case of exception
+  try{
 
-  int trackIndex = 0;
-  int clusterIndex = 0;
-  int superClusterIndex = 0;
+    if(recoMode_) {
+      if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: setup track extrapolation tools";
 
-  if(recoMode_) {
-    try {
-      iSetup.get<IdealMagneticFieldRecord>().get(magneticField_);
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "IdealMagneticFieldRecord is not available!!! " << e.what();
-    }
+      edm::ESHandle<MagneticField> fieldHndl;
+      edm::ESHandle<TransientTrackBuilder> builderHndl;
+      iSetup.get<IdealMagneticFieldRecord>().get(fieldHndl);
+      iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builderHndl);
 
-    try {
-      iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",transientTrackBuilder_);
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "TransientTrackRecord is not available!!! " << e.what();
+      propagator_ = new PropagatorWithMaterial(alongMomentum, 0.000511, fieldHndl.product());
+      transientTrackBuilder_ = builderHndl.product();
     }
 
-    propagator_ = new PropagatorWithMaterial(alongMomentum,0.000511,&*magneticField_);
-  }
+    if(!_event.isRealData() && storePFJetPartonMatches_){
+      if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill ak5pf jet parton matches";
 
-  // initialize susyEvent object
-  susyEvent_->Init();
+      physicsDefinitionMatches.clear();
+      algorithmicDefinitionMatches.clear();
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill event info" << std::endl;
-
-  susyEvent_->isRealData = iEvent.isRealData() ? 1 : 0;
-  susyEvent_->runNumber = iEvent.id().run();
-  susyEvent_->eventNumber = iEvent.id().event();
-  susyEvent_->luminosityBlockNumber = iEvent.luminosityBlock();
-  susyEvent_->bunchCrossing = iEvent.bunchCrossing();
-
-  if(debugLevel_ > 1) std::cout << name() << ", run " << iEvent.id().run()
-                                << ", event " << iEvent.id().event()
-                                << ", isRealData " << iEvent.isRealData()
-                                << ", lumiBlock " << iEvent.getLuminosityBlock().luminosityBlock() << std::endl;
-
-  // lumiSummary only available in data
-  if(susyEvent_->isRealData) {
-    const edm::LuminosityBlock & lumiBlock = iEvent.getLuminosityBlock();
-    edm::Handle<LumiSummary> lsH;
-
-    try {
-      lumiBlock.getByLabel(lumiSummaryTag_, lsH);
-      susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
-      susyEvent_->intgRecLumi = lsH->intgRecLumi();
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "LumiSummary is not available!!! " << e.what();
-    }
-
-  }
-
-  // L1 Info only available in data and FullSim
-  if(susyEvent_->isRealData || !isFastSim_ ) {
-    if(debugLevel_ > 0) std::cout << name() << ", fill L1 map" << std::endl;
-
-    edm::Handle<L1GlobalTriggerObjectMaps> gtOMs;
-
-    try {
-      iEvent.getByLabel(l1GTObjectMapTag_, gtOMs);
-      if( ! gtOMs.isValid() ) {
-        edm::LogWarning(name()) << "L1GlobalTriggerObjectMaps product with InputTag '" << l1GTObjectMapTag_.encode() << "' not in event\n"
-                                << "No L1 Objects and GTL results available for physics algorithms";
-      }
-
-      // Get and cache L1 menu
-      const bool useL1EventSetup(true);
-      const bool useL1GtTriggerMenuLite(false);
-      l1GtUtils_.getL1GtRunCache( iEvent, iSetup, useL1EventSetup, useL1GtTriggerMenuLite );
-
-      edm::ESHandle< L1GtTriggerMenu > handleL1GtTriggerMenu;
-      iSetup.get< L1GtTriggerMenuRcd >().get( handleL1GtTriggerMenu );
-      L1GtTriggerMenu l1GtTriggerMenu( *handleL1GtTriggerMenu );
-      const AlgorithmMap l1GtAlgorithms( l1GtTriggerMenu.gtAlgorithmMap() );
-
-      for( CItAlgo iAlgo = l1GtAlgorithms.begin(); iAlgo != l1GtAlgorithms.end(); ++iAlgo ) {
-        const std::string & algoName( iAlgo->second.algoName() );
-        if( ! ( iAlgo->second.algoBitNumber() < int( L1GlobalTriggerReadoutSetup::NumberPhysTriggers ) ) ) {
-          edm::LogWarning(name()) << "L1 physics algorithm '" << algoName << "' has bit numbe " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
-                                  << "Skipping";
-          continue;
-        }
-
-        L1GtUtils::TriggerCategory category;
-        int bit;
-        if( ! l1GtUtils_.l1AlgoTechTrigBitNumber( algoName, category, bit ) ) {
-          edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
-                                << "Skipping";
-          continue;
-        }
-        if( category != L1GtUtils::AlgorithmTrigger ) {
-          edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
-                                << "Skipping";
-          continue;
-        }
-
-        bool decisionBeforeMask;
-        bool decisionAfterMask;
-        int prescale;
-        int mask;
-        int error( l1GtUtils_.l1Results( iEvent, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask ) );
-        if( error ) {
-          edm::LogError(name()) << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
-                                << "Skipping";
-          continue;
-        }
-
-        susyEvent_->l1Map[TString(algoName)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
-      }
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "L1TriggerCollection is not available!!! " << e.what();
-    }
-
-  } // L1 only if data or fullsim
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill HLT map" << std::endl;
-
-  edm::Handle<edm::TriggerResults> hltH;
-  try {
-    iEvent.getByLabel(hltCollectionTag_,hltH);
-    int nHlt = hltH->size();
-    const edm::TriggerNames& hltTriggerNames = iEvent.triggerNames(*hltH);
-    if(nHlt != int(hltTriggerNames.size())) edm::LogError(name()) << "TriggerPathName size mismatches !!! ";
-    // loop over hlt paths
-    for(int i=0; i<nHlt; i++) {
-      // get prescale from LumiSummary
-      // Int_t prescale = lsH->hltinfo(hltTriggerNames.triggerName(i)).prescale;
-      Int_t prescale = hltConfig_.prescaleValue(iEvent, iSetup, hltTriggerNames.triggerName(i));
-      // check hlt bit
-      susyEvent_->hltMap[TString(hltTriggerNames.triggerName(i).c_str())] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
-      if(debugLevel_ > 1) std::cout << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i) << std::endl;
-    }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "TriggerResults is not available!!! " << e.what();
-  }
-
-  if( ! susyEvent_->isRealData && storePFJetPartonMatches_) {
-
-    if(debugLevel_ > 0) std::cout << name() << ", fill ak5pf jet parton matches" << std::endl;
-
-    physicsDefinitionMatches.clear();
-    algorithmicDefinitionMatches.clear();
-
-    try {
       edm::Handle<reco::JetMatchedPartonsCollection> matchCollH;
-      iEvent.getByLabel("flavourByRef", matchCollH);
+      _event.getByLabel("flavourByRef", matchCollH);
 
       for(reco::JetMatchedPartonsCollection::const_iterator p = matchCollH->begin(); p != matchCollH->end(); p++) {
         const reco::Jet *aJet = (*p).first.get();
@@ -601,992 +572,1201 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           algorithmicDefinitionMatches.push_back( make_pair(*aJet, (int)(theAlgDef.get()->pdgId())) );
         }
       }
+    } // if !isRealData
 
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "flavourByRef is not available!!!" << e.what();
-    }
+    // reset map from RECO objects to susy objects
+    productStore_.clear();
 
-  } // if !isRealData
+    // initialize susyEvent object
+    susyEvent_->Init();
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill beam spot" << std::endl;
+    if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill event info" << std::endl;
+
+    susyEvent_->isRealData = _event.isRealData() ? 1 : 0;
+    susyEvent_->runNumber = _event.id().run();
+    susyEvent_->eventNumber = _event.id().event();
+    susyEvent_->luminosityBlockNumber = _event.luminosityBlock();
+    susyEvent_->bunchCrossing = _event.bunchCrossing();
+
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "analyze: run " << _event.id().run()
+                                             << ", event " << _event.id().event()
+                                             << ", isRealData " << _event.isRealData()
+                                             << ", lumiBlock " << _event.getLuminosityBlock().luminosityBlock();
+
+    fillLumiSummary(_event, iSetup);
+
+    fillBeamSpot(_event, iSetup);
+
+    fillRhos(_event, iSetup);
+
+    fillTriggerMaps(_event, iSetup);
+
+    fillGeneralTracks(_event, iSetup);
+
+    fillMetFilters(_event, iSetup);
+
+    fillPFParticles(_event, iSetup);
+
+    fillMet(_event, iSetup);
+
+    fillPhotons(_event, iSetup);
+
+    fillElectrons(_event, iSetup);
+
+    fillMuons(_event, iSetup);
+
+    fillCaloJets(_event, iSetup);
+
+    fillPFJets(_event, iSetup);
+
+    //  fillJPTJets(_event, iSetup);
+
+    fillVertices(_event, iSetup);
+
+    fillGenInfo(_event, iSetup);
+
+    fillGenParticles(_event, iSetup);
+
+  }
+  catch(...){
+    delete propagator_;
+    finalize();
+    throw;
+  }
+
+  delete propagator_;
+  propagator_ = 0;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill tree at last";
+
+  susyTree_->Fill();
+}
+
+void
+SusyNtuplizer::fillLumiSummary(edm::Event const& _event, edm::EventSetup const&)
+{
+  // lumiSummary only available in data
+  if(susyEvent_->isRealData == 0) return;
+
+  if(lumiSummaryTag_ == "") return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillLumiSummary";
+
+  edm::LuminosityBlock const& lumiBlock(_event.getLuminosityBlock());
+  edm::Handle<LumiSummary> lsH;
+
+  lumiBlock.getByLabel(edm::InputTag(lumiSummaryTag_), lsH);
+  susyEvent_->avgInsRecLumi = lsH->avgInsRecLumi();
+  susyEvent_->intgRecLumi = lsH->intgRecLumi();
+}
+
+void
+SusyNtuplizer::fillBeamSpot(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillBeamSpot";
 
   edm::Handle<reco::BeamSpot> bsh;
-  try {
-    iEvent.getByType(bsh);
-    susyEvent_->beamSpot.SetXYZ(bsh->position().x(),bsh->position().y(),bsh->position().z());
-    if(debugLevel_ > 1) std::cout << "beamSpot : " << bsh->position().x() << ", "
-                                  << bsh->position().y() << ", " << bsh->position().z() << std::endl;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "BeamSpot is not available!!! " << e.what();
-  }
+  _event.getByLabel("offlineBeamSpot", bsh);
+  susyEvent_->beamSpot.SetXYZ(bsh->position().x(), bsh->position().y(), bsh->position().z());
 
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillBeamSpot: beamSpot : " << bsh->position().x() << ", "
+                                           << bsh->position().y() << ", " << bsh->position().z();
+}
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill vertex - the first entry is the primary vertex" << std::endl;
+void
+SusyNtuplizer::fillRhos(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillRhos";
+
+  edm::Handle<double> rhoH;
+
+  _event.getByLabel("kt6PFJets", "rho", rhoH);
+  susyEvent_->rho = *rhoH;
+
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillRhos: rho calculated from kt6PFJets = " << susyEvent_->rho;
+
+  _event.getByLabel("kt6PFJetsRhoBarrelOnly", "rho", rhoH);
+  susyEvent_->rhoBarrel = *rhoH;
+
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillRhos: rho calculated from kt6PFJetsRhoBarrelOnly = " << susyEvent_->rhoBarrel;
+
+  _event.getByLabel("kt6PFJetsRho25", "rho", rhoH);
+  susyEvent_->rho25 = *rhoH;
+
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillRhos: rho calculated from kt6PFJetsRho25 = " << susyEvent_->rho25;
+}
+
+void
+SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps";
+
+  // L1 Info only available in data and FullSim
+  if(storeL1Info_ && (susyEvent_->isRealData || !isFastSim_)){
+    if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps: L1 map";
+
+    // Get and cache L1 menu
+    l1GtUtils_->getL1GtRunCache(_event, _es, true, false); // use event setup, do not use L1TriggerMenuLite
+
+    edm::ESHandle<L1GtTriggerMenu> handleL1GtTriggerMenu;
+    _es.get<L1GtTriggerMenuRcd>().get(handleL1GtTriggerMenu);
+
+    AlgorithmMap const& l1GtAlgorithms(handleL1GtTriggerMenu->gtAlgorithmMap());
+
+    for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo){
+      std::string const& algoName(iAlgo->second.algoName());
+
+      if(iAlgo->second.algoBitNumber() >= int(L1GlobalTriggerReadoutSetup::NumberPhysTriggers)){
+        edm::LogError("DataIntegrity") << "L1 physics algorithm '" << algoName << "' has bit number " << iAlgo->second.algoBitNumber() << " >= " << L1GlobalTriggerReadoutSetup::NumberPhysTriggers << "\n"
+                                       << "Skipping";
+        continue;
+      }
+
+      L1GtUtils::TriggerCategory category;
+      int bit;
+      if(!l1GtUtils_->l1AlgoTechTrigBitNumber(algoName, category, bit)){
+        edm::LogError("DataIntegrity") << "L1 physics algorithm '" << algoName << "' not found in the L1 menu\n"
+                                       << "Skipping";
+        continue;
+      }
+      if(category != L1GtUtils::AlgorithmTrigger){
+        edm::LogError("DataIntegrity") << "L1 physics algorithm '" << algoName << "' does not have category 'AlgorithmTrigger' from 'L1GtUtils'\n"
+                                       << "Skipping";
+        continue;
+      }
+
+      bool decisionBeforeMask;
+      bool decisionAfterMask;
+      int prescale;
+      int mask;
+      int error(l1GtUtils_->l1Results(_event, algoName, decisionBeforeMask, decisionAfterMask, prescale, mask));
+      if(error != 0){
+        edm::LogError("DataIntegrity") << "L1 physics algorithm '" << algoName << "' decision has error code " << error << " from 'L1GtUtils'\n"
+                                       << "Skipping";
+        continue;
+      }
+
+      susyEvent_->l1Map[algoName] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+    }
+
+  } // L1 only if data or fullsim
+
+  if(!storeHLTInfo_) return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps: HLT map";
+
+  edm::Handle<edm::TriggerResults> hltH;
+  _event.getByLabel(edm::InputTag("TriggerResults", "", "HLT"), hltH);
+
+  unsigned nHlt(hltH->size());
+
+  edm::TriggerNames const& hltTriggerNames(_event.triggerNames(*hltH));
+  if(nHlt != hltTriggerNames.size())
+    throw cms::Exception("RuntimeError") << "TriggerPathName size mismatches !!!";
+
+  // loop over hlt paths
+  for(unsigned i(0); i < nHlt; ++i){
+    int prescale(hltConfig_->prescaleValue(_event, _es, hltTriggerNames.triggerName(i)));
+
+    susyEvent_->hltMap[hltTriggerNames.triggerName(i)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
+
+    if(debugLevel_ > 2) edm::LogInfo(name()) << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i);
+  }
+}
+
+void
+SusyNtuplizer::fillVertices(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(vtxCollectionTag_ == "") return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillVertices";
 
   edm::Handle<reco::VertexCollection> vtxH;
-  const reco::Vertex* primVtx = 0;
-  try {
-    iEvent.getByLabel(vtxCollectionTag_,vtxH);
-    for(reco::VertexCollection::const_iterator it = vtxH->begin();
-        it != vtxH->end(); it++){
-      if(!primVtx) primVtx = &*it;
-      susy::Vertex vtx;
-      vtx.chi2       = it->chi2();
-      vtx.ndof       = it->ndof();
-      vtx.tracksSize = UChar_t(it->tracksSize());
-      vtx.position.SetXYZ(it->x(),it->y(),it->z());
-      susyEvent_->vertices.push_back(vtx);
-      if(debugLevel_ > 1) std::cout << "vertex : " << it->x() << ", " << it->y() << ", " << it->z() << std::endl;
-    }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "VertexCollection is not available!!! " << e.what();
-  }
+  _event.getByLabel(edm::InputTag(vtxCollectionTag_), vtxH);
+  reco::VertexCollection const& vertices(*vtxH);
 
-  if(debugLevel_ > 0) std::cout << name() << ", get general track collection" << std::endl;
+  susyEvent_->vertices.resize(vertices.size());
+
+  for(unsigned iV(0); iV != vertices.size(); ++iV){
+    reco::Vertex const& recoVtx(vertices[iV]);
+    susy::Vertex& susyVtx(susyEvent_->vertices[iV]);
+
+    susyVtx.chi2       = recoVtx.chi2();
+    susyVtx.ndof       = recoVtx.ndof();
+    susyVtx.tracksSize = recoVtx.tracksSize();
+    susyVtx.position.SetXYZ(recoVtx.x(), recoVtx.y(), recoVtx.z());
+
+    if(debugLevel_ > 2) edm::LogInfo(name()) << "vtx" << iV << " : " << recoVtx.x() << ", " << recoVtx.y() << ", " << recoVtx.z();
+
+    // future addition of vertexIndex to susy::Track
+//     for(reco::Vertex::trackRef_iterator trkItr(recoVtx.tracks_begin()); trkItr != recoVtx.tracks_end(); ++trkItr){
+//       TrackStore::const_iterator itr(productStore_.tracks.find(*trkItr));
+//       if(itr != productStore_.tracks.end())
+//         susyEvent_->tracks[itr->second].vertexIndex = iV;
+//     }
+  }
+}
+
+void
+SusyNtuplizer::fillGeneralTracks(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(trackCollectionTag_ == "") return;
+
+  if(!storeGeneralTracks_) return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGeneralTracks";
 
   edm::Handle<reco::TrackCollection> trackH;
-  try {
-    iEvent.getByLabel(trackCollectionTag_,trackH);
-    int itrk = 0;
-    if(storeGeneralTracks_) {
-      for(reco::TrackCollection::const_iterator it = trackH->begin();
-          it != trackH->end(); it++) {
-        reco::TrackRef trkRef(trackH,itrk++);
-        if(it->pt() < 1.0) continue;
-        susy::Track track;
-        fillTrack(trkRef,track);
-        susyEvent_->generalTracks.push_back(track);
-      }// for
-    }// if
+  _event.getByLabel(edm::InputTag(trackCollectionTag_), trackH);
+
+  unsigned iTrk(0);
+  for(reco::TrackCollection::const_iterator tItr(trackH->begin()); tItr != trackH->end(); ++tItr, ++iTrk){
+    if(tItr->pt() < 1.0) continue;
+    fillTrack(reco::TrackRef(trackH, iTrk));
   }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "TrackCollection is not available!!! " << e.what();
-  }
+}
 
+void
+SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMetFilters";
 
-  // This is issued because ConversionFinder requires it.
-  edm::Handle<EcalRecHitCollection> barrelRecHitsHandle;
-  edm::Handle<EcalRecHitCollection> endcapRecHitsHandle;
-  edm::ESHandle<CaloGeometry> cgH;
-  const CaloGeometry* geo = 0;
-  edm::ESHandle<CaloTopology> ctH;
-  const CaloTopology* caloTopology = 0;
+  // names must be in the exact same order as enum susy::MetFilters
+  std::string filterNames[] = {
+    "BeamHaloSummary",
+    "HBHENoiseFilterResultProducer:HBHENoiseFilterResult",
+    "EcalDeadCellTriggerPrimitiveFilter",
+    "EcalDeadCellBoundaryEnergyFilter",
+    "hcalLaserEventFilter",
+    "trackingFailureFilter",
+    "eeBadScFilter",
+    "", // HcalLaser1012 is taken from an external list
+    "ecalLaserCorrFilter",
+    "manystripclus53X",
+    "toomanystripclus53X",
+    "logErrorTooManyClusters",
+    "eeNoiseFilter",
+    "inconsistentMuonPFCandidateFilter",
+    "greedyMuonPFCandidateFilter"
+  };
 
-  //  edm::ESHandle<EcalSeverityLevelAlgo> sevlv;
-  //  const EcalSeverityLevelAlgo* sevLevel = 0;
+  std::set<unsigned> notForFastSim;
+  notForFastSim.insert(susy::kHcalNoise);
 
-  if(debugLevel_ > 0) std::cout << name() << ", get ecal rechits" << std::endl;
+  std::set<unsigned> irregular;
+  irregular.insert(susy::kCSCBeamHalo);
+  irregular.insert(susy::kHcalLaser2012);
 
-  try {
-    iEvent.getByLabel("reducedEcalRecHitsEB","",barrelRecHitsHandle);
-    iEvent.getByLabel("reducedEcalRecHitsEE","",endcapRecHitsHandle);
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "EcalRecHitCollection is not available!!! " << e.what();
-  }
+  std::vector<bool> pass(susy::nMetFilters, false);
 
-  if(debugLevel_ > 0) std::cout << name() << ", get calo geometry record." << std::endl;
+  edm::Handle<bool> boolH;
+  for(unsigned iF(0); iF != susy::nMetFilters; ++iF){
+    // skip filters that are not a simple bool
+    if(irregular.find(iF) != irregular.end()) continue;
 
-  try{
-    iSetup.get<CaloGeometryRecord>().get(cgH);
-    geo = cgH.product();
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "CaloGeometryRecord is not available!!! " << e.what();
-  }
+    // skip filters that are not FastSim-compatible
+    if(!susyEvent_->isRealData && isFastSim_ && notForFastSim.find(iF) != notForFastSim.end()) continue;
 
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[iF];
 
-  if(debugLevel_ > 0) std::cout << name() << ", get calo topology record." << std::endl;
-
-  try {
-    iSetup.get<CaloTopologyRecord>().get(ctH);
-    caloTopology = ctH.product();
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "CaloTopologyRecord is not available!!! " << e.what();
-  }
-
-  //   try {
-  //     iSetup.get<EcalSeverityLevelAlgoRcd>().get(sevlv);
-  //     sevLevel = sevlv.product();
-  //   }
-  //   catch(cms::Exception& e) {
-  //     edm::LogError(name()) << "EcalSeverityLevelAlgoRcd is not available!!! " << e.what();
-  //   }
-
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill all kinds of met collections" << std::endl;
-
-
-  // Met from several met collections
-  int nMetColl = metCollectionTags_.size();
-
-  for(int iMet=0; iMet<nMetColl; iMet++) {
-
-    size_t found = metCollectionTags_[iMet].find("gen");
-    if(found != std::string::npos && iEvent.isRealData()) continue;
-
-    //    edm::Handle<edm::View<pat::MET> > metH;
-    edm::Handle<edm::View<reco::MET> > metH;
-    try {
-      iEvent.getByLabel(edm::InputTag(metCollectionTags_[iMet]),metH);
-      if(debugLevel_ > 1){
-        std::cout << "size of MET coll : " << metH->size() << std::endl;
-      }
-      susy::MET susyMet;
-      susyMet.mEt.Set(metH->begin()->p4().px(),metH->begin()->p4().py());
-      susyMet.vertex.SetXYZ(metH->begin()->vx(),metH->begin()->vy(),metH->begin()->vz());
-      susyMet.sumEt = metH->begin()->sumEt();
-      susyMet.significance = metH->begin()->significance();
-      if(debugLevel_ > 2) {
-        std::cout << "met, metX, metY, sumEt, significance : " << susyMet.mEt.Mod() << ", " << susyMet.mEt.X() << ", "
-                  << susyMet.mEt.Y() << ", " << susyMet.sumEt << ", " << susyMet.significance << std::endl;
-      }
-      int nCorr = metH->begin()->mEtCorr().size();
-      for(int i=0; i<nCorr; i++){
-        susy::CorrMETData corr;
-        corr.dmEx          = metH->begin()->dmEx()[i];
-        corr.dmEy          = metH->begin()->dmEy()[i];
-        corr.dsumEt        = metH->begin()->dsumEt()[i];
-        corr.dSignificance = metH->begin()->dSignificance()[i];
-        susyMet.mEtCorr.push_back(corr);
-        if(debugLevel_ > 2) {
-          std::cout << "dmEx, dmEy, dsumEt, dSignificance : "
-                    << corr.dmEx << ", " << corr.dmEy << ", "
-                    << corr.dsumEt << ", " << corr.dSignificance << std::endl;
-        }
-      }//for
-      susyEvent_->metMap[TString(metCollectionTags_[iMet].c_str())] = susyMet;
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "MET " << metCollectionTags_[iMet] << " is not available!!! " << e.what();
-    }
-
-  }// for iMet
-
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill rho calculated from kt6PFJets" << std::endl;
-  try {
-    edm::Handle<double> rH;
-    iEvent.getByLabel("kt6PFJets","rho",rH);
-    susyEvent_->rho = *rH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "rho is not available!!! " << e.what();
-  }
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill rhoBarrel calculated from kt6PFJetsRhoBarrelOnly" << std::endl;
-  try {
-    edm::Handle<double> rBH;
-    iEvent.getByLabel("kt6PFJetsRhoBarrelOnly","rho",rBH);
-    susyEvent_->rhoBarrel = *rBH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "rhoBarrel is not available!!! " << e.what();
-  }
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill rho25 calculated from kt6PFJetsRho25" << std::endl;
-  try {
-    edm::Handle<double> r25H;
-    iEvent.getByLabel("kt6PFJetsRho25","rho",r25H);
-    susyEvent_->rho25 = *r25H;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "rho25 is not available!!! " << e.what();
-  }
-
-  bool passCSCBeamHalo = false;
-  bool passHcalNoise = false;
-  bool passEcalDeadCellTP = false;
-  bool passEcalDeadCellBE = false;
-  bool passHcalLaser = false;
-  bool passTrackingFailure = false;
-  bool passEEBadSC = false;
-  bool passHcalLaser2012 = false;
-  bool passEcalLaserCorr = false;
-  bool passManyStripClus53X = false;
-  bool passTooManyStripClus53X = false;
-  bool passLogErrorTooManyClusters = false;
-
-  bool passEERingOfFire = false;
-  bool passInconsistentMuon = false;
-  bool passGreedyMuon = false;
-
-  // hcalnoise only available in data and FullSim
-  if(susyEvent_->isRealData || !isFastSim_) {
-    if(debugLevel_ > 0) std::cout << name() << ", fill PassesHcalNoiseFilter calculated from HBHENoiseFilterResultProducer" << std::endl;
-    try {
-      edm::Handle<bool> noiseH;
-      iEvent.getByLabel("HBHENoiseFilterResultProducer","HBHENoiseFilterResult",noiseH);
-      passHcalNoise = *noiseH;
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "HBHENoiseFilterResult is not available!!! " << e.what();
-    }
-
-  } // only for data and fullsim
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill PassesEcalDeadCellFilter" << std::endl;
-  try {
-    edm::Handle<bool> tpH;
-    iEvent.getByLabel("EcalDeadCellTriggerPrimitiveFilter",tpH);
-    passEcalDeadCellTP = *tpH;
-    edm::Handle<bool> beH;
-    iEvent.getByLabel("EcalDeadCellBoundaryEnergyFilter",beH);
-    passEcalDeadCellBE = *beH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "ecalDeadCellfilter is not available!!! " << e.what();
+    _event.getByLabel(edm::InputTag(filterNames[iF]), boolH);
+    pass[iF] = *boolH;
   }
 
   // BeamHaloSummary only available in data and FullSim
-  if(susyEvent_->isRealData || !isFastSim_) {
-    if (debugLevel_ > 0)
-      std::cout << name() << ", fill PassesCSCTightHaloFilter calculated by BeamHaloId" << std::endl;
-    try {
-      edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
-      iEvent.getByLabel("BeamHaloSummary", beamHaloSummary);
+  if(susyEvent_->isRealData || !isFastSim_){
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kCSCBeamHalo];
 
-      passCSCBeamHalo = !(beamHaloSummary->CSCTightHaloId());
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "BeamHaloSummary is not available!!!" << e.what();
-    }
-
-  } // only for data and fullsim
-
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesHcalLaserEventFiler checked against list" << std::endl;
-  try {
-    edm::Handle<bool> hcalLaserH;
-    iEvent.getByLabel("hcalLaserEventFilter",hcalLaserH);
-
-    passHcalLaser = *hcalLaserH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "HcalLaserEventFilter is not available!!!" << e.what();
+    edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
+    _event.getByLabel(edm::InputTag(filterNames[susy::kCSCBeamHalo]), beamHaloSummary);
+    pass[susy::kCSCBeamHalo] = !(beamHaloSummary->CSCTightHaloId());
   }
 
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesTrackingFailureFilter" << std::endl;
-  try {
-    edm::Handle<bool> trackingFailH;
-    iEvent.getByLabel("trackingFailureFilter", trackingFailH);
-    passTrackingFailure = *trackingFailH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "trackingFailureFilter is not available!!!" << e.what();
-  }
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesEEBadSCFilter" << std::endl;
-  try {
-    edm::Handle<bool> eeBadSCH;
-    iEvent.getByLabel("eeBadScFilter", eeBadSCH);
-    passEEBadSC = *eeBadSCH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "eeBadScFilter is not available!!!" << e.what();
-  }
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kHcalLaser2012];
 
   EventFilterFromListStandAlone hcalLaser2012Filter("./HCALLaser2012AllDatasets.txt.gz");
-  passHcalLaser2012 = hcalLaser2012Filter.filter(iEvent.id().run(), iEvent.luminosityBlock(), iEvent.id().event());
+  pass[susy::kHcalLaser2012] = hcalLaser2012Filter.filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
 
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesEERingOfFireFilter" << std::endl;
-  try {
-    edm::Handle<bool> eeROFH;
-    iEvent.getByLabel("eeNoiseFilter", eeROFH);
-    passEERingOfFire = *eeROFH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "eeNoiseFilter is not available!!!" << e.what();
-  }
+  for(unsigned iF(0); iF != susy::nMetFilters; ++iF)
+    susyEvent_->metFilterBit |= (pass[iF] ? 1 << iF : 0);
+}
 
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesInconstistentMuonFilter" << std::endl;
-  try {
-    edm::Handle<bool> inconstMuonH;
-    iEvent.getByLabel("inconsistentMuonPFCandidateFilter", inconstMuonH);
-    passInconsistentMuon = *inconstMuonH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "inconsistentMuonPFCandidateFilter is not available!!!" << e.what();
-  }
+void
+SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(pfCandidateCollectionTag_ == "") return;
 
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesGreedyMuonPFCandidateFilter" << std::endl;
-  try {
-    edm::Handle<bool> greedyMuonH;
-    iEvent.getByLabel("greedyMuonPFCandidateFilter", greedyMuonH);
-    passGreedyMuon = *greedyMuonH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "greedyMuonPFCandidateFilter is not available!!!" << e.what();
-  }
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesEcalLaserCorrFilter" << std::endl;
-  try {
-    edm::Handle<bool> ecalLaserCorrH;
-    iEvent.getByLabel("ecalLaserCorrFilter", ecalLaserCorrH);
-    passEcalLaserCorr = *ecalLaserCorrH;
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "ecalLaserCorrFilter is not available!!!" << e.what();
-  }
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesManyStripClus53X" << std::endl;
-  try {
-    edm::Handle<bool> manystripclus53X_H;
-    iEvent.getByLabel("manystripclus53X", manystripclus53X_H);
-    passManyStripClus53X = !(*manystripclus53X_H);
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "manystripclus53X is not available!!!" << e.what();
-  }
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesTooManyStripClus53X" << std::endl;
-  try {
-    edm::Handle<bool> toomanystripclus53X_H;
-    iEvent.getByLabel("toomanystripclus53X", toomanystripclus53X_H);
-    passTooManyStripClus53X = !(*toomanystripclus53X_H);
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "toomanystripclus53X is not available!!!" << e.what();
-  }
-
-  if(debugLevel_ > 0)
-    std::cout << name() << ", fill PassesLogErrorTooManyClusters" << std::endl;
-  try {
-    edm::Handle<bool> logErrorTooManyClusters_H;
-    iEvent.getByLabel("logErrorTooManyClusters", logErrorTooManyClusters_H);
-    passLogErrorTooManyClusters = !(*logErrorTooManyClusters_H);
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "logErrorTooManyClusters is not available!!!" << e.what();
-  }
-
-  Int_t metFilterBit = 0;
-
-  metFilterBit |= (passCSCBeamHalo         << 0);
-  metFilterBit |= (passHcalNoise           << 1);
-  metFilterBit |= (passEcalDeadCellTP      << 2);
-  metFilterBit |= (passEcalDeadCellBE      << 3);
-  metFilterBit |= (passHcalLaser           << 4);
-  metFilterBit |= (passTrackingFailure     << 5);
-  metFilterBit |= (passEEBadSC             << 6);
-
-  susyEvent_->metFilterBit = metFilterBit;
-
-  Int_t metFilterBit_2 = 0;
-
-  metFilterBit_2 |= (passEERingOfFire            << 0);
-  metFilterBit_2 |= (passInconsistentMuon        << 1);
-  metFilterBit_2 |= (passGreedyMuon              << 2);
-  metFilterBit_2 |= (passHcalLaser2012           << 3);
-  metFilterBit_2 |= (passEcalLaserCorr           << 4);
-  metFilterBit_2 |= (passManyStripClus53X        << 5);
-  metFilterBit_2 |= (passTooManyStripClus53X     << 6);
-  metFilterBit_2 |= (passLogErrorTooManyClusters << 7);
-
-  susyEvent_->metFilterBit_2 = metFilterBit_2;
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill PFCandidates" << std::endl;
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillPFParticles";
 
   edm::Handle<reco::PFCandidateCollection> pfH;
-  for(unsigned int iPFC=0; iPFC<pfCandidateCollectionTags_.size(); iPFC++) {
-    try {
-      iEvent.getByLabel(edm::InputTag(pfCandidateCollectionTags_[iPFC]),pfH);
-      if(debugLevel_ > 1) std::cout << "size of PFCandidateCollection : " << pfH->size() << std::endl;
-      int ipf = 0;
-      for(reco::PFCandidateCollection::const_iterator it = pfH->begin(); it != pfH->end(); it++){
+  _event.getByLabel(edm::InputTag(pfCandidateCollectionTag_), pfH);
 
-        reco::PFCandidateRef pfRef(pfH,ipf++);
+  reco::PFCandidateCollection const& candidates(*pfH);
 
-        if(it->pt() < pfParticleThreshold_) continue;
+  // temporary measure (I believe pfParticles should be just a vector instead of map<TString, vector>)
+  susy::PFParticleCollection& susyCollection(susyEvent_->pfParticles[pfCandidateCollectionTag_]);
 
-        susy::PFParticle pf;
-        pf.pdgId                 = it->translateTypeToPdgId(it->particleId());
-        pf.charge                = it->charge();
-        pf.ecalEnergy            = it->ecalEnergy();
-        pf.rawEcalEnergy         = it->rawEcalEnergy();
-        pf.hcalEnergy            = it->hcalEnergy();
-        pf.rawHcalEnergy         = it->rawHcalEnergy();
-        pf.pS1Energy             = it->pS1Energy();
-        pf.pS2Energy             = it->pS2Energy();
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFParticles: size of PFCandidateCollection = " << pfH->size();
 
-        pf.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-        pf.positionAtECALEntrance.SetXYZ(it->positionAtECALEntrance().x(),it->positionAtECALEntrance().y(),it->positionAtECALEntrance().z());
-        pf.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+  unsigned nP(pfH->size());
+  for(unsigned iP(0); iP != nP; ++iP){
+    reco::PFCandidate const& cand(candidates[iP]);
 
-        susyEvent_->pfParticles[TString(pfCandidateCollectionTags_[iPFC].c_str())].push_back(pf);
+    if(cand.pt() < pfParticleThreshold_) continue;
 
-      } // for
-    } // try
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << "PFCandidate " << pfCandidateCollectionTags_[iPFC] << " is not available!!! " << e.what();
-    }
+    susyCollection.resize(susyCollection.size() + 1);
+    susy::PFParticle& pf(susyCollection.back());
+
+    pf.pdgId                 = cand.translateTypeToPdgId(cand.particleId());
+    pf.charge                = cand.charge();
+    pf.ecalEnergy            = cand.ecalEnergy();
+    pf.rawEcalEnergy         = cand.rawEcalEnergy();
+    pf.hcalEnergy            = cand.hcalEnergy();
+    pf.rawHcalEnergy         = cand.rawHcalEnergy();
+    pf.pS1Energy             = cand.pS1Energy();
+    pf.pS2Energy             = cand.pS2Energy();
+
+    pf.vertex.SetXYZ(cand.vx(),cand.vy(),cand.vz());
+    pf.positionAtECALEntrance.SetXYZ(cand.positionAtECALEntrance().x(),cand.positionAtECALEntrance().y(),cand.positionAtECALEntrance().z());
+    pf.momentum.SetXYZT(cand.px(),cand.py(),cand.pz(),cand.energy());
+
+    if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << cand.energy() << ", "
+                                             << cand.px() << ", " << cand.py() << ", " << cand.pz();
   } // for
+}
 
+void
+SusyNtuplizer::fillGenInfo(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(!storeGenInfo_ || _event.isRealData()) return;
 
-  // get the PFIso deposits. 3 (charged hadrons, photons, neutral hadrons)
-  unsigned const nPFIsoTypes(3);
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGenInfo";
 
-  IsoDepositVals phoIsoDepositVals(nPFIsoTypes);
-  for (size_t j = 0; j<isoValPhotonTags_.size(); ++j) {
-    iEvent.getByLabel(isoValPhotonTags_.at(j), phoIsoDepositVals.at(j));
+  // event weighting variables, for example ptHat
+  edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
+  if(_event.getByLabel("generator", GenEventInfoHandle) && GenEventInfoHandle->binningValues().size() > 0)
+    susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
+
+  //get PU summary info
+  edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;
+  _event.getByLabel(edm::InputTag(puSummaryInfoTag_), pPUSummaryInfo);
+
+  //fill PUSummaryInfo object
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGenInfo: fill PU summary information";
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillGenInfo: size of PileupSummaryInfo collection: " << pPUSummaryInfo->size();
+
+  susyEvent_->pu.resize(pPUSummaryInfo->size());
+
+  for(std::vector<PileupSummaryInfo>::const_iterator iPU(pPUSummaryInfo->begin()); iPU != pPUSummaryInfo->end(); ++iPU){
+    unsigned int index = iPU - pPUSummaryInfo->begin();
+
+    if(debugLevel_ > 1)
+      edm::LogInfo(name()) << "size of z position collection for BX " << index << ": " << iPU->getPU_zpositions().size() << "\n"
+                           << "size of sum pT / low pT collection for BX " << index << ": " << iPU->getPU_sumpT_lowpT().size() << "\n"
+                           << "size of sum pT / high pT collection for BX " << index << ": " << iPU->getPU_sumpT_highpT().size() << "\n"
+                           << "size of track / low pT collection for BX " << index << ": " << iPU->getPU_ntrks_lowpT().size() << "\n"
+                           << "size of track / high pT collection for BX " << index << ": " << iPU->getPU_ntrks_highpT().size() << "\n"
+                           << "size of inst. lumi collection for BX " << index << ": " << iPU->getPU_instLumi().size() << "\n"
+                           << "size of DataMixer event collection for BX " << index << ": " << iPU->getPU_EventID().size();
+
+    if(debugLevel_ > 2)
+      edm::LogInfo(name()) << "No. interactions for BX " << index << ": " << iPU->getPU_NumInteractions() << "\n"
+                           << "BX ID for BX " << index << ": " << iPU->getBunchCrossing() << "\n"
+                           << "True no. interactions for BX " << index << ": " << iPU->getTrueNumInteractions();
+    //for MC samples earlier than CMSSWv4.2.8 or Fall11, comment out the last line
+
+    susy::PUSummaryInfo& PUInfoForThisBX(susyEvent_->pu[index]);
+
+    PUInfoForThisBX.numInteractions = iPU->getPU_NumInteractions();
+    for(std::vector<float>::const_iterator i = iPU->getPU_zpositions().begin(); i != iPU->getPU_zpositions().end(); ++i){
+      PUInfoForThisBX.zPositions.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "Z position for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_zpositions().begin()) << ": " << *i;
+    }
+    for(std::vector<float>::const_iterator i = iPU->getPU_sumpT_lowpT().begin(); i != iPU->getPU_sumpT_lowpT().end(); ++i){
+      PUInfoForThisBX.sumPTLowPT.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "Sum pT (low pT) for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_sumpT_lowpT().begin()) << ": " << *i;
+    }
+    for(std::vector<float>::const_iterator i = iPU->getPU_sumpT_highpT().begin(); i != iPU->getPU_sumpT_highpT().end(); ++i){
+      PUInfoForThisBX.sumPTHighPT.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "Sum pT (high pT) for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_sumpT_highpT().begin()) << ": " << *i;
+    }
+    for(std::vector<int>::const_iterator i = iPU->getPU_ntrks_lowpT().begin(); i != iPU->getPU_ntrks_lowpT().end(); ++i){
+      PUInfoForThisBX.numTracksLowPT.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "No. tracks (low pT) for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_ntrks_lowpT().begin()) << ": " << *i;
+    }
+    for(std::vector<int>::const_iterator i = iPU->getPU_ntrks_highpT().begin(); i != iPU->getPU_ntrks_highpT().end(); ++i){
+      PUInfoForThisBX.numTracksHighPT.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "No. tracks (high pT) for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_ntrks_highpT().begin()) << ": " << *i;
+    }
+    for(std::vector<float>::const_iterator i = iPU->getPU_instLumi().begin(); i != iPU->getPU_instLumi().end(); ++i){
+      PUInfoForThisBX.instLumi.push_back(*i);
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "Inst. lumi for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_instLumi().begin()) << ": " << *i;
+    }
+    for(std::vector<edm::EventID>::const_iterator i = iPU->getPU_EventID().begin(); i != iPU->getPU_EventID().end(); ++i){
+      PUInfoForThisBX.dataMixerRun.push_back(i->run());
+      PUInfoForThisBX.dataMixerEvt.push_back(i->event());
+      PUInfoForThisBX.dataMixerLumiSection.push_back(i->luminosityBlock());
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "Event ID for BX " << index
+                                               << ", interaction " << (i - iPU->getPU_EventID().begin()) << ":\n"
+                                               << " Run: " << i->run() << "\n"
+                                               << " Event: " << i->event() << "\n"
+                                               << " Lumi section: " << i->luminosityBlock();
+    }
+    PUInfoForThisBX.BX = iPU->getBunchCrossing();
+    //for MC samples earlier than CMSSWv4.2.8 or Fall11, COMMENT OUT the following line
+    PUInfoForThisBX.trueNumInteractions = iPU->getTrueNumInteractions();
+    //for MC samples earlier than CMSSWv4.2.8 or Fall11, UNCOMMENT the following line
+    //PUInfoForThisBX.trueNumInteractions = -1.0;
+  }
+}
+
+void
+SusyNtuplizer::fillGenParticles(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(!storeGenInfo_ || _event.isRealData()) return;
+
+  // Store the skimmed full decay tree
+  // Only the ancestors of final state (status == 1) particles with pt > 2 GeV will be stored
+  // Hadronic "blobs" are cleaned out
+  // In case of loops (a particle has multiple mothers), arbitration based on the particle species and Pt is performed
+
+  // The following algorithm will be much easier if we have a couple of auxiliary recursive functions..
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGenParticles";
+
+  edm::Handle<reco::GenParticleCollection> gpH;
+  _event.getByLabel(edm::InputTag(genCollectionTag_), gpH);
+
+  std::set<reco::GenParticle const*> gps;
+
+  // Save all particles that might appear in the final decay tree
+  for(reco::GenParticleCollection::const_iterator it(gpH->begin()); it != gpH->end(); it++){
+    if(it->status() == 1 && it->pt() < 2.) continue;
+    if(it->numberOfDaughters() == 0 && it->status() != 1) continue;
+    gps.insert(&*it);
   }
 
-  IsoDepositVals eleIsoDepositVals(nPFIsoTypes);
-  for (size_t j = 0; j<isoValElectronTags_.size(); ++j) {
-    iEvent.getByLabel(isoValElectronTags_.at(j), eleIsoDepositVals.at(j));
+  std::map<reco::GenParticle const*, reco::GenParticle const*> motherMap;
+  std::map<reco::GenParticle const*, std::list<reco::GenParticle const*> > daughterMap;
+
+  // Loop over gps, establish mother-daughter relationships + perform arbitration when necessary
+  std::set<reco::GenParticle const*>::const_iterator gpend(gps.end());
+  std::list<reco::GenParticle const*> rootNodes;
+  for(std::set<reco::GenParticle const*>::const_iterator gItr(gps.begin()); gItr != gpend; ++gItr){
+    reco::GenParticle const* part(*gItr);
+    if(part->numberOfMothers() == 0){
+      rootNodes.push_back(part);
+      motherMap[part] = 0;
+    }
+
+    unsigned nD(part->numberOfDaughters());
+    for(unsigned iD(0); iD < nD; iD++){
+      reco::GenParticle const* daughter(static_cast<reco::GenParticle const*>(part->daughter(iD)));
+      if(gps.find(daughter) == gpend) continue;
+
+      if(motherMap.find(daughter) != motherMap.end()){
+        // the daughter is claimed by some other mother - arbtrate
+        reco::GenParticle const* existing(motherMap[daughter]);
+
+        int thispdg(std::abs(part->pdgId()));
+        bool thishad((thispdg / 100) % 10 != 0 || thispdg == 21 || (thispdg > 80 && thispdg < 101));
+        int pdg(std::abs(existing->pdgId()));
+        bool had((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101));
+
+        bool takeAway(false);
+        if((thishad && had) || (!thishad && !had))
+          takeAway = part->pt() > existing->pt();
+        else if(!thishad && had)
+          takeAway = true;
+
+        if(!takeAway) continue;
+
+        std::list<reco::GenParticle const*>& daughters(daughterMap[existing]);
+        daughters.remove(daughter);
+      }
+
+      motherMap[daughter] = part;
+      daughterMap[part].push_back(daughter);
+    }
   }
 
+  if(rootNodes.size() == 0) return;
 
+  // flag: whether subtree with the particle as the root node is already cleaned
+  std::map<reco::GenParticle const*, bool> cleanMap;
+  for(std::set<reco::GenParticle const*>::const_iterator gpItr(gps.begin()); gpItr != gpend; ++gpItr)
+    cleanMap[*gpItr] = false;
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill photon" << std::endl;
+  std::list<reco::GenParticle const*>* sisters(&rootNodes);
+  std::list<reco::GenParticle const*>::iterator pItr(sisters->begin());
+  std::list<reco::GenParticle const*>::iterator pEnd(sisters->end());
 
-  //need for conversion safe electron veto
-  edm::Handle<reco::BeamSpot> bsHandle;
-  try {
-    iEvent.getByLabel("offlineBeamSpot", bsHandle);
+  // start from the root node list, recursively clean the full tree
+  // strategy: 1. clean the daughters (recursive); 2. once no daughters are left or all are cleaned, clean myself; 3. go up
+  while(true){
+    reco::GenParticle const* part(*pItr);
+    reco::GenParticle const* mother(motherMap[part]);
+    std::list<reco::GenParticle const*>* daughters(&daughterMap[part]);
+    while(!cleanMap[part] && daughters->size() > 0){
+      mother = part;
+      sisters = daughters;
+      pItr = sisters->begin();
+      pEnd = sisters->end();
+      part = *pItr;
+      daughters = &daughterMap[part];
+    }
+
+    unsigned nD(daughters->size());
+    unsigned pdg(std::abs(part->pdgId()));
+    unsigned motherPdg(mother ? std::abs(mother->pdgId()) : 0);
+
+    bool intermediateTerminal(nD == 0 && part->status() != 1);
+    bool noDecay(nD == 1 && part->pdgId() == daughters->front()->pdgId());
+    bool hadronicIntermediate(mother && part->status() != 1 && ((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101)));
+    bool firstHeavyHadron((motherPdg / 1000) % 10 < 4 && (motherPdg / 100) % 10 < 4 && ((pdg / 1000) % 10 >= 4 || (pdg / 100) % 10 >= 4));
+    bool lightFromLight(motherPdg < 4 && pdg < 4);
+
+    if(intermediateTerminal || noDecay || (hadronicIntermediate && !firstHeavyHadron) || lightFromLight){
+      // The particle should be removed, its daughters appended to its siblings list, and their mothers set to particle's mother
+      std::list<reco::GenParticle const*>::iterator dEnd(daughters->end());
+      for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
+        sisters->push_back(*dItr);
+        motherMap[*dItr] = mother;
+      }
+      gps.erase(part);
+      --pItr;
+      sisters->remove(part);
+      pEnd = sisters->end();
+    }
+
+    ++pItr;
+
+    if(pItr == pEnd){
+      // reached the end of the list of siblings; go up one level in hierarchy
+
+      if(!mother) break; // we were already in the list of root nodes; cleaning is done
+
+      part = mother;
+      mother = motherMap[part];
+      if(mother)
+        sisters = &daughterMap[mother];
+      else // I am a root node
+        sisters = &rootNodes;
+
+      pItr = std::find(sisters->begin(), sisters->end(), part);
+      pEnd = sisters->end();
+      cleanMap[part] = true;
+    }
   }
-  catch(cms::Exception& e){
-    edm::LogError(name()) << "offlineBeamSpot for conversion safe electron veto is not available!!! " << e.what();
+
+  // serialize the particle list
+  std::vector<reco::GenParticle const*> gpv;
+  gpend = gps.end();
+  for(std::set<reco::GenParticle const*>::const_iterator gItr(gps.begin()); gItr != gpend; ++gItr)
+    gpv.push_back(*gItr);
+
+  unsigned nP(gpv.size());
+  susyEvent_->genParticles.resize(nP);
+
+  for(unsigned iP(0); iP < nP; iP++){
+    reco::GenParticle const* gp(gpv[iP]);
+    susy::Particle& susyPart(susyEvent_->genParticles[iP]);
+
+    short iM(-1);
+    std::vector<reco::GenParticle const*>::const_iterator mItr(std::find(gpv.begin(), gpv.end(), motherMap[gp]));
+    if(mItr != gpv.end()) iM = mItr - gpv.begin();
+
+    susyPart.motherIndex = iM;
+    susyPart.status = gp->status();
+    susyPart.pdgId = gp->pdgId();
+    susyPart.charge = gp->charge();
+    susyPart.vertex.SetXYZ(gp->vx(), gp->vy(), gp->vz());
+    susyPart.momentum.SetXYZT(gp->px(), gp->py(), gp->pz(), gp->energy());
   }
-  const reco::BeamSpot &vetoBeamspot = *bsHandle.product();
+}
+
+void
+SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(metCollectionTags_.size() == 0) return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMet";
+
+  for(unsigned iCol(0); iCol != metCollectionTags_.size(); ++iCol){
+    std::string& colName(metCollectionTags_[iCol]);
+
+    // skip genMet if real data
+    if(colName.find("gen") != std::string::npos && _event.isRealData()) continue;
+
+    edm::Handle<edm::View<reco::MET> > metH;
+    _event.getByLabel(edm::InputTag(colName), metH);
+
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMet: size of MET coll " << colName << " = " << metH->size();
+
+    reco::MET const& recoMet(*(metH->begin()));
+    susy::MET& susyMet(susyEvent_->metMap[colName]);
+
+    susyMet.mEt.Set(recoMet.p4().px(),recoMet.p4().py());
+    susyMet.sumEt = recoMet.sumEt();
+    susyMet.significance = recoMet.significance();
+
+    if(debugLevel_ > 2) edm::LogInfo(name()) << "met, metX, metY, sumEt, significance : "
+                                             << susyMet.mEt.Mod() << ", " << susyMet.mEt.X() << ", " << susyMet.mEt.Y() << ", "
+                                             << susyMet.sumEt << ", " << susyMet.significance;
+
+    unsigned nCorr(recoMet.mEtCorr().size());
+    susyMet.mEtCorr.resize(nCorr);
+
+    for(unsigned i(0); i < nCorr; ++i){
+      susy::CorrMETData& corr(susyMet.mEtCorr[i]);
+
+      corr.dmEx          = recoMet.dmEx()[i];
+      corr.dmEy          = recoMet.dmEy()[i];
+      corr.dsumEt        = recoMet.dsumEt()[i];
+      corr.dSignificance = recoMet.dSignificance()[i];
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "dmEx, dmEy, dsumEt, dSignificance : "
+                                               << corr.dmEx << ", " << corr.dmEy << ", "
+                                               << corr.dsumEt << ", " << corr.dSignificance;
+    }//for
+  }
+}
+
+void
+SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(photonCollectionTags_.size() == 0) return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillPhotons";
+
+  edm::Handle<EcalRecHitCollection> barrelRecHitsHandle;
+  edm::Handle<EcalRecHitCollection> endcapRecHitsHandle;
+
+  _event.getByLabel("reducedEcalRecHitsEB", barrelRecHitsHandle);
+  _event.getByLabel("reducedEcalRecHitsEE", endcapRecHitsHandle);
+
+  edm::ESHandle<CaloGeometry> cgH;
+  _es.get<CaloGeometryRecord>().get(cgH);
+  CaloGeometry const* caloGeometry(cgH.product());
+
+  edm::ESHandle<CaloTopology> ctH;
+  _es.get<CaloTopologyRecord>().get(ctH);
+  CaloTopology const* caloTopology(ctH.product());
 
   edm::Handle<reco::ConversionCollection> hVetoConversions;
-  try {
-    iEvent.getByLabel("allConversions", hVetoConversions);
-  }
-  catch(cms::Exception& e){
-    edm::LogError(name()) << "conversions for conversion safe electron veto are not available!!! " << e.what();
-  }
+  _event.getByLabel("allConversions", hVetoConversions);
 
   edm::Handle<reco::GsfElectronCollection> hVetoElectrons;
-  try {
-    iEvent.getByLabel("gsfElectrons", hVetoElectrons);
-  }
-  catch(cms::Exception& e){
-    edm::LogError(name()) << "electrons for conversion safe electron veto are not available!!! " << e.what();
-  }
+  _event.getByLabel("gsfElectrons", hVetoElectrons);
 
-  //------------------------
+  edm::Handle<reco::PFCandidateCollection> pfH;
+  _event.getByLabel("particleFlow", pfH);
 
-  const int nPhoIDC = photonIDCollectionTags_.size();
-  std::vector< const edm::ValueMap<Bool_t>* > phoIds;
+  edm::Handle<reco::VertexCollection> vtxH;
+  _event.getByLabel(edm::InputTag(vtxCollectionTag_), vtxH);
+  reco::VertexRef primVtxRef(vtxH, 0);
 
-  for(int j=0; j<nPhoIDC; j++) {
-    edm::Handle<edm::ValueMap<Bool_t> > phoIDCH;
-    try {
-      iEvent.getByLabel("PhotonIDProd",photonIDCollectionTags_[j], phoIDCH);
-      phoIds.push_back( phoIDCH.product() );
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << photonIDCollectionTags_[j] << " is not available!!! " << e.what();
-    }
-  }
+  edm::Handle<reco::VertexCollection> vtxWithBSH;
+  _event.getByLabel("offlinePrimaryVerticesWithBS", vtxWithBSH);
 
+  edm::Handle<reco::TrackCollection> trkH;
+  _event.getByLabel(edm::InputTag(trackCollectionTag_), trkH);
+
+  edm::Handle<edm::ValueMap<PFCandidatePtr> > pfTranslationH;
+  _event.getByLabel("particleFlow", "photons", pfTranslationH);
+
+  math::XYZPoint beamSpot(susyEvent_->beamSpot.X(), susyEvent_->beamSpot.Y(), susyEvent_->beamSpot.Z());
+
+  EcalClusterLazyTools lazyTools(_event, _es, edm::InputTag("reducedEcalRecHitsEB"), edm::InputTag("reducedEcalRecHitsEE"));
 
   edm::Handle<reco::PhotonCollection> photonH;
-  for(unsigned int iPhoC=0; iPhoC<photonCollectionTags_.size(); iPhoC++) {
-    try {
-      iEvent.getByLabel(edm::InputTag(photonCollectionTags_[iPhoC]),photonH);
-      if(debugLevel_ > 1) std::cout << "size of PhotonCollection : " << photonH->size() << std::endl;
-      int ipho = 0;
-      for(reco::PhotonCollection::const_iterator it = photonH->begin();
-          it != photonH->end(); it++){
+  for(unsigned int iPhoC=0; iPhoC<photonCollectionTags_.size(); iPhoC++){
+    std::string& collectionTag(photonCollectionTags_[iPhoC]);
 
-        reco::PhotonRef phoRef(photonH,ipho++);
+    _event.getByLabel(edm::InputTag(collectionTag), photonH);
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPhotons: size of PhotonCollection " << collectionTag << " = " << photonH->size();
 
-        if(it->pt() < photonThreshold_) continue;
-
-        // For PFPhoton, PhotonCore is not stored in event record. So we cannot access any of photon core stuffs.
-        // It doesn't make sense to check isPFlowPhoton flag stored in photonCore. It may be a bug.
-        // For temporary fix, I check it based on collection name.
-        // PhotonCore information is missing for PFPhoton as of May 23, 2011 (with 4_2_3)
-
-        bool isPF = false;
-        TString tag(photonCollectionTags_[iPhoC].c_str());
-        if(tag.Contains("pfphot")) isPF = true;
-
-        susy::Photon pho;
-
-        // pack fiducial bits
-        pho.fidBit |= (it->isEB()          << 0);
-        pho.fidBit |= (it->isEE()          << 1);
-        pho.fidBit |= (it->isEBEtaGap()    << 2);
-        pho.fidBit |= (it->isEBPhiGap()    << 3);
-        pho.fidBit |= (it->isEERingGap()   << 4);
-        pho.fidBit |= (it->isEEDeeGap()    << 5);
-        pho.fidBit |= (it->isEBEEGap()     << 6);
-        pho.fidBit |= (isPF                << 7);
-
-        pho.hadronicOverEm                    = it->hadronicOverEm();
-        pho.hadronicDepth1OverEm              = it->hadronicDepth1OverEm();
-        pho.hadronicDepth2OverEm              = it->hadronicDepth2OverEm();
-        pho.hadTowOverEm                      = it->hadTowOverEm();
-
-        pho.e1x5                              = it->e1x5();
-        pho.e2x5                              = it->e2x5();
-        pho.e3x3                              = it->e3x3();
-        pho.e5x5                              = it->e5x5();
-        pho.maxEnergyXtal                     = it->maxEnergyXtal();
-        pho.sigmaEtaEta                       = it->sigmaEtaEta();
-        pho.sigmaIetaIeta                     = it->sigmaIetaIeta();
-        if(!isPF) pho.r9                      = it->r9();
-
-        pho.ecalRecHitSumEtConeDR04           = it->ecalRecHitSumEtConeDR04();
-        pho.hcalDepth1TowerSumEtConeDR04      = it->hcalDepth1TowerSumEtConeDR04();
-        pho.hcalDepth2TowerSumEtConeDR04      = it->hcalDepth2TowerSumEtConeDR04();
-        pho.hcalIsoConeDR04_2012              = it->hcalTowerSumEtConeDR04() + (it->hadronicOverEm() - it->hadTowOverEm())*it->superCluster()->energy()/cosh(it->superCluster()->eta());
-        pho.trkSumPtSolidConeDR04             = it->trkSumPtSolidConeDR04();
-        pho.trkSumPtHollowConeDR04            = it->trkSumPtHollowConeDR04();
-        pho.nTrkSolidConeDR04                 = it->nTrkSolidConeDR04();
-        pho.nTrkHollowConeDR04                = it->nTrkHollowConeDR04();
-
-        pho.ecalRecHitSumEtConeDR03           = it->ecalRecHitSumEtConeDR03();
-        pho.hcalDepth1TowerSumEtConeDR03      = it->hcalDepth1TowerSumEtConeDR03();
-        pho.hcalDepth2TowerSumEtConeDR03      = it->hcalDepth2TowerSumEtConeDR03();
-        pho.hcalIsoConeDR03_2012              = it->hcalTowerSumEtConeDR03() + (it->hadronicOverEm() - it->hadTowOverEm())*it->superCluster()->energy()/cosh(it->superCluster()->eta());
-        pho.trkSumPtSolidConeDR03             = it->trkSumPtSolidConeDR03();
-        pho.trkSumPtHollowConeDR03            = it->trkSumPtHollowConeDR03();
-        pho.nTrkSolidConeDR03                 = it->nTrkSolidConeDR03();
-        pho.nTrkHollowConeDR03                = it->nTrkHollowConeDR03();
-
-        pho.mipChi2                           = it->mipChi2();
-        pho.mipTotEnergy                      = it->mipTotEnergy();
-        pho.mipSlope                          = it->mipSlope();
-        pho.mipIntercept                      = it->mipIntercept();
-        pho.mipNhitCone                       = it->mipNhitCone();
-        pho.mipIsHalo                         = it->mipIsHalo();
-
-        if(isPF) {
-          pho.chargedHadronIso                  = it->chargedHadronIso();
-          pho.neutralHadronIso                  = it->neutralHadronIso();
-          pho.photonIso                         = it->photonIso();
-        }
-        else { // get pfIsolation for reco::Photon
-          reco::VertexRef primVtxRef(vtxH, 0);
-          isolator03_.fGetIsolation(&*it,pfH.product(),primVtxRef,vtxH);
-          pho.chargedHadronIso                  = isolator03_.getIsolationCharged();
-          pho.neutralHadronIso                  = isolator03_.getIsolationNeutral();
-          pho.photonIso                         = isolator03_.getIsolationPhoton();
-          // isoDeposit
-          pho.chargedHadronIsoDeposit           = (*phoIsoDepositVals[0])[phoRef];
-          pho.neutralHadronIsoDeposit           = (*phoIsoDepositVals[2])[phoRef];
-          pho.photonIsoDeposit                  = (*phoIsoDepositVals[1])[phoRef];
-        }
-
-        // for timing
-        DetId seedId(0);
-
-        // Cluster informations
-        if(!isPF) {
-          if(it->superCluster().isNonnull()) {
-            double e1000 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,1,0,0,0);
-            double e0100 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,1,0,0);
-            double e0010 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,1,0);
-            double e0001 = spr::eECALmatrix(it->superCluster()->seed()->seed(),barrelRecHitsHandle,endcapRecHitsHandle,geo,caloTopology,0,0,0,1);
-            pho.e1x2 = std::max( std::max(e1000,e0100), std::max(e0010, e0001) );
-
-            std::vector<float> crysCov = EcalClusterTools::localCovariances(*(it->superCluster()->seed()), barrelRecHitsHandle.product(),caloTopology);
-            pho.sigmaIphiIphi = std::sqrt(crysCov[2]);
-
-            // general cluster info
-            seedId = it->superCluster()->seed()->seed();
-            pho.superClusterPreshowerEnergy = it->superCluster()->preshowerEnergy();
-            pho.superClusterPhiWidth = it->superCluster()->phiWidth();
-            pho.superClusterEtaWidth = it->superCluster()->etaWidth();
-            susy::SuperCluster superCluster;
-            fillCluster(it->superCluster(), superCluster, clusterIndex);
-            pho.superClusterIndex = superClusterIndex;
-            susyEvent_->superClusters.push_back(superCluster);
-            superClusterIndex++;
-          }
-
-          pho.nPixelSeeds                       = it->electronPixelSeeds().size();
-          pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, vetoBeamspot.position());
-          pho.convInfo=kFALSE;
-          pho.convVtxChi2 = -1;
-          // conversion ID
-          if(it->conversions().size() > 0
-             && it->conversions()[0]->nTracks() == 2
-             && it->conversions()[0]->conversionVertex().isValid()
-             && !it->conversions()[0]->conversionVertex().isFake()) {
-
-            pho.convInfo   = kTRUE;
-            pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
-            pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
-            pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
-            pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
-            pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
-                                  it->conversions()[0]->conversionVertex().y(),
-                                  it->conversions()[0]->conversionVertex().z());
-            pho.convDxy = it->conversions()[0]->dxy(bsHandle->position());
-            pho.convDz  = it->conversions()[0]->dz(bsHandle->position());
-            pho.convLxy = it->conversions()[0]->lxy(bsHandle->position());
-            pho.convLz  = it->conversions()[0]->lz(bsHandle->position());
-            pho.convZofPVFromTracks = it->conversions()[0]->zOfPrimaryVertexFromTracks(bsHandle->position());
-            pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
-            pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
-            pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
-            pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
-            pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
-            pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
-            pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
-            std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
-            pho.convTrack1InnerZ = InnerPos[0].z();
-            pho.convTrack2InnerZ = InnerPos[1].z();
-            pho.convTrack1InnerX = InnerPos[0].x();
-            pho.convTrack2InnerX = InnerPos[1].x();
-            pho.convTrack1InnerY = InnerPos[0].y();
-            pho.convTrack2InnerY = InnerPos[1].y();
-            std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
-            pho.convTrack1Signedd0 = signedd0[0];
-            pho.convTrack2Signedd0 = signedd0[1];
-
-          }
-
-          // Photon ID
-          for(int k=0; k<nPhoIDC; k++){
-            pho.idPairs[ TString(photonIDCollectionTags_[k].c_str()) ] = (*phoIds[k])[phoRef];
-          }// for id
-
-        }
-
-        pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
-        pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-        pho.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
-
-
-        // store seed timing information
-        float seedTime = 999;
-        if(seedId.subdetId() == EcalBarrel) {
-          EcalRecHitCollection::const_iterator hit = barrelRecHitsHandle->find(seedId);
-          if ((hit != barrelRecHitsHandle->end()) && hit->isTimeValid()) seedTime = hit->time();
-        }
-        else if(seedId.subdetId() == EcalEndcap) {
-          EcalRecHitCollection::const_iterator hit = endcapRecHitsHandle->find(seedId);
-          if ((hit != endcapRecHitsHandle->end()) && hit->isTimeValid()) seedTime = hit->time();
-        }
-        pho.seedTime = seedTime;
-
-        int itrk = 0;
-        for(reco::TrackCollection::const_iterator t_it = trackH->begin();
-            t_it != trackH->end(); t_it++) {
-          reco::TrackRef trkRef(trackH,itrk++);
-          //          if(t_it->pt() < 1.0) continue;
-          //           float dz = std::abs(it->vz() - t_it->vz());
-          //           if(dz > 1.0) continue;
-          float dEta = it->eta() - t_it->eta();
-          float dPhi = TVector2::Phi_mpi_pi(it->phi() - t_it->phi());
-          float dR = std::sqrt(dEta*dEta + dPhi*dPhi);
-          if(dR > 0.4) continue;
-          susy::Track track;
-          fillTrack(trkRef,track);
-          int thisIndex = sameTrack(track,susyEvent_->tracks);
-          if(thisIndex < 0){
-            susyEvent_->tracks.push_back(track);
-            trackIndex++;
-          }
-        }// for track
-
-         EcalClusterLazyTools lazyTools(iEvent, iSetup, edm::InputTag("reducedEcalRecHitsEB"),
-                                        edm::InputTag("reducedEcalRecHitsEE"));
-
-         Handle<reco::VertexCollection> hVertexProduct;
-         iEvent.getByLabel("offlinePrimaryVerticesWithBS", hVertexProduct);
-
-         Handle<double> hRhoMVA;
-         iEvent.getByLabel(edm::InputTag("kt6PFJets","rho"), hRhoMVA);
-
-         std::pair<double,double> cor = ecorr_.CorrectedEnergyWithErrorV3(*it, *hVertexProduct, *hRhoMVA, lazyTools, iSetup);
-
-         //double energy = cor.first;
-         //double energyerr = cor.second;
-         pho.MVAregEnergyAndErr = cor;
-        //p_{x}=p_{T}*cos(phi)=E_{T}*cos(phi)=(E/cosh(eta))*cos(phi)
-        float mvaPx = (cor.first/cosh(it->caloPosition().eta()))*cos(it->caloPosition().phi());
-        float mvaPy = (cor.first/cosh(it->caloPosition().eta()))*sin(it->caloPosition().phi());
-        float mvaPz = (cor.first/cosh(it->caloPosition().eta()))*sinh(it->caloPosition().eta());
-        pho.MVAcorrMomentum.SetXYZT(mvaPx,mvaPy,mvaPz,cor.first);
-
-        susyEvent_->photons[TString(photonCollectionTags_[iPhoC].c_str())].push_back(pho);
-
-        if(debugLevel_ > 2) std::cout << "pt, e, hadEm : " << it->pt()
-                                      << ", " << it->energy()
-                                      << ", " << it->hadronicOverEm() << std::endl;
-
-      }// for it
+    std::vector<std::string>& idCollectionTags(photonIdCollectionTags_[collectionTag]);
+    unsigned nPhoIdC(idCollectionTags.size());
+    std::vector<edm::ValueMap<bool> const*> phoIds;
+    for(unsigned j(0); j != nPhoIdC; ++j){
+      edm::Handle<edm::ValueMap<bool> > phoIdCH;
+      _event.getByLabel(edm::InputTag(idCollectionTags[j]), phoIdCH);
+      phoIds.push_back(phoIdCH.product());
     }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << photonCollectionTags_[iPhoC] << " is not available!!! " << e.what();
+
+    std::vector<std::string>& isoDepTags(photonIsoDepTags_[collectionTag]);
+    edm::ValueMap<double> const* chIsoMap(0);
+    edm::ValueMap<double> const* nhIsoMap(0);
+    edm::ValueMap<double> const* phIsoMap(0);
+    if(isoDepTags.size() != 0){
+      edm::Handle<edm::ValueMap<double> > chIsoH;
+      edm::Handle<edm::ValueMap<double> > nhIsoH;
+      edm::Handle<edm::ValueMap<double> > phIsoH;
+
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kChargedHadron]), chIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kNeutralHadron]), nhIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kPhoton]), phIsoH);
+
+      chIsoMap = chIsoH.product();
+      nhIsoMap = nhIsoH.product();
+      phIsoMap = phIsoH.product();
     }
+
+    susy::PhotonCollection& susyCollection(susyEvent_->photons[collectionTag]);
+
+    int ipho = 0;
+    for(reco::PhotonCollection::const_iterator it = photonH->begin(); it != photonH->end(); ++it, ++ipho){
+
+      if(it->pt() < photonThreshold_) continue;
+
+      reco::PhotonRef phoRef(photonH, ipho);
+
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::Photon& pho(susyCollection.back());
+
+      bool isPF(it->photonCore()->isPFlowPhoton());
+
+      // pack fiducial bits
+      pho.fidBit |= (it->isEB()          << 0);
+      pho.fidBit |= (it->isEE()          << 1);
+      pho.fidBit |= (it->isEBEtaGap()    << 2);
+      pho.fidBit |= (it->isEBPhiGap()    << 3);
+      pho.fidBit |= (it->isEERingGap()   << 4);
+      pho.fidBit |= (it->isEEDeeGap()    << 5);
+      pho.fidBit |= (it->isEBEEGap()     << 6);
+      pho.fidBit |= (isPF                << 7);
+
+      pho.hadronicOverEm                    = it->hadronicOverEm();
+      pho.hadronicDepth1OverEm              = it->hadronicDepth1OverEm();
+      pho.hadronicDepth2OverEm              = it->hadronicDepth2OverEm();
+      pho.hadTowOverEm                      = it->hadTowOverEm();
+
+      pho.e1x5                              = it->e1x5();
+      pho.e2x5                              = it->e2x5();
+      pho.e3x3                              = it->e3x3();
+      pho.e5x5                              = it->e5x5();
+      pho.maxEnergyXtal                     = it->maxEnergyXtal();
+      pho.sigmaEtaEta                       = it->sigmaEtaEta();
+      pho.sigmaIetaIeta                     = it->sigmaIetaIeta();
+      pho.r9                                = it->r9();
+
+      pho.ecalRecHitSumEtConeDR04           = it->ecalRecHitSumEtConeDR04();
+      pho.hcalDepth1TowerSumEtConeDR04      = it->hcalDepth1TowerSumEtConeDR04();
+      pho.hcalDepth2TowerSumEtConeDR04      = it->hcalDepth2TowerSumEtConeDR04();
+
+      pho.trkSumPtSolidConeDR04             = it->trkSumPtSolidConeDR04();
+      pho.trkSumPtHollowConeDR04            = it->trkSumPtHollowConeDR04();
+      pho.nTrkSolidConeDR04                 = it->nTrkSolidConeDR04();
+      pho.nTrkHollowConeDR04                = it->nTrkHollowConeDR04();
+
+      pho.ecalRecHitSumEtConeDR03           = it->ecalRecHitSumEtConeDR03();
+      pho.hcalDepth1TowerSumEtConeDR03      = it->hcalDepth1TowerSumEtConeDR03();
+      pho.hcalDepth2TowerSumEtConeDR03      = it->hcalDepth2TowerSumEtConeDR03();
+      pho.trkSumPtSolidConeDR03             = it->trkSumPtSolidConeDR03();
+      pho.trkSumPtHollowConeDR03            = it->trkSumPtHollowConeDR03();
+      pho.nTrkSolidConeDR03                 = it->nTrkSolidConeDR03();
+      pho.nTrkHollowConeDR03                = it->nTrkHollowConeDR03();
+
+      pho.mipChi2                           = it->mipChi2();
+      pho.mipTotEnergy                      = it->mipTotEnergy();
+      pho.mipSlope                          = it->mipSlope();
+      pho.mipIntercept                      = it->mipIntercept();
+      pho.mipNhitCone                       = it->mipNhitCone();
+      pho.mipIsHalo                         = it->mipIsHalo();
+
+      // InvalidReference implies a misconfiguration (xyIsoMaps should be zero if the IsoDeposit objects do not exist for the collection) - throw
+      if(chIsoMap) pho.chargedHadronIsoDeposit = (*chIsoMap)[phoRef];
+      if(nhIsoMap) pho.neutralHadronIsoDeposit = (*nhIsoMap)[phoRef];
+      if(phIsoMap) pho.photonIsoDeposit        = (*phIsoMap)[phoRef];
+
+      if(isPF){
+        // InvalidReference here would imply a fatal problem of AOD - throw
+        reco::PFCandidate const* pfPhoton((*pfTranslationH)[phoRef].get());
+        isolator03_->fGetIsolation(pfPhoton, pfH.product(), primVtxRef, vtxH);
+      }
+      else
+        isolator03_->fGetIsolation(&*it, pfH.product(), primVtxRef, vtxH);
+
+      pho.chargedHadronIso                  = isolator03_->getIsolationCharged();
+      pho.neutralHadronIso                  = isolator03_->getIsolationNeutral();
+      pho.photonIso                         = isolator03_->getIsolationPhoton();
+
+      // for timing
+      DetId seedId(0);
+
+      // Cluster informations
+      // Photon without a SuperClusterRef implies a fatal error - throw if scRef is null
+      reco::SuperClusterRef scRef(isPF ? it->pfSuperCluster() : it->superCluster());
+      pho.hcalIsoConeDR04_2012 = it->hcalTowerSumEtConeDR04() + (it->hadronicOverEm() - it->hadTowOverEm()) * scRef->energy() / cosh(scRef->eta());
+      pho.hcalIsoConeDR03_2012 = it->hcalTowerSumEtConeDR03() + (it->hadronicOverEm() - it->hadTowOverEm()) * scRef->energy() / cosh(scRef->eta());
+
+      pho.superClusterPreshowerEnergy = scRef->preshowerEnergy();
+      pho.superClusterPhiWidth        = scRef->phiWidth();
+      pho.superClusterEtaWidth        = scRef->etaWidth();
+
+      reco::CaloClusterPtr const& seedClusterPtr(scRef->seed());
+
+      // Seed of a SuperCluster can be null; see e.g. RecoParticleFlow/PFProducer/plugins/PFPhotonTranslator.cc
+      if(seedClusterPtr.isNonnull()){
+        seedId = seedClusterPtr->seed();
+        if(!seedId.null()){
+          double e1000 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 1, 0, 0, 0);
+          double e0100 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 1, 0, 0);
+          double e0010 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 1, 0);
+          double e0001 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 0, 1);
+
+          pho.e1x2 = std::max(std::max(e1000,e0100), std::max(e0010, e0001));
+
+          std::vector<float> crysCov = EcalClusterTools::localCovariances(*seedClusterPtr, barrelRecHitsHandle.product(), caloTopology);
+          pho.sigmaIphiIphi = std::sqrt(crysCov[2]);
+        }
+      }
+
+      pho.superClusterIndex = fillSuperCluster(scRef);
+
+      pho.nPixelSeeds                       = it->electronPixelSeeds().size();
+      pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, beamSpot);
+      pho.convInfo=kFALSE;
+      pho.convVtxChi2 = -1;
+      // conversion Id
+      if(it->conversions().size() > 0
+         && it->conversions()[0]->nTracks() == 2
+         && it->conversions()[0]->conversionVertex().isValid()
+         && !it->conversions()[0]->conversionVertex().isFake()) {
+
+        pho.convInfo   = kTRUE;
+        pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
+        pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
+        pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
+        pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
+        pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
+                              it->conversions()[0]->conversionVertex().y(),
+                              it->conversions()[0]->conversionVertex().z());
+        pho.convDxy = it->conversions()[0]->dxy(beamSpot);
+        pho.convDz  = it->conversions()[0]->dz(beamSpot);
+        pho.convLxy = it->conversions()[0]->lxy(beamSpot);
+        pho.convLz  = it->conversions()[0]->lz(beamSpot);
+        pho.convZofPVFromTracks = it->conversions()[0]->zOfPrimaryVertexFromTracks(beamSpot);
+        pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
+        pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
+        pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
+        pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
+        pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
+        pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
+        pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
+        std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
+        pho.convTrack1InnerZ = InnerPos[0].z();
+        pho.convTrack2InnerZ = InnerPos[1].z();
+        pho.convTrack1InnerX = InnerPos[0].x();
+        pho.convTrack2InnerX = InnerPos[1].x();
+        pho.convTrack1InnerY = InnerPos[0].y();
+        pho.convTrack2InnerY = InnerPos[1].y();
+        std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
+        pho.convTrack1Signedd0 = signedd0[0];
+        pho.convTrack2Signedd0 = signedd0[1];
+
+      }
+
+      // Photon Id
+      for(unsigned k(0); k != nPhoIdC; ++k){
+        try{
+          pho.idPairs[idCollectionTags[k]] = (*phoIds[k])[phoRef];
+        }
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "Photon Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << ipho;
+          else
+            throw;
+        }
+      }
+
+      pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
+      pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+      pho.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+
+      // store seed timing information
+      if(seedId.subdetId() == EcalBarrel) {
+        EcalRecHitCollection::const_iterator hit = barrelRecHitsHandle->find(seedId);
+        if ((hit != barrelRecHitsHandle->end()) && hit->isTimeValid()) pho.seedTime = hit->time();
+      }
+      else if(seedId.subdetId() == EcalEndcap) {
+        EcalRecHitCollection::const_iterator hit = endcapRecHitsHandle->find(seedId);
+        if ((hit != endcapRecHitsHandle->end()) && hit->isTimeValid()) pho.seedTime = hit->time();
+      }
+
+      fillTracksAround(*it, 0.4, trkH);
+
+      // using kt6PFJets:rho
+      pho.MVAregEnergyAndErr = scEnergyCorrector_.CorrectedEnergyWithErrorV3(*it, *vtxWithBSH, susyEvent_->rho, lazyTools, _es);
+      double regEnergy(pho.MVAregEnergyAndErr.first);
+      pho.MVAcorrMomentum.SetVect(pho.caloPosition * (regEnergy / pho.caloPosition.Mag()));
+      pho.MVAcorrMomentum.SetE(regEnergy);
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e, hadEm : " << it->pt()
+                                               << ", " << it->energy()
+                                               << ", " << it->hadronicOverEm();
+
+    }// for it
   }
+}
 
+void
+SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(electronCollectionTags_.size() == 0) return;
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill electron" << std::endl;
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillElectrons";
 
-  const int nEleIDC = electronIDCollectionTags_.size();
-  std::vector< const edm::ValueMap<Float_t>* > eleIds;
+  math::XYZPoint beamSpot(susyEvent_->beamSpot.X(), susyEvent_->beamSpot.Y(), susyEvent_->beamSpot.Z());
 
-  for(int j=0; j<nEleIDC; j++) {
-    edm::Handle<edm::ValueMap<Float_t> > eleIDCH;
-    try {
-      iEvent.getByLabel(electronIDCollectionTags_[j], eleIDCH);
-      eleIds.push_back( eleIDCH.product() );
+  edm::Handle<reco::ConversionCollection> conversionsH;
+  _event.getByLabel("allConversions", conversionsH);
+
+  edm::Handle<reco::GsfElectronCollection> electronH;
+  for(unsigned int iEleC=0; iEleC < electronCollectionTags_.size(); iEleC++){
+    std::string& collectionTag(electronCollectionTags_[iEleC]);
+
+    _event.getByLabel(edm::InputTag(collectionTag), electronH);
+
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillElectrons: size of ElectronCollection " << collectionTag << " = " << electronH->size();
+
+    std::vector<std::string>& idCollectionTags(electronIdCollectionTags_[collectionTag]);
+    unsigned nEleIdC(idCollectionTags.size());
+    std::vector<edm::ValueMap<float> const*> eleIds;
+    for(unsigned j(0); j != nEleIdC; ++j){
+      edm::Handle<edm::ValueMap<float> > eleIdCH;
+      _event.getByLabel(edm::InputTag(idCollectionTags[j]), eleIdCH);
+      eleIds.push_back(eleIdCH.product());
     }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << electronIDCollectionTags_[j] << " is not available!!! " << e.what();
+
+    std::vector<std::string>& isoDepTags(electronIsoDepTags_[collectionTag]);
+    edm::ValueMap<double> const* chIsoMap(0);
+    edm::ValueMap<double> const* nhIsoMap(0);
+    edm::ValueMap<double> const* phIsoMap(0);
+    if(isoDepTags.size() != 0){
+      edm::Handle<edm::ValueMap<double> > chIsoH;
+      edm::Handle<edm::ValueMap<double> > nhIsoH;
+      edm::Handle<edm::ValueMap<double> > phIsoH;
+
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kChargedHadron]), chIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kNeutralHadron]), nhIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[susy::kPhoton]), phIsoH);
+
+      chIsoMap = chIsoH.product();
+      nhIsoMap = nhIsoH.product();
+      phIsoMap = phIsoH.product();
     }
-  }
 
-  edm::Handle<reco::GsfElectronCollection > electronH;
-  for(unsigned int iEleC=0; iEleC < electronCollectionTags_.size(); iEleC++) {
-    try {
-      iEvent.getByLabel(edm::InputTag(electronCollectionTags_[iEleC]),electronH);
-      if(debugLevel_ > 1) std::cout << "size of ElectronCollection : " << electronH->size() << std::endl;
-      int iele = 0;
-      for(reco::GsfElectronCollection::const_iterator it = electronH->begin();
-          it != electronH->end(); it++){
+    susy::ElectronCollection& susyCollection(susyEvent_->electrons[collectionTag]);
 
-        reco::GsfElectronRef eleRef(electronH,iele++);
+    int iele = 0;
+    for(reco::GsfElectronCollection::const_iterator it = electronH->begin(); it != electronH->end(); ++it, ++iele){
 
-        if(it->pt() < electronThreshold_) continue;
+      if(it->pt() < electronThreshold_) continue;
 
-        bool isPF = (it->candidateP4Kind() == reco::GsfElectron::P4_PFLOW_COMBINATION);
+      reco::GsfElectronRef eleRef(electronH, iele);
 
-        susy::Electron ele;
-        // fiducial bits
-        ele.fidBit  = 0;
-        ele.fidBit |= it->isEB()        << 0;
-        ele.fidBit |= it->isEE()        << 1;
-        ele.fidBit |= it->isEBEEGap()   << 2;
-        ele.fidBit |= it->isEBEtaGap()  << 3;
-        ele.fidBit |= it->isEBPhiGap()  << 4;
-        ele.fidBit |= it->isEEDeeGap()  << 5;
-        ele.fidBit |= it->isEERingGap() << 6;
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::Electron& ele(susyCollection.back());
 
-        ele.scPixCharge = it->scPixCharge();
+      bool isPF = (it->candidateP4Kind() == reco::GsfElectron::P4_PFLOW_COMBINATION);
 
-        ele.boolPack = 0;
-        ele.boolPack |= it->isGsfCtfScPixChargeConsistent() << 0;
-        ele.boolPack |= it->isGsfScPixChargeConsistent()    << 1;
-        ele.boolPack |= it->isGsfCtfChargeConsistent()      << 2;
-        ele.boolPack |= it->ecalDrivenSeed()                << 3;
-        ele.boolPack |= it->trackerDrivenSeed()             << 4;
-        ele.boolPack |= it->passingCutBasedPreselection()   << 5;
-        ele.boolPack |= it->passingMvaPreselection()        << 6;
-        ele.boolPack |= it->ambiguous()                     << 7;
-        ele.boolPack |= it->isEcalEnergyCorrected()         << 8;
-        ele.boolPack |= it->isEnergyScaleCorrected()        << 9;
-        ele.boolPack |= it->convFlags()                     << 10;
-        ele.boolPack |= isPF                                << 11;
+      // fiducial bits
+      ele.fidBit  = 0;
+      ele.fidBit |= it->isEB()        << 0;
+      ele.fidBit |= it->isEE()        << 1;
+      ele.fidBit |= it->isEBEEGap()   << 2;
+      ele.fidBit |= it->isEBEtaGap()  << 3;
+      ele.fidBit |= it->isEBPhiGap()  << 4;
+      ele.fidBit |= it->isEEDeeGap()  << 5;
+      ele.fidBit |= it->isEERingGap() << 6;
 
-        ele.eSuperClusterOverP             = it->eSuperClusterOverP();
-        ele.eSeedClusterOverP              = it->eSeedClusterOverP();
-        ele.eSeedClusterOverPout           = it->eSeedClusterOverPout();
-        ele.eEleClusterOverPout            = it->eEleClusterOverPout();
-        ele.deltaEtaSuperClusterTrackAtVtx = it->deltaEtaSuperClusterTrackAtVtx();
-        ele.deltaEtaSeedClusterTrackAtCalo = it->deltaEtaSeedClusterTrackAtCalo();
-        ele.deltaEtaEleClusterTrackAtCalo  = it->deltaEtaEleClusterTrackAtCalo();
-        ele.deltaPhiSuperClusterTrackAtVtx = it->deltaPhiSuperClusterTrackAtVtx();
-        ele.deltaPhiSeedClusterTrackAtCalo = it->deltaPhiSeedClusterTrackAtCalo();
-        ele.deltaPhiEleClusterTrackAtCalo  = it->deltaPhiEleClusterTrackAtCalo();
+      ele.scPixCharge = it->scPixCharge();
 
-        ele.trackPositions["AtVtx"] = TVector3(it->trackPositionAtVtx().X(),it->trackPositionAtVtx().Y(),it->trackPositionAtVtx().Z());
-        ele.trackPositions["AtCalo"] = TVector3(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
-        ele.trackMomentums["AtVtx"] = TLorentzVector(it->trackMomentumAtVtx().X(),it->trackMomentumAtVtx().Y(),
-                                                     it->trackMomentumAtVtx().Z(),it->trackMomentumAtVtx().R());
-        ele.trackMomentums["AtCalo"] = TLorentzVector(it->trackMomentumAtCalo().X(),it->trackMomentumAtCalo().Y(),
-                                                      it->trackMomentumAtCalo().Z(),it->trackMomentumAtCalo().R());
-        ele.trackMomentums["Out"] = TLorentzVector(it->trackMomentumOut().X(),it->trackMomentumOut().Y(),
-                                                   it->trackMomentumOut().Z(),it->trackMomentumOut().R());
-        ele.trackMomentums["AtEleClus"] = TLorentzVector(it->trackMomentumAtEleClus().X(),it->trackMomentumAtEleClus().Y(),
-                                                         it->trackMomentumAtEleClus().Z(),it->trackMomentumAtEleClus().R());
-        ele.trackMomentums["AtVtxWithConstraint"] = TLorentzVector(it->trackMomentumAtVtxWithConstraint().X(),it->trackMomentumAtVtxWithConstraint().Y(),
-                                                                   it->trackMomentumAtVtxWithConstraint().Z(),it->trackMomentumAtVtxWithConstraint().R());
+      ele.boolPack = 0;
+      ele.boolPack |= it->isGsfCtfScPixChargeConsistent() << 0;
+      ele.boolPack |= it->isGsfScPixChargeConsistent()    << 1;
+      ele.boolPack |= it->isGsfCtfChargeConsistent()      << 2;
+      ele.boolPack |= it->ecalDrivenSeed()                << 3;
+      ele.boolPack |= it->trackerDrivenSeed()             << 4;
+      ele.boolPack |= it->passingCutBasedPreselection()   << 5;
+      ele.boolPack |= it->passingMvaPreselection()        << 6;
+      ele.boolPack |= it->ambiguous()                     << 7;
+      ele.boolPack |= it->isEcalEnergyCorrected()         << 8;
+      ele.boolPack |= it->isEnergyScaleCorrected()        << 9;
+      ele.boolPack |= it->convFlags()                     << 10;
+      ele.boolPack |= isPF                                << 11;
 
-        ele.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+      ele.eSuperClusterOverP             = it->eSuperClusterOverP();
+      ele.eSeedClusterOverP              = it->eSeedClusterOverP();
+      ele.eSeedClusterOverPout           = it->eSeedClusterOverPout();
+      ele.eEleClusterOverPout            = it->eEleClusterOverPout();
+      ele.deltaEtaSuperClusterTrackAtVtx = it->deltaEtaSuperClusterTrackAtVtx();
+      ele.deltaEtaSeedClusterTrackAtCalo = it->deltaEtaSeedClusterTrackAtCalo();
+      ele.deltaEtaEleClusterTrackAtCalo  = it->deltaEtaEleClusterTrackAtCalo();
+      ele.deltaPhiSuperClusterTrackAtVtx = it->deltaPhiSuperClusterTrackAtVtx();
+      ele.deltaPhiSeedClusterTrackAtCalo = it->deltaPhiSeedClusterTrackAtCalo();
+      ele.deltaPhiEleClusterTrackAtCalo  = it->deltaPhiEleClusterTrackAtCalo();
+
+      ele.trackPositions["AtVtx"] = TVector3(it->trackPositionAtVtx().X(),it->trackPositionAtVtx().Y(),it->trackPositionAtVtx().Z());
+      ele.trackPositions["AtCalo"] = TVector3(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
+      ele.trackMomentums["AtVtx"] = TLorentzVector(it->trackMomentumAtVtx().X(),it->trackMomentumAtVtx().Y(),
+                                                   it->trackMomentumAtVtx().Z(),it->trackMomentumAtVtx().R());
+      ele.trackMomentums["AtCalo"] = TLorentzVector(it->trackMomentumAtCalo().X(),it->trackMomentumAtCalo().Y(),
+                                                    it->trackMomentumAtCalo().Z(),it->trackMomentumAtCalo().R());
+      ele.trackMomentums["Out"] = TLorentzVector(it->trackMomentumOut().X(),it->trackMomentumOut().Y(),
+                                                 it->trackMomentumOut().Z(),it->trackMomentumOut().R());
+      ele.trackMomentums["AtEleClus"] = TLorentzVector(it->trackMomentumAtEleClus().X(),it->trackMomentumAtEleClus().Y(),
+                                                       it->trackMomentumAtEleClus().Z(),it->trackMomentumAtEleClus().R());
+      ele.trackMomentums["AtVtxWithConstraint"] = TLorentzVector(it->trackMomentumAtVtxWithConstraint().X(),it->trackMomentumAtVtxWithConstraint().Y(),
+                                                                 it->trackMomentumAtVtxWithConstraint().Z(),it->trackMomentumAtVtxWithConstraint().R());
+
+      ele.shFracInnerHits = it->shFracInnerHits();
+
+      ele.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+
+      if(isPF){
+        ele.momentum.SetXYZT(it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).px(),
+                             it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).py(),
+                             it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).pz(),
+                             it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).e());
+
+        GsfElectron::ShowerShape const& ss(it->pfShowerShape());
+        ele.sigmaEtaEta                       = ss.sigmaEtaEta;
+        ele.sigmaIetaIeta                     = ss.sigmaIetaIeta;
+        ele.e1x5                              = ss.e1x5;
+        ele.e2x5Max                           = ss.e2x5Max;
+        ele.e5x5                              = ss.e5x5;
+        ele.hcalDepth1OverEcal                = ss.hcalDepth1OverEcal;
+        ele.hcalDepth2OverEcal                = ss.hcalDepth2OverEcal;
+      }
+      else{
         ele.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
-        if(isPF) ele.momentum.SetXYZT(it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).px(),
-                                      it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).py(),
-                                      it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).pz(),
-                                      it->p4(reco::GsfElectron::P4_PFLOW_COMBINATION).e());
+        ele.sigmaEtaEta                       = it->sigmaEtaEta();
+        ele.sigmaIetaIeta                     = it->sigmaIetaIeta();
+        ele.e1x5                              = it->e1x5();
+        ele.e2x5Max                           = it->e2x5Max();
+        ele.e5x5                              = it->e5x5();
+        ele.hcalDepth1OverEcal                = it->hcalDepth1OverEcal();
+        ele.hcalDepth2OverEcal                = it->hcalDepth2OverEcal();
+      }
 
-        ele.shFracInnerHits = it->shFracInnerHits();
+      ele.dr03TkSumPt                = it->dr03TkSumPt();
+      ele.dr03EcalRecHitSumEt        = it->dr03EcalRecHitSumEt();
+      ele.dr03HcalDepth1TowerSumEt   = it->dr03HcalDepth1TowerSumEt();
+      ele.dr03HcalDepth2TowerSumEt   = it->dr03HcalDepth2TowerSumEt();
+      ele.dr03HcalDepth1TowerSumEtBc = it->dr03HcalDepth1TowerSumEtBc();
+      ele.dr03HcalDepth2TowerSumEtBc = it->dr03HcalDepth2TowerSumEtBc();
 
-        if(isPF) {
-          ele.sigmaEtaEta                       = it->pfShowerShape().sigmaEtaEta;
-          ele.sigmaIetaIeta                     = it->pfShowerShape().sigmaIetaIeta;
-          ele.e1x5                              = it->pfShowerShape().e1x5;
-          ele.e2x5Max                           = it->pfShowerShape().e2x5Max;
-          ele.e5x5                              = it->pfShowerShape().e5x5;
-          ele.hcalDepth1OverEcal                = it->pfShowerShape().hcalDepth1OverEcal;
-          ele.hcalDepth2OverEcal                = it->pfShowerShape().hcalDepth2OverEcal;
+      ele.dr04TkSumPt                = it->dr04TkSumPt();
+      ele.dr04EcalRecHitSumEt        = it->dr04EcalRecHitSumEt();
+      ele.dr04HcalDepth1TowerSumEt   = it->dr04HcalDepth1TowerSumEt();
+      ele.dr04HcalDepth2TowerSumEt   = it->dr04HcalDepth2TowerSumEt();
+      ele.dr04HcalDepth1TowerSumEtBc = it->dr04HcalDepth1TowerSumEtBc();
+      ele.dr04HcalDepth2TowerSumEtBc = it->dr04HcalDepth2TowerSumEtBc();
+
+      ele.hcalOverEcalBc             = it->hcalOverEcalBc();
+
+      // InvalidReference implies a misconfiguration (xyIsoMaps should be zero if the IsoDeposit objects do not exist for the collection) - throw
+      if(chIsoMap) ele.chargedHadronIso = (*chIsoMap)[eleRef];
+      if(nhIsoMap) ele.neutralHadronIso = (*nhIsoMap)[eleRef];
+      if(phIsoMap) ele.photonIso        = (*phIsoMap)[eleRef];
+
+      ele.nMissingHits       = it->gsfTrack()->trackerExpectedHitsInner().numberOfHits();
+      ele.passConversionVeto = !ConversionTools::hasMatchedConversion((*it), conversionsH, beamSpot);
+
+      ele.convDist   = it->convDist();
+      ele.convDcot   = it->convDcot();
+      ele.convRadius = it->convRadius();
+
+      if(isPF){
+        ele.mvaStatus  = it->mvaOutput().status;
+        ele.mva        = it->mvaOutput().mva;
+      }
+
+      //enum Classification { UNKNOWN=-1, GOLDEN=0, BIGBREM=1, OLDNARROW=2, SHOWERING=3, GAP=4 } ;
+      ele.bremClass                         = char(it->classification());
+      ele.fbrem                             = it->fbrem();
+
+      ele.ecalEnergy                        = it->ecalEnergy();
+      ele.ecalEnergyError                   = it->ecalEnergyError();
+      ele.trackMomentumError                = it->trackMomentumError();
+
+      ele.electronClusterIndex = fillCluster(it->electronCluster());
+      ele.superClusterIndex    = isPF ? fillSuperCluster(it->pflowSuperCluster()) : fillSuperCluster(it->superCluster());
+
+      ele.closestCtfTrackIndex = fillTrack(it->closestCtfTrackRef());
+      ele.gsfTrackIndex        = fillGsfTrack(it->gsfTrack());
+
+      if(ele.gsfTrackIndex != -1){
+        susy::Track& track(susyEvent_->tracks[ele.gsfTrackIndex]);
+        track.extrapolatedPositions["ECALInnerWall"].SetXYZ(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
+      }
+
+      for(unsigned k(0); k != nEleIdC; ++k){
+        try{
+          ele.idPairs[idCollectionTags[k]] = (*eleIds[k])[eleRef];
         }
-        else {
-          ele.sigmaEtaEta                       = it->sigmaEtaEta();
-          ele.sigmaIetaIeta                     = it->sigmaIetaIeta();
-          ele.e1x5                              = it->e1x5();
-          ele.e2x5Max                           = it->e2x5Max();
-          ele.e5x5                              = it->e5x5();
-          ele.hcalDepth1OverEcal                = it->hcalDepth1OverEcal();
-          ele.hcalDepth2OverEcal                = it->hcalDepth2OverEcal();
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "Electron Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << iele;
+          else
+            throw;
         }
+      }
 
-        ele.dr03TkSumPt                = it->dr03TkSumPt();
-        ele.dr03EcalRecHitSumEt        = it->dr03EcalRecHitSumEt();
-        ele.dr03HcalDepth1TowerSumEt   = it->dr03HcalDepth1TowerSumEt();
-        ele.dr03HcalDepth2TowerSumEt   = it->dr03HcalDepth2TowerSumEt();
-        ele.dr03HcalDepth1TowerSumEtBc = it->dr03HcalDepth1TowerSumEtBc();
-        ele.dr03HcalDepth2TowerSumEtBc = it->dr03HcalDepth2TowerSumEtBc();
-
-        ele.dr04TkSumPt                = it->dr04TkSumPt();
-        ele.dr04EcalRecHitSumEt        = it->dr04EcalRecHitSumEt();
-        ele.dr04HcalDepth1TowerSumEt   = it->dr04HcalDepth1TowerSumEt();
-        ele.dr04HcalDepth2TowerSumEt   = it->dr04HcalDepth2TowerSumEt();
-        ele.dr04HcalDepth1TowerSumEtBc = it->dr04HcalDepth1TowerSumEtBc();
-        ele.dr04HcalDepth2TowerSumEtBc = it->dr04HcalDepth2TowerSumEtBc();
-
-        ele.hcalOverEcalBc             = it->hcalOverEcalBc();
-
-        ele.chargedHadronIso = (*eleIsoDepositVals[0])[eleRef];
-        ele.neutralHadronIso = (*eleIsoDepositVals[2])[eleRef];
-        ele.photonIso = (*eleIsoDepositVals[1])[eleRef];
-
-        ele.nMissingHits = it->gsfTrack()->trackerExpectedHitsInner().numberOfHits();
-        ele.passConversionVeto = !ConversionTools::hasMatchedConversion((*it), hVetoConversions, vetoBeamspot.position());
-
-        ele.convDist   = it->convDist();
-        ele.convDcot   = it->convDcot();
-        ele.convRadius = it->convRadius();
-
-        if(isPF) {
-          ele.mvaStatus  = it->mvaOutput().status;
-          ele.mva        = it->mvaOutput().mva;
-        }
-
-        //enum Classification { UNKNOWN=-1, GOLDEN=0, BIGBREM=1, OLDNARROW=2, SHOWERING=3, GAP=4 } ;
-        ele.bremClass                         = int(it->classification());
-        ele.fbrem                             = it->fbrem();
-
-        ele.ecalEnergy                        = it->ecalEnergy();
-        ele.ecalEnergyError                   = it->ecalEnergyError();
-        ele.trackMomentumError                = it->trackMomentumError();
-        //      ele.electronMomentumError             = it->electronMomentumError();
-
-        susy::Cluster cluster;
-        fillCluster(it->electronCluster(),cluster);
-        ele.electronClusterIndex = clusterIndex;
-        susyEvent_->clusters.push_back(cluster);
-        clusterIndex++;
-
-        if(isPF) {
-          susy::SuperCluster superCluster;
-          fillCluster(it->pflowSuperCluster(), superCluster, clusterIndex);
-          ele.superClusterIndex = superClusterIndex;
-          susyEvent_->superClusters.push_back(superCluster);
-          superClusterIndex++;
-        }
-        else{
-          susy::SuperCluster superCluster;
-          fillCluster(it->superCluster(), superCluster, clusterIndex);
-          ele.superClusterIndex = superClusterIndex;
-          susyEvent_->superClusters.push_back(superCluster);
-          superClusterIndex++;
-        }
-
-        if(it->closestCtfTrackRef().isNonnull()){
-          susy::Track track;
-          fillTrack(it->closestCtfTrackRef(), track);
-          int thisIndex = sameTrack(track,susyEvent_->tracks);
-          if(thisIndex < 0){
-            ele.closestCtfTrackIndex = trackIndex;
-            susyEvent_->tracks.push_back(track);
-            trackIndex++;
-          }
-          else {
-            ele.closestCtfTrackIndex = thisIndex;
-          }
-        }
-        if(it->gsfTrack().isNonnull()) {
-          susy::Track track;
-          fillTrack(it->gsfTrack(), track);
-          track.extrapolatedPositions["ECALInnerWall"] = TVector3(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
-          int thisIndex = sameTrack(track,susyEvent_->tracks);
-          if(thisIndex < 0){
-            ele.gsfTrackIndex = trackIndex;
-            susyEvent_->tracks.push_back(track);
-            trackIndex++;
-          }
-          else {
-            ele.gsfTrackIndex = thisIndex;
-          }
-        }// if(it->gsfTrack().isNonnull())
-
-
-        if(!isPF) {
-          for(int k=0; k<nEleIDC; k++){
-            ele.idPairs[ TString(electronIDCollectionTags_[k].c_str()) ] = (*eleIds[k])[eleRef];
-          }// for id
-        }
-        susyEvent_->electrons[TString(electronCollectionTags_[iEleC].c_str())].push_back(ele);
-
-        if(debugLevel_ > 2) std::cout << "pt, e, hadEm : " << it->pt()
-                                      << ", " << it->energy()
-                                      << ", " << it->hadronicOverEm() << std::endl;
-      }// for it
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << electronCollectionTags_[iEleC] << " is not available!!! " << e.what();
-    }
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e, hadEm : " << it->pt()
+                                               << ", " << it->energy()
+                                               << ", " << it->hadronicOverEm();
+    }// for it
 
   }
+}
 
+void
+SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(muonCollectionTags_.size() == 0) return;
 
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMuons";
 
-  if(debugLevel_ > 0) std::cout << name() << ", fill muon" << std::endl;
+  edm::Handle<reco::MuonCollection> muonH;
+  for(unsigned iMuCol(0); iMuCol < muonCollectionTags_.size(); ++iMuCol){
+    std::string& collectionTag(muonCollectionTags_[iMuCol]);
 
-  const int nMuIDC = muonIDCollectionTags_.size();
-  std::vector< const edm::ValueMap<Bool_t>* > muIds;
+    _event.getByLabel(edm::InputTag(collectionTag), muonH);
 
-  for(int i=0; i<nMuIDC; i++) {
-    edm::Handle<edm::ValueMap<Bool_t> > muIDCH;
-    try {
-      iEvent.getByLabel("muons", muonIDCollectionTags_[i], muIDCH);
-      muIds.push_back( muIDCH.product() );
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMuons: size of MuonCollection " << collectionTag << " = " << muonH->size();
+
+    std::vector<std::string>& idCollectionTags(muonIdCollectionTags_[collectionTag]);
+    unsigned nMuIdC(idCollectionTags.size());
+    std::vector<edm::ValueMap<bool> const*> muIds;
+    for(unsigned i(0); i < nMuIdC; ++i){
+      edm::Handle<edm::ValueMap<bool> > muIdCH;
+      _event.getByLabel(edm::InputTag(idCollectionTags[i]), muIdCH);
+      muIds.push_back(muIdCH.product());
     }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << muonIDCollectionTags_[i] << " is not available!!! " << e.what();
-    }
-  }
 
-  const int nMuCols = muonCollectionTags_.size();
-  for (int iMuCol=0;iMuCol<nMuCols;iMuCol++) {
-   edm::Handle<reco::MuonCollection > muonH;
-   try {
-    iEvent.getByLabel(muonCollectionTags_[iMuCol],muonH);
-    if(debugLevel_ > 1) std::cout << "size of MuonCollection : " << muonH->size() << std::endl;
+    susy::MuonCollection& susyCollection(susyEvent_->muons[collectionTag]);
+
     int imu = 0;
-    for(reco::MuonCollection::const_iterator it = muonH->begin();
-        it != muonH->end(); it++){
-
-      reco::MuonRef muRef(muonH,imu++);
+    for(reco::MuonCollection::const_iterator it = muonH->begin(); it != muonH->end(); ++it, ++imu){
 
       if(it->pt() < muonThreshold_) continue;
 
-      susy::Muon mu;
+      reco::MuonRef muRef(muonH, imu);
+
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::Muon& mu(susyCollection.back());
+
       mu.type                               = it->type();
       mu.bestTrackType                      = it->muonBestTrackType();
       mu.caloCompatibility                  = it->caloCompatibility();
@@ -1594,14 +1774,18 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
       mu.nChambers                          = it->numberOfChambers();
       mu.nMatchedStations                   = it->numberOfMatchedStations();
       if(it->combinedMuon().isNonnull()){
-        mu.nValidHits                         = it->combinedMuon()->hitPattern().numberOfValidHits();
-        mu.nValidTrackerHits                  = it->combinedMuon()->hitPattern().numberOfValidTrackerHits();
-        mu.nValidMuonHits                     = it->combinedMuon()->hitPattern().numberOfValidMuonHits();
-        mu.nPixelLayersWithMeasurement        = it->combinedMuon()->hitPattern().pixelLayersWithMeasurement();
-        mu.nStripLayersWithMeasurement        = it->combinedMuon()->hitPattern().stripLayersWithMeasurement();
+        reco::TrackRef combRef(it->combinedMuon());
+        mu.nValidHits                         = combRef->hitPattern().numberOfValidHits();
+        mu.nValidTrackerHits                  = combRef->hitPattern().numberOfValidTrackerHits();
+        mu.nValidMuonHits                     = combRef->hitPattern().numberOfValidMuonHits();
+        mu.nPixelLayersWithMeasurement        = combRef->hitPattern().pixelLayersWithMeasurement();
+        mu.nStripLayersWithMeasurement        = combRef->hitPattern().stripLayersWithMeasurement();
       }
-      mu.emEnergy                           = it->calEnergy().em;
-      mu.hadEnergy                          = it->calEnergy().had;
+
+      reco::MuonEnergy muEnergy(it->calEnergy());
+      mu.emEnergy                           = muEnergy.em;
+      mu.hadEnergy                          = muEnergy.had;
+
       mu.trackIsoR03                        = it->isolationR03().sumPt;
       mu.ecalIsoR03                         = it->isolationR03().emEt;
       mu.hcalIsoR03                         = it->isolationR03().hadEt;
@@ -1636,93 +1820,50 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
           mu.timeAtIp                       = it->time().timeAtIpInOut;
           mu.timeAtIpError                  = it->time().timeAtIpInOutErr;
         }
-      }// if(it->isTimeValid())
+      }
 
-      if(it->track().isNonnull()){
-        susy::Track track;
-        fillTrack(it->track(), track);
-        int thisIndex = sameTrack(track,susyEvent_->tracks);
-        if(thisIndex < 0){
-          mu.trackIndex = trackIndex;
-          susyEvent_->tracks.push_back(track);
-          trackIndex++;
-        }
-        else {
-          mu.trackIndex = thisIndex;
-        }
-      }
-      if(it->standAloneMuon().isNonnull()){
-        susy::Track track;
-        fillTrack(it->standAloneMuon(), track);
-        int thisIndex = sameTrack(track,susyEvent_->tracks);
-        if(thisIndex < 0){
-          mu.standAloneTrackIndex = trackIndex;
-          susyEvent_->tracks.push_back(track);
-          trackIndex++;
-        }
-        else {
-          mu.standAloneTrackIndex = thisIndex;
-        }
-      }
-      if(it->combinedMuon().isNonnull()){
-        susy::Track track;
-        fillTrack(it->combinedMuon(), track);
-        int thisIndex = sameTrack(track,susyEvent_->tracks);
-        if(thisIndex < 0){
-          mu.combinedTrackIndex = trackIndex;
-          susyEvent_->tracks.push_back(track);
-          trackIndex++;
-        }
-        else {
-          mu.combinedTrackIndex = thisIndex;
-        }
+      Short_t* trackIndices[] = {
+        &mu.trackIndex, &mu.standAloneTrackIndex, &mu.combinedTrackIndex
+      };
+
+      reco::Muon::MuonTrackType trackTypes[] = {
+        reco::Muon::InnerTrack, reco::Muon::OuterTrack, reco::Muon::CombinedTrack
+      };
+
+      for(unsigned iT(0); iT != sizeof(trackTypes) / sizeof(reco::Muon::MuonTrackType); ++iT){
+        reco::Muon::MuonTrackType trackType(trackTypes[iT]);
+
+        if(it->isAValidMuonTrack(trackType))
+          *trackIndices[iT] = fillTrack(it->muonTrack(trackType));
       }
 
       mu.momentum.SetXYZT(it->p4().px(),it->p4().py(),it->p4().pz(),it->p4().e());
 
-      try{
-        for(int k=0; k<nMuIDC; k++){
-          mu.idPairs[ TString(muonIDCollectionTags_[k].c_str()) ] = (*muIds[k])[muRef];
-        }// for id
-      }
-      catch(edm::Exception& e){
-        if(e.categoryCode() != edm::errors::InvalidReference) throw;
+      for(unsigned k(0); k < nMuIdC; ++k){
+        try{
+          mu.idPairs[idCollectionTags[k]] = (*muIds[k])[muRef];
+        }
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "Muon Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << imu;
+          else
+            throw;
+        }
       }
 
-      susyEvent_->muons[TString(muonCollectionTags_[iMuCol].c_str())].push_back(mu);
-
-      if(debugLevel_ > 2) std::cout << "type, emE, hadE, pt : " << it->type()
-                                    << ", " << it->calEnergy().em
-                                    << ", " << it->calEnergy().had
-                                    << ", " << it->pt() << std::endl;
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "type, emE, hadE, pt : " << it->type()
+                                               << ", " << it->calEnergy().em
+                                               << ", " << it->calEnergy().had
+                                               << ", " << it->pt();
     }
-   }
-   catch(cms::Exception& e) {
-    edm::LogError(name()) << "reco::Muon collection "<< muonCollectionTags_[iMuCol] << " is not available!!! " << e.what();
-   }
   }
 
+}
 
-  // Get b-tag information
-  if(debugLevel_ > 0) std::cout << name() << ", fill bTagCollections" << std::endl;
-  std::vector<edm::Handle<reco::JetFloatAssociation::Container> > jetDiscriminators;
-  jetDiscriminators.resize(bTagCollectionTags_.size());
-  for(size_t i = 0; i < bTagCollectionTags_.size(); i++) {
-    iEvent.getByLabel(edm::InputTag(bTagCollectionTags_[i]), jetDiscriminators[i]);
-  }
-
-  // Get Pileup Jet ID information
-  if(debugLevel_ > 0) std::cout << name() << ", fill puJetIdCollections" << std::endl;
-  std::vector<edm::Handle<edm::ValueMap<float> > > puJetIdMVACollections;
-  puJetIdMVACollections.resize(puJetIdCollectionTags_.size());
-  std::vector<edm::Handle<edm::ValueMap<int> > > puJetIdFlagCollections;
-  puJetIdFlagCollections.resize(puJetIdCollectionTags_.size());
-  for(size_t i = 0; i < puJetIdCollectionTags_.size(); i++) {
-    iEvent.getByLabel(edm::InputTag("recoPuJetMva", puJetIdCollectionTags_[i]+"Discriminant"), puJetIdMVACollections[i]);
-    iEvent.getByLabel(edm::InputTag("recoPuJetMva", puJetIdCollectionTags_[i]+"Id"), puJetIdFlagCollections[i]);
-  }
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill calojet collections" << std::endl;
+void
+SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(caloJetCollectionTags_.size() == 0) return;
 
   // JEC naming scheme in JetMETCorrections/Configuration/python/DefaultJEC_cff.py
   //
@@ -1730,11 +1871,313 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   //
   // ak5CaloJetsL2L3
   // ak5CaloJetsL1FastL2L3
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillCaloJets";
+
+  edm::Handle<reco::CaloJetCollection> jetH;
+  for(unsigned iJetC=0; iJetC < caloJetCollectionTags_.size(); iJetC++){
+    std::string& collectionTag(caloJetCollectionTags_[iJetC]);
+
+    _event.getByLabel(edm::InputTag(collectionTag), jetH);
+
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillCaloJets: size of " << collectionTag << " JetCollection = " << jetH->size();
+
+    std::string key(collectionTag);
+    std::string toReplace("CaloJets");
+    key.replace(key.find(toReplace), toReplace.size(), "");
+
+    susy::CaloJetCollection& susyCollection(susyEvent_->caloJets[key]);
+
+    edm::Handle<edm::ValueMap<reco::JetID> > jetIdH;
+    _event.getByLabel(key + "JetID", jetIdH);
+
+    JetCorrector const* corrL2L3(0);
+    JetCorrector const* corrL1L2L3(0);
+    if(_event.isRealData()){
+      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3Residual", _es);
+      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3Residual", _es);
+    }
+    else{
+      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3", _es);
+      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3", _es);
+    }
+
+    int ijet(0);
+    for(reco::CaloJetCollection::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
+
+      TLorentzVector corrP4(it->px(), it->py(), it->pz(), it->energy());
+      float l1l2l3Scale(corrL1L2L3->correction(*it, _event, _es));
+      corrP4 *= l1l2l3Scale;
+
+      if(corrP4.Pt() < jetThreshold_) continue;
+
+      reco::CaloJetRef jetRef(jetH, ijet);
+
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::CaloJet& jet(susyCollection.back());
+
+      // Basic Jet
+      jet.etaMean         = it->etaPhiStatistics().etaMean;
+      jet.phiMean         = it->etaPhiStatistics().phiMean;
+      jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
+      jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
+      jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
+      jet.maxDistance     = it->maxDistance();
+      jet.jetArea         = it->jetArea();
+      jet.pileup          = it->pileup();
+      jet.nPasses         = it->nPasses();
+      jet.nConstituents   = it->nConstituents();
+
+      // CaloJet specific
+      jet.maxEInEmTowers                = it->maxEInEmTowers();
+      jet.maxEInHadTowers               = it->maxEInHadTowers();
+      jet.energyFractionHadronic        = it->energyFractionHadronic();
+      jet.emEnergyFraction              = it->emEnergyFraction();
+      jet.hadEnergyInHB                 = it->hadEnergyInHB();
+      jet.hadEnergyInHO                 = it->hadEnergyInHO();
+      jet.hadEnergyInHE                 = it->hadEnergyInHE();
+      jet.emEnergyInHF                  = it->emEnergyInHF();
+      jet.emEnergyInEB                  = it->emEnergyInEB();
+      jet.emEnergyInEE                  = it->emEnergyInEE();
+      jet.hadEnergyInHF                 = it->hadEnergyInHF();
+      jet.towersArea                    = it->towersArea();
+      jet.n90                           = it->n90();
+      jet.n60                           = it->n60();
+
+      // cf. RecoJets/JetProducers/plugins/VirtualJetProducer.cc (where the jets are actually produced)
+      // Vertex correction is an available option for only the CaloJets, and relies on the parameter doPVCorrection (set in RecoJets/JetProducers/python/CaloJetParameters_cfi.py)
+      // When doPVCorrection = True, jet momentum is calculated wrt the primary vertex (first element of the VertexCollection) and the position is saved as jet vertex
+      // i.e. this is either just the primary vertex, or the origin (if doPVCorrection = False)
+      jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+
+      jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+      jet.detectorP4.SetXYZT(it->detectorP4().px(),it->detectorP4().py(),
+                             it->detectorP4().pz(),it->detectorP4().energy());
+
+      jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+      jet.jecScaleFactors["L1L2L3"] = l1l2l3Scale;
+
+      // accessing Jet ID information
+      // InvalidReference here would imply a fatal problem in AOD - throw
+      reco::JetID const& jetId((*jetIdH)[jetRef]);
+      jet.fHPD                          = jetId.fHPD;
+      jet.fRBX                          = jetId.fRBX;
+      jet.n90Hits                       = jetId.n90Hits;
+      jet.fSubDetector1                 = jetId.fSubDetector1;
+      jet.fSubDetector2                 = jetId.fSubDetector2;
+      jet.fSubDetector3                 = jetId.fSubDetector3;
+      jet.fSubDetector4                 = jetId.fSubDetector4;
+      jet.restrictedEMF                 = jetId.restrictedEMF;
+      jet.nHCALTowers                   = jetId.nHCALTowers;
+      jet.nECALTowers                   = jetId.nECALTowers;
+      jet.approximatefHPD               = jetId.approximatefHPD;
+      jet.approximatefRBX               = jetId.approximatefRBX;
+      jet.hitsInN90                     = jetId.hitsInN90;
+      jet.numberOfHits2RPC              = jetId.numberOfHits2RPC;
+      jet.numberOfHits3RPC              = jetId.numberOfHits3RPC;
+      jet.numberOfHitsRPC               = jetId.numberOfHitsRPC;
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
+
+    }// for it
+  }
+
+}
+
+void
+SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(pfJetCollectionTags_.size() == 0) return;
+
+  // JEC naming scheme in JetMETCorrections/Configuration/python/DefaultJEC_cff.py
   //
   // For PFJets
   //
   // ak5PFJetsL2L3
   // ak5PFJetsL1FastL2L3
+
+  // If we are to have multiple PFJetCollections in the event, the following three getter blocks
+  // should be defined for each jet collection independently a la JEC.
+  // i.e. we need to prepend/append the collection name to the object labels and put the blocks
+  // inside the loop over the collection tags.
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillPFJets";
+
+  // Get b-tag information
+  std::vector<edm::Handle<reco::JetFloatAssociation::Container> > jetDiscriminators;
+  jetDiscriminators.resize(bTagCollectionTags_.size());
+  for(size_t i = 0; i < bTagCollectionTags_.size(); i++){
+    _event.getByLabel(edm::InputTag(bTagCollectionTags_[i]), jetDiscriminators[i]);
+  }
+
+  // Flavour matching for MC
+  reco::JetFlavourMatchingCollection const* flavMatchAlg(0);
+  reco::JetFlavourMatchingCollection const* flavMatchPhy(0);
+  if(!_event.isRealData()){
+    edm::Handle<reco::JetFlavourMatchingCollection> flavMatchH;
+
+    _event.getByLabel("flavourAssociationAlg", flavMatchH);
+    flavMatchAlg = flavMatchH.product();
+
+    _event.getByLabel("flavourAssociationPhy", flavMatchH);
+    flavMatchPhy = flavMatchH.product();
+  }
+
+  edm::Handle<edm::View<reco::PFJet> > jetH;
+  for(unsigned iJetC=0; iJetC < pfJetCollectionTags_.size(); iJetC++) {
+    std::string& collectionTag(pfJetCollectionTags_[iJetC]);
+
+    _event.getByLabel(edm::InputTag(collectionTag), jetH);
+
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFJets: size of " << collectionTag << " JetCollection : " << jetH->size();
+
+    std::string key(collectionTag);
+    std::string toReplace("PFJets");
+    key.replace(key.find(toReplace), toReplace.size(), "");
+
+    JetCorrector const* corrL2L3(0);
+    JetCorrector const* corrL1FastL2L3(0);
+    if(_event.isRealData()){
+      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3Residual", _es);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3Residual", _es);
+    }
+    else{
+      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3", _es);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3", _es);
+    }
+
+    // Get Pileup Jet ID information
+    std::vector<std::string>& puJetIdTags(puJetIdCollectionTags_[collectionTag]);
+    std::vector<edm::Handle<edm::ValueMap<float> > > puJetIdMVACollections(puJetIdTags.size());
+    std::vector<edm::Handle<edm::ValueMap<int> > > puJetIdFlagCollections(puJetIdTags.size());
+    for(size_t i = 0; i < puJetIdTags.size(); i++){
+      _event.getByLabel(edm::InputTag(puJetIdTags[i] + "Discriminant"), puJetIdMVACollections[i]);
+      _event.getByLabel(edm::InputTag(puJetIdTags[i] + "Id"), puJetIdFlagCollections[i]);
+    }
+
+    susy::PFJetCollection& susyCollection(susyEvent_->pfJets[key]);
+
+    int ijet(0);
+    for(edm::View<reco::PFJet>::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
+
+      TLorentzVector corrP4(it->px(), it->py(), it->pz(), it->energy());
+      float l1fastl2l3Scale(corrL1FastL2L3->correction(*it, _event, _es));
+      corrP4 *= l1fastl2l3Scale;
+
+      if(corrP4.Pt() < jetThreshold_) continue;
+
+      edm::RefToBase<reco::Jet> jetRef(jetH->refAt(ijet));
+
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::PFJet& jet(susyCollection.back());
+
+      // Basic Jet
+      jet.etaMean         = it->etaPhiStatistics().etaMean;
+      jet.phiMean         = it->etaPhiStatistics().phiMean;
+      jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
+      jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
+      jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
+      jet.maxDistance     = it->maxDistance();
+      jet.jetArea         = it->jetArea();
+      jet.pileup          = it->pileup();
+      jet.nPasses         = it->nPasses();
+      jet.nConstituents   = it->nConstituents();
+
+      // cf. RecoJets/JetProducers/plugins/VirtualJetProducer.cc (where the jets are actually produced)
+      // Vertex correction is an available option for only the CaloJets. For all other jet types, vertex is always 0
+      // See also the description above on CaloJet vertices
+      jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
+
+      jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+
+      jet.chargedHadronEnergy = it->chargedHadronEnergy();
+      jet.neutralHadronEnergy = it->neutralHadronEnergy();
+      jet.photonEnergy = it->photonEnergy();
+      jet.electronEnergy = it->electronEnergy();
+      jet.muonEnergy = it->muonEnergy();
+      jet.HFHadronEnergy = it->HFHadronEnergy();
+      jet.HFEMEnergy = it->HFEMEnergy();
+      jet.chargedHadronMultiplicity = it->chargedHadronMultiplicity();
+      jet.neutralHadronMultiplicity = it->neutralHadronMultiplicity();
+      jet.photonMultiplicity = it->photonMultiplicity();
+      jet.electronMultiplicity = it->electronMultiplicity();
+      jet.muonMultiplicity = it->muonMultiplicity();
+      jet.HFHadronMultiplicity = it->HFHadronMultiplicity();
+      jet.HFEMMultiplicity = it->HFEMMultiplicity();
+      jet.chargedEmEnergy = it->chargedEmEnergy();
+      jet.chargedMuEnergy = it->chargedMuEnergy();
+      jet.neutralEmEnergy = it->neutralEmEnergy();
+      jet.chargedMultiplicity = it->chargedMultiplicity();
+      jet.neutralMultiplicity = it->neutralMultiplicity();
+
+      jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
+      jet.jecScaleFactors["L1FastL2L3"] = l1fastl2l3Scale;
+
+      // add btag for this jet
+      for(size_t k = 0; k < jetDiscriminators.size(); k++){
+        try{
+          float value = (*(jetDiscriminators[k]))[jetRef];
+          jet.bTagDiscriminators.push_back(value);
+        }
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "Btag discriminator " << bTagCollectionTags_[k] << " does not exist for collection " << collectionTag << " instance " << ijet;
+          else
+            throw;
+        }
+      }
+
+      // add tracks from this jet into track collection and tally up the local id's.
+      reco::TrackRefVector trkvec(it->getTrackRefs());
+      for(reco::TrackRefVector::const_iterator t_it(trkvec.begin()); t_it != trkvec.end(); ++t_it)
+        jet.tracklist.push_back(fillTrack(*t_it));
+
+      // if MC, add parton flavor id matches
+      if(!susyEvent_->isRealData){
+        try{
+          jet.algDefFlavour = (*flavMatchAlg)[jetRef].getFlavour();
+          jet.phyDefFlavour = (*flavMatchPhy)[jetRef].getFlavour();
+        }
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "Jet flavour matching does not exist for collection " << collectionTag << " instance " << ijet;
+          else
+            throw;
+        }
+      }
+
+      // add puJetId variables
+      for(size_t k = 0; k < puJetIdTags.size(); k++){
+        try{
+          float mva = (*puJetIdMVACollections[k])[jetRef];
+          int idFlag = (*puJetIdFlagCollections[k])[jetRef];
+          jet.puJetIdDiscriminants.push_back(mva);
+          jet.puJetIdFlags.push_back(idFlag);
+        }
+        catch(cms::Exception& e){
+          if(e.category() == "InvalidReference")
+            edm::LogWarning("InvalidReference") << "PU jet Id does not exist for collection " << collectionTag << " instance " << ijet;
+          else
+            throw;
+        }
+      }
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
+
+    }// for it
+
+  }// for PFJet
+}
+
+void
+SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
+{
+  if(jptJetCollectionTags_.size() == 0) return;
+
+  // JPTJetCollection was commented out in November 2011.
+  // Reviving the filler just for the sake of code clarity - no guarantee this function works under the current environment.
+
+  // JEC naming scheme in JetMETCorrections/Configuration/python/DefaultJEC_cff.py
   //
   // For JPTJets
   //
@@ -1742,850 +2185,304 @@ void SusyNtuplizer::analyze(const edm::Event& iEvent, const edm::EventSetup& iSe
   // ak5JPTJetsL1FastL2L3
   //
 
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillJPTJets";
 
-  int nJetColl = caloJetCollectionTags_.size();
+  edm::Handle<reco::JPTJetCollection> jetH;
+  for(unsigned iJetC=0; iJetC < jptJetCollectionTags_.size(); iJetC++){
+    std::string& collectionTag(jptJetCollectionTags_[iJetC]);
 
-  for(int iJetC=0; iJetC < nJetColl; iJetC++) {
-    susy::CaloJetCollection jetCollection;
-    TString key = TString(caloJetCollectionTags_[iJetC].c_str()).ReplaceAll("CaloJets","");
+    _event.getByLabel(edm::InputTag(collectionTag), jetH);
 
-    edm::Handle<edm::ValueMap<reco::JetID> > jetIDH;
-    try {
-      iEvent.getByLabel((key+"JetID").Data(), jetIDH);
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillJPTJets: size of " << collectionTag << " JetCollection : " << jetH->size();
+
+    std::string key(collectionTag);
+
+    susy::JPTJetCollection& susyCollection(susyEvent_->jptJets[key]);
+
+    // "Residual" corrections were commented out and no splitting was made wrt isRealData
+    // Modifying assuming the usage follows the other jet collections (2013.3.29 Y.I.)
+    // This part also has issues with multi-collection usage, but JPT jets are unused anyway..
+    JetCorrector const* corrL2L3(0);
+    JetCorrector const* corrL1L2L3(0);
+    if(_event.isRealData()){
+      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3Residual", _es);
+      corrL1L2L3 = JetCorrector::getJetCorrector("ak5JPTL1L2L3Residual", _es);
     }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << caloJetCollectionTags_[iJetC] << " of JetID is not available!!! " << e.what();
-    }
-
-    const JetCorrector* corrL2L3  = 0;
-    const JetCorrector* corrL1L2L3  = 0;
-    if(iEvent.isRealData()) {
-      corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3Residual").Data(),iSetup);
-      corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3Residual").Data(),iSetup);
-    }
-    else {
-      corrL2L3  = JetCorrector::getJetCorrector((key + "CaloL2L3").Data(),iSetup);
-      corrL1L2L3  = JetCorrector::getJetCorrector((key + "CaloL1L2L3").Data(),iSetup);
-    }
-
-    edm::Handle<reco::CaloJetCollection> jetH;
-    try {
-      iEvent.getByLabel(edm::InputTag(caloJetCollectionTags_[iJetC]),jetH);
-      if(debugLevel_ > 1) std::cout << "size of " << key << " JetCollection : " << jetH->size() << std::endl;
-      int ijet = 0;
-      for(reco::CaloJetCollection::const_iterator it = jetH->begin();
-          it != jetH->end(); it++){
-
-        reco::CaloJetRef jetRef(jetH,ijet++);
-
-        TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-        float jecScale = corrL1L2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
-        corrP4 *= jecScale;
-
-        if(corrP4.Pt() < jetThreshold_) continue;
-
-        susy::CaloJet jet;
-
-        // Basic Jet
-        jet.etaMean         = it->etaPhiStatistics().etaMean;
-        jet.phiMean         = it->etaPhiStatistics().phiMean;
-        jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
-        jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
-        jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
-        jet.maxDistance     = it->maxDistance();
-        jet.jetArea         = it->jetArea();
-        jet.pileup          = it->pileup();
-        jet.nPasses         = it->nPasses();
-        jet.nConstituents   = it->nConstituents();
-
-        // CaloJet specific
-        jet.maxEInEmTowers                = it->maxEInEmTowers();
-        jet.maxEInHadTowers               = it->maxEInHadTowers();
-        jet.energyFractionHadronic        = it->energyFractionHadronic();
-        jet.emEnergyFraction              = it->emEnergyFraction();
-        jet.hadEnergyInHB                 = it->hadEnergyInHB();
-        jet.hadEnergyInHO                 = it->hadEnergyInHO();
-        jet.hadEnergyInHE                 = it->hadEnergyInHE();
-        jet.emEnergyInHF                  = it->emEnergyInHF();
-        jet.emEnergyInEB                  = it->emEnergyInEB();
-        jet.emEnergyInEE                  = it->emEnergyInEE();
-        jet.hadEnergyInHF                 = it->hadEnergyInHF();
-        jet.towersArea                    = it->towersArea();
-        jet.n90                           = it->n90();
-        jet.n60                           = it->n60();
-
-        jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-        jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
-        jet.detectorP4.SetXYZT(it->detectorP4().px(),it->detectorP4().py(),
-                               it->detectorP4().pz(),it->detectorP4().energy());
-
-        jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-        jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
-
-        // accessing Jet ID information
-        const reco::JetID& jetID = (*jetIDH)[jetRef];
-        jet.fHPD                          = jetID.fHPD;
-        jet.fRBX                          = jetID.fRBX;
-        jet.n90Hits                       = jetID.n90Hits;
-        jet.fSubDetector1                 = jetID.fSubDetector1;
-        jet.fSubDetector2                 = jetID.fSubDetector2;
-        jet.fSubDetector3                 = jetID.fSubDetector3;
-        jet.fSubDetector4                 = jetID.fSubDetector4;
-        jet.restrictedEMF                 = jetID.restrictedEMF;
-        jet.nHCALTowers                   = jetID.nHCALTowers;
-        jet.nECALTowers                   = jetID.nECALTowers;
-        jet.approximatefHPD               = jetID.approximatefHPD;
-        jet.approximatefRBX               = jetID.approximatefRBX;
-        jet.hitsInN90                     = jetID.hitsInN90;
-        jet.numberOfHits2RPC              = jetID.numberOfHits2RPC;
-        jet.numberOfHits3RPC              = jetID.numberOfHits3RPC;
-        jet.numberOfHitsRPC               = jetID.numberOfHitsRPC;
-
-        jetCollection.push_back(jet);
-        if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
-
-      }// for it
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << caloJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
+    else{
+      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3", _es);
+      corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3", _es);
     }
 
-    susyEvent_->caloJets[key] = jetCollection;
-
-  }// for iJetC
-
-
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill pfjet collections" << std::endl;
-
-  nJetColl = pfJetCollectionTags_.size();
-  for(int iJetC=0; iJetC < nJetColl; iJetC++) {
-    susy::PFJetCollection jetCollection;
-    TString key = TString(pfJetCollectionTags_[iJetC].c_str()).ReplaceAll("PFJets","");
-
-    const JetCorrector* corrL2L3  = 0;
-    const JetCorrector* corrL1FastL2L3  = 0;
-    if(iEvent.isRealData()) {
-      corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3Residual").Data(),iSetup);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3Residual").Data(),iSetup);
-    }
-    else {
-      corrL2L3  = JetCorrector::getJetCorrector((key + "PFL2L3").Data(),iSetup);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector((key + "PFL1FastL2L3").Data(),iSetup);
-    }
-
-    edm::Handle<reco::PFJetCollection> jetH;
-    try {
-      iEvent.getByLabel(edm::InputTag(pfJetCollectionTags_[iJetC]),jetH);
-      if(debugLevel_ > 1) std::cout << "size of " << key << " JetCollection : " << jetH->size() << std::endl;
-      int ijet = 0;
-      for(reco::PFJetCollection::const_iterator it = jetH->begin();
-          it != jetH->end(); it++){
-
-        edm::RefToBase<reco::Jet> jetRef(edm::Ref<reco::PFJetCollection>(jetH, ijet++));
-
-        TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-        float jecScale = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
-        corrP4 *= jecScale;
-
-        if(corrP4.Pt() < jetThreshold_) continue;
-
-
-        susy::PFJet jet;
-
-        // Basic Jet
-        jet.etaMean         = it->etaPhiStatistics().etaMean;
-        jet.phiMean         = it->etaPhiStatistics().phiMean;
-        jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
-        jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
-        jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
-        jet.maxDistance     = it->maxDistance();
-        jet.jetArea         = it->jetArea();
-        jet.pileup          = it->pileup();
-        jet.nPasses         = it->nPasses();
-        jet.nConstituents   = it->nConstituents();
-
-
-        jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-        //std::cout << "vx,y,z " << it->vx() << ", " << it->vy() << ", " << it->vz() << std::endl;
-        // current working theory is that these were never set in the first place -- living with zeros at the moment...
-
-        jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
-
-        jet.chargedHadronEnergy = it->chargedHadronEnergy();
-        jet.neutralHadronEnergy = it->neutralHadronEnergy();
-        jet.photonEnergy = it->photonEnergy();
-        jet.electronEnergy = it->electronEnergy();
-        jet.muonEnergy = it->muonEnergy();
-        jet.HFHadronEnergy = it->HFHadronEnergy();
-        jet.HFEMEnergy = it->HFEMEnergy();
-        jet.chargedHadronMultiplicity = it->chargedHadronMultiplicity();
-        jet.neutralHadronMultiplicity = it->neutralHadronMultiplicity();
-        jet.photonMultiplicity = it->photonMultiplicity();
-        jet.electronMultiplicity = it->electronMultiplicity();
-        jet.muonMultiplicity = it->muonMultiplicity();
-        jet.HFHadronMultiplicity = it->HFHadronMultiplicity();
-        jet.HFEMMultiplicity = it->HFEMMultiplicity();
-        jet.chargedEmEnergy = it->chargedEmEnergy();
-        jet.chargedMuEnergy = it->chargedMuEnergy();
-        jet.neutralEmEnergy = it->neutralEmEnergy();
-        jet.chargedMultiplicity = it->chargedMultiplicity();
-        jet.neutralMultiplicity = it->neutralMultiplicity();
-
-        jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-        jet.jecScaleFactors["L1FastL2L3"] = corrL1FastL2L3->correction((const reco::Jet&)*it,iEvent,iSetup);
-
-        // add btag for this jet
-        for(size_t k = 0; k < jetDiscriminators.size(); k++) {
-          float value = (*(jetDiscriminators[k]))[jetRef];
-          jet.bTagDiscriminators.push_back(value);
-        }
-
-        // add tracks from this jet into track collection and tally up the local id's.
-        reco::TrackRefVector trkvec=it->getTrackRefs();
-        for (reco::TrackRefVector::const_iterator t_it = trkvec.begin(); t_it != trkvec.end();t_it++) {
-
-          susy::Track track;
-          fillTrack((*t_it),track);
-          int thisIndex = sameTrack(track,susyEvent_->tracks);
-          if(thisIndex < 0){
-            jet.tracklist.push_back(trackIndex);
-            susyEvent_->tracks.push_back(track);
-            trackIndex++;
-          } else {
-            jet.tracklist.push_back(thisIndex);
-          }
-
-        }
-
-           // if MC, add parton flavor id matches
-        if( ! susyEvent_->isRealData) {
-
-          edm::Handle<reco::JetFlavourMatchingCollection> jetFlavMatch;
-              iEvent.getByLabel("flavourAssociationAlg", jetFlavMatch);
-          jet.algDefFlavour = (*jetFlavMatch)[jetRef].getFlavour();
-
-          iEvent.getByLabel("flavourAssociationPhy", jetFlavMatch);
-          jet.phyDefFlavour = (*jetFlavMatch)[jetRef].getFlavour();
-
-        } // if !isRealData
-
-        // add puJetId variables
-        for(size_t k = 0; k < puJetIdCollectionTags_.size(); k++) {
-          float mva = (*puJetIdMVACollections[k])[jetRef];
-          int idFlag = (*puJetIdFlagCollections[k])[jetRef];
-          jet.puJetIdDiscriminants.push_back(mva);
-          jet.puJetIdFlags.push_back(idFlag);
-        }
-
-        jetCollection.push_back(jet);
-        if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
-
-      }// for it
-    }
-    catch(cms::Exception& e) {
-      edm::LogError(name()) << pfJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
-    }
-
-    susyEvent_->pfJets[key] = jetCollection;
-
-  }// for PFJet
-
-
-  /*
-    if(debugLevel_ > 0) std::cout << name() << ", fill jptjet collections" << std::endl;
-
-    nJetColl = jptJetCollectionTags_.size();
-    for(int iJetC=0; iJetC < nJetColl; iJetC++) {
-    susy::JPTJetCollection jetCollection;
-    TString key(jptJetCollectionTags_[iJetC].c_str());
-
-    const JetCorrector* corrL2L3  = JetCorrector::getJetCorrector("ak5JPTL2L3",iSetup);
-    //    const JetCorrector* corrL2L3R = JetCorrector::getJetCorrector("ak5JPTL2L3Residual",iSetup);
-    const JetCorrector* corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3",iSetup);
-    //    const JetCorrector* corrL1L2L3R = JetCorrector::getJetCorrector("ak5JPTL1L2L3Residual",iSetup);
-
-    edm::Handle<reco::JPTJetCollection> jetH;
-    try {
-    iEvent.getByLabel(edm::InputTag(jptJetCollectionTags_[iJetC]),jetH);
-    if(debugLevel_ > 1) std::cout << "size of " << key << " JetCollection : " << jetH->size() << std::endl;
     int ijet = 0;
-    for(reco::JPTJetCollection::const_iterator it = jetH->begin();
-    it != jetH->end(); it++){
+    for(reco::JPTJetCollection::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
 
-    reco::JPTJetRef jetRef(jetH,ijet++);
+      TLorentzVector corrP4(it->px(), it->py(), it->pz(), it->energy());
+      float l2l3Scale(corrL2L3->correction(it->p4()));
 
-    TLorentzVector corrP4(it->px(),it->py(),it->pz(),it->energy());
-    float jecScale = 1;
-    //        if(iEvent.isRealData()) jecScale = corrL2L3R->correction(it->p4());
-    if(iEvent.isRealData()) jecScale = corrL2L3->correction(it->p4());
-    else jecScale = corrL2L3->correction(it->p4());
-    corrP4 *= jecScale;
+      corrP4 *= l2l3Scale;
 
-    if(corrP4.Pt() < jetThreshold_) continue;
+      if(corrP4.Pt() < jetThreshold_) continue;
 
-    susy::JPTJet jet;
+      reco::JPTJetRef jetRef(jetH,ijet++);
 
-    // Basic Jet
-    jet.etaMean         = it->etaPhiStatistics().etaMean;
-    jet.phiMean         = it->etaPhiStatistics().phiMean;
-    jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
-    jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
-    jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
-    jet.maxDistance     = it->maxDistance();
-    jet.jetArea         = it->jetArea();
-    jet.pileup          = it->pileup();
-    jet.nPasses         = it->nPasses();
-    jet.nConstituents   = it->nConstituents();
+      susyCollection.resize(susyCollection.size() + 1);
+      susy::JPTJet& jet(susyCollection.back());
 
-    jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-    jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
+      // Basic Jet
+      jet.etaMean         = it->etaPhiStatistics().etaMean;
+      jet.phiMean         = it->etaPhiStatistics().phiMean;
+      jet.etaEtaMoment    = it->etaPhiStatistics().etaEtaMoment;
+      jet.etaPhiMoment    = it->etaPhiStatistics().etaPhiMoment;
+      jet.phiPhiMoment    = it->etaPhiStatistics().phiPhiMoment;
+      jet.maxDistance     = it->maxDistance();
+      jet.jetArea         = it->jetArea();
+      jet.pileup          = it->pileup();
+      jet.nPasses         = it->nPasses();
+      jet.nConstituents   = it->nConstituents();
 
-    jet.chargedHadronEnergy = it->chargedHadronEnergy();
-    jet.neutralHadronEnergy = it->neutralHadronEnergy();
-    jet.chargedEmEnergy     = it->chargedEmEnergy();
-    jet.neutralEmEnergy     = it->neutralEmEnergy();
-    jet.chargedMultiplicity = it->chargedMultiplicity();
-    jet.muonMultiplicity    = it->muonMultiplicity();
-    jet.elecMultiplicity    = it->elecMultiplicity();
-    jet.getZSPCor           = it->getZSPCor();
+      // cf. RecoJets/JetProducers/plugins/VirtualJetProducer.cc (where the jets are actually produced)
+      // Vertex correction is an available option for only the CaloJets. For all other jet types, vertex is always 0
+      // See also the description above on CaloJet vertices
+      jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
 
-    jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
-    //        jet.jecScaleFactors["L2L3R"] = corrL2L3R->correction(it->p4());
-    jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction((const reco::Jet&)*it,(const edm::RefToBase<reco::Jet>&)jetRef,iEvent,iSetup);
-    //        jet.jecScaleFactors["L1L2L3R"] = corrL1L2L3R->correction(it->p4());
+      jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
-    jetCollection.push_back(jet);
-    if(debugLevel_ > 2) std::cout << "pt, e : " << it->pt() << ", " << it->energy() << std::endl;
+      jet.chargedHadronEnergy = it->chargedHadronEnergy();
+      jet.neutralHadronEnergy = it->neutralHadronEnergy();
+      jet.chargedEmEnergy     = it->chargedEmEnergy();
+      jet.neutralEmEnergy     = it->neutralEmEnergy();
+      jet.chargedMultiplicity = it->chargedMultiplicity();
+      jet.muonMultiplicity    = it->muonMultiplicity();
+      jet.elecMultiplicity    = it->elecMultiplicity();
+      jet.getZSPCor           = it->getZSPCor();
+
+      jet.jecScaleFactors["L2L3"] = l2l3Scale;
+      jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction(*it, reco::JetBaseRef(jetRef), _event, _es);
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
     }// for it
-    }
-    catch(cms::Exception& e) {
-    edm::LogError(name()) << jptJetCollectionTags_[iJetC] << " jet collection is not available!!! " << e.what();
-    }
-
-    susyEvent_->jptJets[key] = jetCollection;
-
-    }// for JPTJet
-
-  */
-
-
-  if( storeGenInfos_ && ! iEvent.isRealData() ) {
-    if(debugLevel_ > 0) std::cout << name() << ", fill generated particle informations" << std::endl;
-    fillGenInfos(iEvent, iSetup);
-
-    // event weighting variables, for example ptHat
-    edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
-    if(iEvent.getByLabel("generator",GenEventInfoHandle) && GenEventInfoHandle->binningValues().size() > 0) susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
-
-    //get PU summary info
-    edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;
-    bool foundPUSummaryInfo = false;
-    try { foundPUSummaryInfo = iEvent.getByLabel(puSummaryInfoTag_, pPUSummaryInfo); }
-    catch (cms::Exception& ex) {}
-    if(!foundPUSummaryInfo) {
-      std::cerr << "No collection of type " << puSummaryInfoTag_ << " found in run ";
-      std::cerr << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
-      std::cerr << iEvent.getLuminosityBlock().luminosityBlock() << ".\n";
-    }
-    else {
-
-      //fill PUSummaryInfo object
-      if(debugLevel_ > 0) std::cout << name() << ", fill PU summary information" << std::endl;
-      if(debugLevel_ > 1) {
-        std::cout << "size of PileupSummaryInfo collection: " << pPUSummaryInfo->size();
-        std::cout << std::endl;
-      }
-      for (std::vector<PileupSummaryInfo>::const_iterator iPU = pPUSummaryInfo->begin();
-           iPU != pPUSummaryInfo->end(); ++iPU) {
-        const unsigned int index = iPU - pPUSummaryInfo->begin();
-        if (debugLevel_ > 1) {
-          std::cout << "size of z position collection for BX " << index << ": ";
-          std::cout << iPU->getPU_zpositions().size() << std::endl;
-          std::cout << "size of sum pT / low pT collection for BX " << index << ": ";
-          std::cout << iPU->getPU_sumpT_lowpT().size() << std::endl;
-          std::cout << "size of sum pT / high pT collection for BX " << index << ": ";
-          std::cout << iPU->getPU_sumpT_highpT().size() << std::endl;
-          std::cout << "size of track / low pT collection for BX " << index << ": ";
-          std::cout << iPU->getPU_ntrks_lowpT().size() << std::endl;
-          std::cout << "size of track / high pT collection for BX " << index << ": ";
-          std::cout << iPU->getPU_ntrks_highpT().size() << std::endl;
-          std::cout << "size of inst. lumi collection for BX " << index << ": ";
-          std::cout << iPU->getPU_instLumi().size() << std::endl;
-          std::cout << "size of DataMixer event collection for BX " << index << ": ";
-          std::cout << iPU->getPU_EventID().size() << std::endl;
-        }
-        if (debugLevel_ > 2) {
-          std::cout << "No. interactions for BX " << index << ": " << iPU->getPU_NumInteractions();
-          std::cout << std::endl;
-          std::cout << "BX ID for BX " << index << ": " << iPU->getBunchCrossing() << std::endl;
-          //for MC samples earlier than CMSSWv4.2.8 or Fall11, comment out the following 2 lines
-          std::cout << "True no. interactions for BX " << index << ": ";
-          std::cout << iPU->getTrueNumInteractions() << std::endl;
-        }
-        susy::PUSummaryInfo PUInfoForThisBX;
-        PUInfoForThisBX.numInteractions = iPU->getPU_NumInteractions();
-        for (std::vector<float>::const_iterator i = iPU->getPU_zpositions().begin();
-             i != iPU->getPU_zpositions().end(); ++i) {
-          PUInfoForThisBX.zPositions.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "Z position for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_zpositions().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<float>::const_iterator i = iPU->getPU_sumpT_lowpT().begin();
-             i != iPU->getPU_sumpT_lowpT().end(); ++i) {
-          PUInfoForThisBX.sumPTLowPT.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "Sum pT (low pT) for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_sumpT_lowpT().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<float>::const_iterator i = iPU->getPU_sumpT_highpT().begin();
-             i != iPU->getPU_sumpT_highpT().end(); ++i) {
-          PUInfoForThisBX.sumPTHighPT.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "Sum pT (high pT) for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_sumpT_highpT().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<int>::const_iterator i = iPU->getPU_ntrks_lowpT().begin();
-             i != iPU->getPU_ntrks_lowpT().end(); ++i) {
-          PUInfoForThisBX.numTracksLowPT.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "No. tracks (low pT) for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_ntrks_lowpT().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<int>::const_iterator i = iPU->getPU_ntrks_highpT().begin();
-             i != iPU->getPU_ntrks_highpT().end(); ++i) {
-          PUInfoForThisBX.numTracksHighPT.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "No. tracks (high pT) for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_ntrks_highpT().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<float>::const_iterator i = iPU->getPU_instLumi().begin();
-             i != iPU->getPU_instLumi().end(); ++i) {
-          PUInfoForThisBX.instLumi.push_back(*i);
-          if (debugLevel_ > 2) {
-            std::cout << "Inst. lumi for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_instLumi().begin()) << ": " << *i << std::endl;
-          }
-        }
-        for (std::vector<edm::EventID>::const_iterator i = iPU->getPU_EventID().begin();
-             i != iPU->getPU_EventID().end(); ++i) {
-          PUInfoForThisBX.dataMixerRun.push_back(i->run());
-          PUInfoForThisBX.dataMixerEvt.push_back(i->event());
-          PUInfoForThisBX.dataMixerLumiSection.push_back(i->luminosityBlock());
-          if (debugLevel_ > 2) {
-            std::cout << "Event ID for BX " << index << ", interaction ";
-            std::cout << (i - iPU->getPU_EventID().begin()) << ":\n";
-            std::cout << " Run: " << i->run() << std::endl;
-            std::cout << " Event: " << i->event() << std::endl;
-            std::cout << " Lumi section: " << i->luminosityBlock() << std::endl;
-          }
-        }
-        PUInfoForThisBX.BX = iPU->getBunchCrossing();
-        //for MC samples earlier than CMSSWv4.2.8 or Fall11, COMMENT OUT the following line
-        PUInfoForThisBX.trueNumInteractions = iPU->getTrueNumInteractions();
-        //for MC samples earlier than CMSSWv4.2.8 or Fall11, UNCOMMENT the following line
-        //PUInfoForThisBX.trueNumInteractions = -1.0;
-
-        //add PU summary info for this BX to the vector of PU summary info for this event
-        susyEvent_->pu.push_back(PUInfoForThisBX);
-      }
-    }
-
-  } // if( storeGenInfos_
-
-
-
-  if(debugLevel_ > 0) std::cout << name() << ", fill tree at last" << std::endl;
-
-  susyTree_->Fill();
-
-
-  // end of event cleaning procedure - delete any variables created by "new" operator in this procedure
-  if(recoMode_ && propagator_) delete propagator_;
-
-}
-
-
-int SusyNtuplizer::sameTrack(const susy::Track& track, const std::vector<susy::Track>& tracks) const {
-
-  // If track is already stored, return its index, otherwise return -1.
-  int thisIndex = -1;
-  float epsilon = 1e-6;
-  int itrk = 0;
-  for(std::vector<susy::Track>::const_iterator it = tracks.begin(); it != tracks.end(); it++, itrk++) {
-    if(thisIndex >= 0) break;
-    if(std::abs(track.vertex.X() - it->vertex.X()) > epsilon) continue;
-    if(std::abs(track.vertex.Y() - it->vertex.Y()) > epsilon) continue;
-    if(std::abs(track.vertex.Z() - it->vertex.Z()) > epsilon) continue;
-    if(std::abs(track.momentum.Px() - it->momentum.Px()) > epsilon) continue;
-    if(std::abs(track.momentum.Py() - it->momentum.Py()) > epsilon) continue;
-    if(std::abs(track.momentum.Pz() - it->momentum.Pz()) > epsilon) continue;
-    thisIndex = itrk;
-  }
-
-  return thisIndex;
-}
-
-
-
-void SusyNtuplizer::fillTrack(const reco::TrackRef& in, susy::Track& out) {
-
-  if(in.isNull()) return;
-
-  try {
-    out.algorithm = Int_t(in->algo());
-    out.quality = in->qualityMask();
-
-    out.chi2 = in->chi2();
-    out.ndof = in->ndof();
-    out.charge = in->charge();
-    for(int i=0; i<reco::Track::dimension; i++) out.error[i] = in->error(i);
-    out.numberOfValidHits        = in->hitPattern().numberOfValidHits();
-    out.numberOfValidTrackerHits = in->hitPattern().numberOfValidTrackerHits();
-    out.numberOfValidMuonHits    = in->hitPattern().numberOfValidMuonHits();
-    out.numberOfValidPixelHits   = in->hitPattern().numberOfValidPixelHits();
-    out.numberOfValidStripHits   = in->hitPattern().numberOfValidStripHits();
-    out.vertex.SetXYZ(in->vx(),in->vy(),in->vz());
-    out.momentum.SetXYZT(in->px(),in->py(),in->pz(),in->p());
-
-    out.extrapolatedPositions.clear();
-    if(recoMode_) fillExtrapolations(&*in,out.extrapolatedPositions);
-
-  }// try
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << " Something wrong in TrackRef accessors!!! " << e.what();
   }
 
 }
 
+unsigned
+SusyNtuplizer::fillTrack(reco::TrackRef const& _trkRef)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTrack";
 
-void SusyNtuplizer::fillTrack(const reco::GsfTrackRef& in, susy::Track& out) {
+  if(_trkRef.isNull()) return -1;
 
-  if(in.isNull()) return;
+  bool existed(false);
+  unsigned index(fillTrackCommon(edm::refToPtr(_trkRef), existed));
 
-  try {
-    out.algorithm = Int_t(in->algo());
-    out.quality = in->qualityMask();
+  if(!existed){
+    susy::Track& track(susyEvent_->tracks[index]);
 
-    out.chi2 = in->chi2();
-    out.ndof = in->ndof();
-    out.charge = in->chargeMode();
-    for(int i=0; i<reco::GsfTrack::dimensionMode; i++) out.error[i] = in->errorMode(i);
-    out.numberOfValidHits        = in->hitPattern().numberOfValidHits();
-    out.numberOfValidTrackerHits = in->hitPattern().numberOfValidTrackerHits();
-    out.numberOfValidMuonHits    = in->hitPattern().numberOfValidMuonHits();
-    out.numberOfValidPixelHits   = in->hitPattern().numberOfValidPixelHits();
-    out.numberOfValidStripHits   = in->hitPattern().numberOfValidStripHits();
-    out.vertex.SetXYZ(in->vx(),in->vy(),in->vz());
-    out.momentum.SetXYZT(in->pxMode(),in->pyMode(),in->pzMode(),in->pMode());
-
-    out.extrapolatedPositions.clear();
-    if(recoMode_) fillExtrapolations(&*in,out.extrapolatedPositions);
-
-  }// try
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << " Something wrong in GsfTrackRef accessors!!! " << e.what();
+    track.charge = _trkRef->charge();
+    for(int i=0; i<reco::Track::dimension; i++) track.error[i] = _trkRef->error(i);
+    track.momentum.SetXYZT(_trkRef->px(),_trkRef->py(),_trkRef->pz(),_trkRef->p());
   }
 
+  return index;
 }
 
+unsigned
+SusyNtuplizer::fillGsfTrack(reco::GsfTrackRef const& _trkRef)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillGsfTrack";
 
-void SusyNtuplizer::fillCluster(const reco::CaloClusterPtr& in, susy::Cluster& out) {
+  if(_trkRef.isNull()) return -1;
 
-  if(in.isNull()) return;
+  bool existed(false);
+  unsigned index(fillTrackCommon(edm::Ptr<reco::Track>(edm::refToPtr(_trkRef)), existed));
 
-  try {
-    out.energy = in->energy();
-    out.position.SetXYZ(in->x(),in->y(),in->z());
-    out.nCrystals = in->size();
+  if(!existed){
+    susy::Track& track(susyEvent_->tracks[index]);
+
+    track.charge = _trkRef->chargeMode();
+    for(int i=0; i<reco::GsfTrack::dimensionMode; i++) track.error[i] = _trkRef->errorMode(i);
+    track.momentum.SetXYZT(_trkRef->pxMode(),_trkRef->pyMode(),_trkRef->pzMode(),_trkRef->pMode());
   }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << " Something wrong in CaloClusterPtr accessors!!! " << e.what();
-  }
 
+  return index;
 }
 
+unsigned
+SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillSuperCluster";
 
-void SusyNtuplizer::fillCluster(const reco::SuperClusterRef& in, susy::SuperCluster& out, int& basicClusterIndex) {
+  if(susyEvent_->superClusters.size() != productStore_.superClusters.size())
+    throw cms::Exception("RuntimeError") << "Number of buffered SCs do not match the number of SCs in the susyEvent";
 
-  if(in.isNull()) return;
+  if(_scRef.isNull()) return -1;
 
-  try {
-    out.energy = in->energy();
-    out.preshowerEnergy = in->preshowerEnergy();
-    out.phiWidth = in->phiWidth();
-    out.etaWidth = in->etaWidth();
-    out.position.SetXYZ(in->x(),in->y(),in->z());
+  std::pair<SuperClusterStore::iterator, bool> insertion(productStore_.superClusters.insert(std::pair<reco::SuperClusterRef, unsigned>(_scRef, productStore_.superClusters.size())));
 
-    for(reco::CaloClusterPtrVector::const_iterator it = in->clustersBegin();
-        it != in->clustersEnd(); it++){
-      susy::Cluster cluster;
-      fillCluster(*it,cluster);
-      if(in->seed() == *it) out.seedClusterIndex = basicClusterIndex;
-      out.basicClusterIndices.push_back(basicClusterIndex);
-      susyEvent_->clusters.push_back(cluster);
-      basicClusterIndex++;
+  if(!insertion.second) return insertion.first->second;
+  else{
+    susyEvent_->superClusters.resize(susyEvent_->superClusters.size() + 1);
+    susy::SuperCluster& sc(susyEvent_->superClusters.back());
+
+    sc.energy = _scRef->energy();
+    sc.preshowerEnergy = _scRef->preshowerEnergy();
+    sc.phiWidth = _scRef->phiWidth();
+    sc.etaWidth = _scRef->etaWidth();
+    sc.position.SetXYZ(_scRef->x(),_scRef->y(),_scRef->z());
+
+    for(reco::CaloClusterPtrVector::const_iterator it = _scRef->clustersBegin(); it != _scRef->clustersEnd(); it++){
+      unsigned index(fillCluster(*it));
+      sc.basicClusterIndices.push_back(index);
+      if(_scRef->seed() == *it) sc.seedClusterIndex = index;
     }
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << " Something wrong in SuperCluster accessors!!! " << e.what();
+
+    return susyEvent_->superClusters.size() - 1;
   }
 }
 
+unsigned
+SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillCluster";
 
-void SusyNtuplizer::fillParticle(const reco::GenParticle* in, susy::Particle& out, short momIndex) {
+  if(susyEvent_->clusters.size() != productStore_.basicClusters.size())
+    throw cms::Exception("RuntimeError") << "Number of buffered SCs do not match the number of SCs in the susyEvent";
 
-  if(in == 0) return;
+  if(_clPtr.isNull()) return -1;
 
-  try {
-    out.motherIndex = momIndex;
-    out.status = in->status();
-    out.pdgId = in->pdgId();
-    out.charge = in->charge();
-    out.vertex.SetXYZ(in->vx(),in->vy(),in->vz());
-    out.momentum.SetXYZT(in->px(),in->py(),in->pz(),in->energy());
+  std::pair<CaloClusterStore::iterator, bool> insertion(productStore_.basicClusters.insert(std::pair<reco::CaloClusterPtr, unsigned>(_clPtr, productStore_.basicClusters.size())));
+
+  if(!insertion.second) return insertion.first->second;
+  else{
+    susyEvent_->clusters.resize(susyEvent_->clusters.size() + 1);
+    susy::Cluster& cl(susyEvent_->clusters.back());
+
+    cl.energy = _clPtr->energy();
+    cl.position.SetXYZ(_clPtr->x(),_clPtr->y(),_clPtr->z());
+    cl.nCrystals = _clPtr->size();
+
+    return susyEvent_->clusters.size() - 1;
   }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "Something wrong in GenParticle accessors!!! " << e.what();
-  }
-
 }
 
+unsigned
+SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _existed)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTrackCommon";
 
-void SusyNtuplizer::fillExtrapolations(const reco::Track* rtrk, std::map<TString,TVector3>& positions) {
+  if(susyEvent_->tracks.size() != productStore_.tracks.size())
+    throw cms::Exception("RuntimeError") << "Number of buffered tracks do not match the number of tracks in the susyEvent";
 
-  if(!recoMode_) return;
-  if(!rtrk) return;
+  std::pair<TrackStore::iterator, bool> insertion(productStore_.tracks.insert(TrackStore::value_type(_trkPtr, productStore_.tracks.size())));
 
-  try {
-    reco::TransientTrack  ttk = transientTrackBuilder_->build(*rtrk);
-    const TrajectoryStateOnSurface tsos = ttk.innermostMeasurementState();
-    if(!tsos.isValid()) return;
-    float eta = tsos.globalPosition().eta();
-    TrajectoryStateOnSurface state;
-    TVector3 position(0.0,0.0,0.0);
+  _existed = !insertion.second;
 
-    if(std::abs(eta) < susy::etaGap){
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.barrelBound(PFGeometry::ECALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["ECALInnerWall"] = position;
+  if(_existed) return insertion.first->second;
+  else{
+    susyEvent_->tracks.resize(susyEvent_->tracks.size() + 1);
+    susy::Track& track(susyEvent_->tracks.back());
 
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.barrelBound(PFGeometry::HCALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["HCALInnerWall"] = position;
-    }
-    else if(eta > susy::etaGap && eta < susy::etaMax) {
-      state = propagator_->propagate(tsos, pfGeom_.positiveEndcapDisk(PFGeometry::ECALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["ECALInnerWall"] = position;
+    track.algorithm = _trkPtr->algo();
+    track.quality = _trkPtr->qualityMask();
 
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.positiveEndcapDisk(PFGeometry::HCALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["HCALInnerWall"] = position;
+    track.chi2 = _trkPtr->chi2();
+    track.ndof = _trkPtr->ndof();
 
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.positiveEndcapDisk(PFGeometry::PS1Wall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["PS1Wall"] = position;
+    track.numberOfValidHits        = _trkPtr->hitPattern().numberOfValidHits();
+    track.numberOfValidTrackerHits = _trkPtr->hitPattern().numberOfValidTrackerHits();
+    track.numberOfValidMuonHits    = _trkPtr->hitPattern().numberOfValidMuonHits();
+    track.numberOfValidPixelHits   = _trkPtr->hitPattern().numberOfValidPixelHits();
+    track.numberOfValidStripHits   = _trkPtr->hitPattern().numberOfValidStripHits();
+    track.vertex.SetXYZ(_trkPtr->vx(),_trkPtr->vy(),_trkPtr->vz());
 
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.positiveEndcapDisk(PFGeometry::PS2Wall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["PS2Wall"] = position;
-    }
-    else if(eta < -susy::etaGap && eta > -susy::etaMax) {
-      state = propagator_->propagate(tsos, pfGeom_.negativeEndcapDisk(PFGeometry::ECALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["ECALInnerWall"] = position;
+    if(recoMode_){
+      reco::TransientTrack ttk(transientTrackBuilder_->build(*_trkPtr));
+      TrajectoryStateOnSurface const tsos(ttk.innermostMeasurementState());
+      if(tsos.isValid()){
+        float eta(tsos.globalPosition().eta());
+        std::map<TString, Surface const*> surfaces;
 
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.negativeEndcapDisk(PFGeometry::HCALInnerWall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["HCALInnerWall"] = position;
-
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.negativeEndcapDisk(PFGeometry::PS1Wall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["PS1Wall"] = position;
-
-      position *= 0;
-      state = propagator_->propagate(tsos, pfGeom_.negativeEndcapDisk(PFGeometry::PS2Wall));
-      if(state.isValid()) position.SetXYZ(state.globalPosition().x(),state.globalPosition().y(),state.globalPosition().z());
-      positions["PS2Wall"] = position;
-    }
-
-  }
-  catch(cms::Exception& e) {
-    edm::LogError(name()) << "Something wrong in fillExtrapolations!!! " << e.what();
-  }
-
-}
-
-
-
-void SusyNtuplizer::fillGenInfos(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
-
-  // GenParticle : "genParticles"
-  // GenParticles will be stored with status == 3 && pt > 1 GeV only
-  // the following algorithm will be much easier if we have a couple of auxiliary recursive functions
-
-  edm::Handle<reco::GenParticleCollection> gpH;
-  try {
-    iEvent.getByLabel(genCollectionTag_,gpH);
-    reco::GenParticleCollection::const_iterator it_begin = gpH->begin();
-    reco::GenParticleCollection::const_iterator it_end   = gpH->end();
-
-    std::set<reco::GenParticle const*> gps;
-    std::map<reco::GenParticle const*, reco::GenParticle const*> motherMap;
-    std::map<reco::GenParticle const*, std::list<reco::GenParticle const*> > daughterMap;
-
-    for(reco::GenParticleCollection::const_iterator it = it_begin; it != it_end; it++){
-      if(it->status() == 1 && it->pt() < 2.) continue;
-      if(it->numberOfDaughters() == 0 && it->status() != 1) continue;
-      gps.insert(&*it);
-    }
-
-    std::set<reco::GenParticle const*>::iterator gpend(gps.end());
-    std::list<reco::GenParticle const*> rootNodes;
-    for(std::set<reco::GenParticle const*>::iterator gItr(gps.begin()); gItr != gpend; ++gItr){
-      reco::GenParticle const* part(*gItr);
-      if(part->numberOfMothers() == 0){
-        rootNodes.push_back(part);
-        motherMap[part] = 0;
-      }
-
-      unsigned nD(part->numberOfDaughters());
-      for(unsigned iD(0); iD < nD; iD++){
-        reco::GenParticle const* daughter(static_cast<reco::GenParticle const*>(part->daughter(iD)));
-        if(gps.find(daughter) == gps.end()) continue;
-
-        if(motherMap.find(daughter) != motherMap.end()){
-          reco::GenParticle const* existing(motherMap[daughter]);
-
-          int thispdg(std::abs(part->pdgId()));
-          bool thishad((thispdg / 100) % 10 != 0 || thispdg == 21 || (thispdg > 80 && thispdg < 101));
-          int pdg(std::abs(existing->pdgId()));
-          bool had((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101));
-
-          bool takeAway(false);
-          if((thishad && had) || (!thishad && !had))
-            takeAway = part->pt() > existing->pt();
-          else if(!thishad && had)
-            takeAway = true;
-
-          if(!takeAway) continue;
-
-          std::list<reco::GenParticle const*>& daughters(daughterMap[existing]);
-          daughters.remove(daughter);
+        if(std::abs(eta) < susy::etaGap){
+          surfaces["ECALInnerWall"] = &PFGeometry::barrelBound(PFGeometry::ECALInnerWall);
+          surfaces["HCALInnerWall"] = &PFGeometry::barrelBound(PFGeometry::HCALInnerWall);
+        }
+        else if(eta > susy::etaGap && eta < susy::etaMax){
+          surfaces["ECALInnerWall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::ECALInnerWall);
+          surfaces["HCALInnerWall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::HCALInnerWall);
+          surfaces["PS1Wall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::PS1Wall);
+          surfaces["PS2Wall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::PS2Wall);
+        }
+        else if(eta < -susy::etaGap && eta > -susy::etaMax){
+          surfaces["ECALInnerWall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::ECALInnerWall);
+          surfaces["HCALInnerWall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::HCALInnerWall);
+          surfaces["PS1Wall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::PS1Wall);
+          surfaces["PS2Wall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::PS2Wall);
         }
 
-        motherMap[daughter] = part;
-        daughterMap[part].push_back(daughter);
+        TrajectoryStateOnSurface state;
+        for(std::map<TString, Surface const*>::iterator sItr(surfaces.begin()); sItr != surfaces.end(); ++sItr){
+          Plane const* plane(dynamic_cast<Plane const*>(sItr->second));
+          if(plane)
+            state = propagator_->propagate(tsos, *plane);
+          else
+            state = propagator_->propagate(tsos, *dynamic_cast<Cylinder const*>(sItr->second));
+
+          TVector3& position(track.extrapolatedPositions[sItr->first]);
+          if(state.isValid()) position.SetXYZ(state.globalPosition().x(), state.globalPosition().y(), state.globalPosition().z());
+        }
       }
     }
 
-    if(rootNodes.size() == 0) return;
-
-    std::map<reco::GenParticle const*, bool> cleanMap;
-    for(std::set<reco::GenParticle const*>::iterator gpItr(gps.begin()); gpItr != gps.end(); ++gpItr)
-      cleanMap[*gpItr] = false;
-
-    std::list<reco::GenParticle const*>* sisters(&rootNodes);
-    std::list<reco::GenParticle const*>::iterator pItr(sisters->begin());
-    std::list<reco::GenParticle const*>::iterator pEnd(sisters->end());
-
-    while(true){
-      reco::GenParticle const* part(*pItr);
-      reco::GenParticle const* mother(motherMap[part]);
-      std::list<reco::GenParticle const*>* daughters(&daughterMap[part]);
-      while(!cleanMap[part] && daughters->size() > 0){
-        mother = part;
-        sisters = daughters;
-        pItr = sisters->begin();
-        pEnd = sisters->end();
-        part = *pItr;
-        daughters = &daughterMap[part];
-      }
-
-      unsigned nD(daughters->size());
-      bool intermediateTerminal(nD == 0 && part->status() != 1);
-      bool noDecay(nD == 1 && part->pdgId() == daughters->front()->pdgId());
-      int pdg(std::abs(part->pdgId()));
-      bool hadronicIntermediate(mother && part->status() != 1 &&
-                                ((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101)));
-      int motherPdg(mother ? std::abs(mother->pdgId()) : 0);
-      bool firstHeavyHadron((motherPdg / 1000) % 10 < 4 && (motherPdg / 100) % 10 < 4 &&
-                            ((pdg / 1000) % 10 >= 4 || (pdg / 100) % 10 >= 4));
-      bool lightDecayToLight(pdg < 4);
-      std::list<reco::GenParticle const*>::iterator dEnd(daughters->end());
-      for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
-        if(std::abs((*dItr)->pdgId()) > 3){
-          lightDecayToLight = false;
-          break;
-        }
-      }
-      if(intermediateTerminal || noDecay || (hadronicIntermediate && !firstHeavyHadron) || lightDecayToLight){
-        for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
-          sisters->push_back(*dItr);
-          motherMap[*dItr] = mother;
-        }
-        gps.erase(part);
-        --pItr;
-        sisters->remove(part);
-        pEnd = sisters->end();
-      }
-
-      ++pItr;
-
-      if(pItr == pEnd){
-        if(!mother) break; // reached the end of root node array
-
-        part = mother;
-        mother = motherMap[part];
-        if(mother)
-          sisters = &daughterMap[mother];
-        else // mother is a root node
-          sisters = &rootNodes;
-
-        pItr = std::find(sisters->begin(), sisters->end(), part);
-        pEnd = sisters->end();
-        cleanMap[part] = true;
-      }
-    }
-
-    std::vector<reco::GenParticle const*> gpv;
-    gpend = gps.end();
-    for(std::set<reco::GenParticle const*>::iterator gItr(gps.begin()); gItr != gpend; ++gItr)
-      gpv.push_back(*gItr);
-
-    unsigned nP(gpv.size());
-    for(unsigned iP(0); iP < nP; iP++){
-      susy::Particle part;
-      reco::GenParticle const* gp(gpv[iP]);
-      short iM(-1);
-      std::vector<reco::GenParticle const*>::iterator mItr(std::find(gpv.begin(), gpv.end(), motherMap[gp]));
-      if(mItr != gpv.end()) iM = mItr - gpv.begin();
-      fillParticle(gp, part, iM);
-      susyEvent_->genParticles.push_back(part);
-    }
-
-  }// try
-  catch (cms::Exception& e) {
-    edm::LogError(name()) << "reco::GenParticle is not available!!! " << e.what();
-
+    return susyEvent_->tracks.size() - 1;
   }
-
 }
 
+void
+SusyNtuplizer::fillTracksAround(reco::Candidate const& _cand, double _deltaR, edm::Handle<reco::TrackCollection> const& _tracks)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTracksAround";
+
+  unsigned iTrk(0);
+  reco::TrackCollection::const_iterator tEnd(_tracks->end());
+  for(reco::TrackCollection::const_iterator tItr(_tracks->begin()); tItr != tEnd; ++tItr, ++iTrk){
+    double dR(reco::deltaR(_cand, *tItr));
+    if(dR > _deltaR) continue;
+    
+    reco::TrackRef ref(_tracks, iTrk);
+    fillTrack(ref);
+  }
+}
+
+void
+SusyNtuplizer::finalize()
+{
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "finalize";
+
+  delete hltConfig_;
+  hltConfig_ = 0;
+  delete l1GtUtils_;
+  l1GtUtils_ = 0;
+  delete isolator03_;
+  isolator03_ = 0;
+
+//   if(storeTriggerEvents_)
+//     triggerEvent_->write();
+
+//   delete triggerEvent_;
+//   triggerEvent_ = 0;
+
+  if(susyTree_){
+    TFile* outF(susyTree_->GetCurrentFile());
+
+    outF->cd();
+    susyTree_->Write();
+    delete outF;
+    susyTree_ = 0;
+  }
+
+  delete susyEvent_;
+  susyEvent_ = 0;
+}
 
 //define this as a plug-in
 DEFINE_FWK_MODULE(SusyNtuplizer);

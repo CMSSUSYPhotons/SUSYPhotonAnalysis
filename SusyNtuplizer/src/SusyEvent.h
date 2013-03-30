@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.36 2013/03/14 18:55:44 bfrancis Exp $
+// $Id: SusyEvent.h,v 1.37 2013/03/18 19:56:42 kiesel Exp $
 //
 
 #ifndef SusyEvent_h
@@ -47,6 +47,32 @@ namespace susy {
   const unsigned int kFull = 0;
   const unsigned int kCutBased = 1;
   const unsigned int kSimple = 2;
+
+  enum PFIsoTypes {
+    kChargedHadron,
+    kNeutralHadron,
+    kPhoton,
+    nPFIsoTypes
+  };
+
+  enum MetFilters {
+    kCSCBeamHalo,
+    kHcalNoise,
+    kEcalDeadCellTP,
+    kEcalDeadCellBE,
+    kHcalLaser,
+    kTrackingFailure,
+    kEEBadSC,
+    kHcalLaser2012,
+    kEcalLaserCorr,
+    kManyStripClus53X,
+    kTooManyStripClus53X,
+    kLogErrorTooManyClusters,
+    kEERingOfFire,
+    kInconsistentMuon,
+    kGreedyMuon,
+    nMetFilters
+  };
 
   class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time,
                           or late)*/
@@ -502,7 +528,7 @@ namespace susy {
     UChar_t        nStripLayersWithMeasurement; // * values from combinedMuon (= globalTrack)
     UChar_t        nChambers;              // number of muon chambers the track traversed through (regardless of segment existence)
     UChar_t        nMatchedStations;       // number of muon stations with matched segments (<= nMatches)
-    UChar_t        timeNDof;
+    UChar_t        timeNDof;         // null value implies timing measurement is invalid
     Char_t         timeDirection;
     Float_t        timeAtIp;
     Float_t        timeAtIpError;
