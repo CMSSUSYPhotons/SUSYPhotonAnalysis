@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.45 2013/03/18 19:56:42 kiesel Exp $
+// $Id: SusyNtuplizer.cc,v 1.46 2013/03/30 13:24:12 yiiyama Exp $
 //
 //
 
@@ -914,8 +914,7 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
 
     if(cand.pt() < pfParticleThreshold_) continue;
 
-    susyCollection.resize(susyCollection.size() + 1);
-    susy::PFParticle& pf(susyCollection.back());
+    susy::PFParticle pf;
 
     pf.pdgId                 = cand.translateTypeToPdgId(cand.particleId());
     pf.charge                = cand.charge();
@@ -929,6 +928,8 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
     pf.vertex.SetXYZ(cand.vx(),cand.vy(),cand.vz());
     pf.positionAtECALEntrance.SetXYZ(cand.positionAtECALEntrance().x(),cand.positionAtECALEntrance().y(),cand.positionAtECALEntrance().z());
     pf.momentum.SetXYZT(cand.px(),cand.py(),cand.pz(),cand.energy());
+
+    susyCollection.push_back(pf);
 
     if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << cand.energy() << ", "
                                              << cand.px() << ", " << cand.py() << ", " << cand.pz();
@@ -1328,8 +1329,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
 
       reco::PhotonRef phoRef(photonH, ipho);
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::Photon& pho(susyCollection.back());
+      susy::Photon pho;
 
       bool isPF(it->photonCore()->isPFlowPhoton());
 
@@ -1509,6 +1509,8 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
       pho.MVAcorrMomentum.SetVect(pho.caloPosition * (regEnergy / pho.caloPosition.Mag()));
       pho.MVAcorrMomentum.SetE(regEnergy);
 
+      susyCollection.push_back(pho);
+
       if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e, hadEm : " << it->pt()
                                                << ", " << it->energy()
                                                << ", " << it->hadronicOverEm();
@@ -1573,8 +1575,7 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 
       reco::GsfElectronRef eleRef(electronH, iele);
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::Electron& ele(susyCollection.back());
+      susy::Electron ele;
 
       bool isPF = (it->candidateP4Kind() == reco::GsfElectron::P4_PFLOW_COMBINATION);
 
@@ -1723,6 +1724,8 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
         }
       }
 
+      susyCollection.push_back(ele);
+
       if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e, hadEm : " << it->pt()
                                                << ", " << it->energy()
                                                << ", " << it->hadronicOverEm();
@@ -1764,8 +1767,7 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _es)
 
       reco::MuonRef muRef(muonH, imu);
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::Muon& mu(susyCollection.back());
+      susy::Muon mu;
 
       mu.type                               = it->type();
       mu.bestTrackType                      = it->muonBestTrackType();
@@ -1851,6 +1853,8 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _es)
         }
       }
 
+      susyCollection.push_back(mu);
+
       if(debugLevel_ > 2) edm::LogInfo(name()) << "type, emE, hadE, pt : " << it->type()
                                                << ", " << it->calEnergy().em
                                                << ", " << it->calEnergy().had
@@ -1913,8 +1917,7 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es
 
       reco::CaloJetRef jetRef(jetH, ijet);
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::CaloJet& jet(susyCollection.back());
+      susy::CaloJet jet;
 
       // Basic Jet
       jet.etaMean         = it->etaPhiStatistics().etaMean;
@@ -1976,6 +1979,8 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es
       jet.numberOfHits2RPC              = jetId.numberOfHits2RPC;
       jet.numberOfHits3RPC              = jetId.numberOfHits3RPC;
       jet.numberOfHitsRPC               = jetId.numberOfHitsRPC;
+
+      susyCollection.push_back(jet);
 
       if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
 
@@ -2068,8 +2073,7 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
 
       edm::RefToBase<reco::Jet> jetRef(jetH->refAt(ijet));
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::PFJet& jet(susyCollection.back());
+      susy::PFJet jet;
 
       // Basic Jet
       jet.etaMean         = it->etaPhiStatistics().etaMean;
@@ -2162,6 +2166,8 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
         }
       }
 
+      susyCollection.push_back(jet);
+
       if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
 
     }// for it
@@ -2225,8 +2231,7 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
 
       reco::JPTJetRef jetRef(jetH,ijet++);
 
-      susyCollection.resize(susyCollection.size() + 1);
-      susy::JPTJet& jet(susyCollection.back());
+      susy::JPTJet jet;
 
       // Basic Jet
       jet.etaMean         = it->etaPhiStatistics().etaMean;
@@ -2258,6 +2263,8 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
 
       jet.jecScaleFactors["L2L3"] = l2l3Scale;
       jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction(*it, reco::JetBaseRef(jetRef), _event, _es);
+
+      susyCollection.push_back(jet);
 
       if(debugLevel_ > 2) edm::LogInfo(name()) << "pt, e : " << it->pt() << ", " << it->energy();
     }// for it
@@ -2321,8 +2328,7 @@ SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
 
   if(!insertion.second) return insertion.first->second;
   else{
-    susyEvent_->superClusters.resize(susyEvent_->superClusters.size() + 1);
-    susy::SuperCluster& sc(susyEvent_->superClusters.back());
+    susy::SuperCluster sc;
 
     sc.energy = _scRef->energy();
     sc.preshowerEnergy = _scRef->preshowerEnergy();
@@ -2335,6 +2341,8 @@ SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
       sc.basicClusterIndices.push_back(index);
       if(_scRef->seed() == *it) sc.seedClusterIndex = index;
     }
+
+    susyEvent_->superClusters.push_back(sc);
 
     return susyEvent_->superClusters.size() - 1;
   }
@@ -2354,12 +2362,13 @@ SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
 
   if(!insertion.second) return insertion.first->second;
   else{
-    susyEvent_->clusters.resize(susyEvent_->clusters.size() + 1);
-    susy::Cluster& cl(susyEvent_->clusters.back());
+    susy::Cluster cl;
 
     cl.energy = _clPtr->energy();
     cl.position.SetXYZ(_clPtr->x(),_clPtr->y(),_clPtr->z());
     cl.nCrystals = _clPtr->size();
+
+    susyEvent_->clusters.push_back(cl);
 
     return susyEvent_->clusters.size() - 1;
   }
@@ -2379,8 +2388,7 @@ SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _exis
 
   if(_existed) return insertion.first->second;
   else{
-    susyEvent_->tracks.resize(susyEvent_->tracks.size() + 1);
-    susy::Track& track(susyEvent_->tracks.back());
+    susy::Track track;
 
     track.algorithm = _trkPtr->algo();
     track.quality = _trkPtr->qualityMask();
@@ -2432,6 +2440,8 @@ SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _exis
         }
       }
     }
+
+    susyEvent_->tracks.push_back(track);
 
     return susyEvent_->tracks.size() - 1;
   }
