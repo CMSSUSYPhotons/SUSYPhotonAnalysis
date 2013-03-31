@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.46 2013/03/30 13:24:12 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.47 2013/03/31 12:17:27 yiiyama Exp $
 //
 //
 
@@ -41,14 +41,7 @@
 
 #include "DataFormats/METReco/interface/BeamHaloSummary.h"
 
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetupFwd.h"
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetup.h"
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutRecord.h"
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMapRecord.h"
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMapFwd.h"
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMap.h"
-#include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerObjectMaps.h"
-
 #include "CondFormats/L1TObjects/interface/L1GtTriggerMenu.h"
 #include "CondFormats/DataRecord/interface/L1GtTriggerMenuRcd.h"
 
@@ -59,10 +52,8 @@
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
 
-#include "DataFormats/CaloRecHit/interface/CaloCluster.h"
 #include "DataFormats/CaloRecHit/interface/CaloClusterFwd.h"
 #include "DataFormats/EgammaReco/interface/BasicCluster.h"
-#include "DataFormats/EgammaReco/interface/BasicClusterFwd.h"
 #include "DataFormats/EgammaReco/interface/SuperCluster.h"
 #include "DataFormats/EgammaReco/interface/SuperClusterFwd.h"
 
@@ -70,7 +61,6 @@
 #include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
 
 #include "DataFormats/METReco/interface/MET.h"
-#include "DataFormats/METReco/interface/GenMET.h"
 #include "DataFormats/EgammaCandidates/interface/Photon.h"
 #include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
@@ -94,21 +84,16 @@
 
 // for track extrapolation
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
-#include "DataFormats/Scalers/interface/DcsStatus.h"
 #include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
-#include "DataFormats/GeometrySurface/interface/SimpleCylinderBounds.h"
-#include "DataFormats/GeometrySurface/interface/SimpleDiskBounds.h"
 #include "DataFormats/GeometrySurface/interface/Cylinder.h"
+#include "DataFormats/GeometrySurface/interface/Plane.h"
 #include "DataFormats/GeometrySurface/interface/BoundCylinder.h"
-#include "DataFormats/GeometrySurface/interface/BoundDisk.h"
+#include "DataFormats/GeometrySurface/interface/BoundPlane.h"
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
 #include "TrackingTools/MaterialEffects/interface/PropagatorWithMaterial.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
-
-// for conversion finder related
-#include "RecoEgamma/EgammaTools/interface/ConversionFinder.h"
 
 //for conversion safe electron veto
 #include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
@@ -591,7 +576,7 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& iSetup)
     if(debugLevel_ > 1) edm::LogInfo(name()) << "analyze: run " << _event.id().run()
                                              << ", event " << _event.id().event()
                                              << ", isRealData " << _event.isRealData()
-                                             << ", lumiBlock " << _event.getLuminosityBlock().luminosityBlock();
+                                             << ", lumiBlock " << _event.luminosityBlock();
 
     fillLumiSummary(_event, iSetup);
 
