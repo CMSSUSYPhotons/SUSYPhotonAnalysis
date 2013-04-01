@@ -1,5 +1,5 @@
 # Original Author:  Dongwook Jang
-# $Id: Makefile,v 1.2 2011/03/26 15:46:20 dmason Exp $
+# $Id: Makefile,v 1.3 2011/06/06 19:30:41 dwjang Exp $
 
 #--------------------------------------------------
 # Change file names for your need
@@ -10,7 +10,7 @@ INC     = -I. -I$(shell root-config --incdir)
 LIBS    = $(shell root-config --libs)
 
 OBJDIR  = ../src
-skip_files = $(OBJDIR)/SusyNtuplizer.cc
+skip_files = $(OBJDIR)/SusyNtuplizer.cc $(OBJDIR)/SusyTriggerNtuplizer.cc
 OBJECTS    = $(filter-out $(skip_files), $(wildcard $(OBJDIR)/*.cc))
 DICTS   = Event_dict
 JECDIR = ../jec/JetMETObjects

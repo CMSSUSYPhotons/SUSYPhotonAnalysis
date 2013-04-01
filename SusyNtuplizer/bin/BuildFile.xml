@@ -1,3 +1,3 @@
-<library name="SusyEvent" file="../src/SusyEvent.cc">
+<library name="SusyEvent" file="../src/SusyEvent.cc ../src/SusyTriggerEvent.cc">
   <use name="root"/>
 </library>

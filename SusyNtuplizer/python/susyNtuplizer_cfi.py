@@ -105,6 +105,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     ),
     genCollectionTag = cms.string("genParticles"),
     puSummaryInfoTag = cms.string("addPileupInfo"),
+    triggerEventTag = cms.string("hltTriggerSummaryAOD"),
     photonSCRegressionWeights = cms.string("/afs/cern.ch/user/b/bendavid/cmspublic/regweights52xV3/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),
     electronThreshold = cms.double(2.0),
@@ -117,7 +118,9 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     storeGenInfo = cms.bool(True),
     storeGeneralTracks = cms.bool(False),
     storePFJetPartonMatches = cms.bool(True),
+    storeTriggerEvents = cms.bool(False),
     recoMode = cms.bool(False),
     isFastSim = cms.bool(False),
-    outputFileName = cms.string("susyEvents.root")                               
+    outputFileName = cms.string("susyEvents.root"),
+    triggerFileName = cms.string("susyTriggers.root")
 )

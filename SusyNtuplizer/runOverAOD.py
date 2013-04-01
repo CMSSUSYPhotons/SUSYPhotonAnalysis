@@ -1,17 +1,17 @@
 import FWCore.ParameterSet.Config as cms
 
 # change this to 0 if you run on MC files
-realData = 1
+isRealData = True
 
 # change this to 0 if you run on FullSim MC
-isFastSim = 0
+isFastSim = False
 
 # These are fixes for the JetProbability b-tagger calibrations as recommended by BTV.
 # See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_Data_and_MC
 # Leaving these as all 0s results in no changes to the GlobalTag used.
-is52xABData = 0
-is53xData = 1
-is53xMC = 0
+is52xABData = False
+is53xData = True
+is53xMC = False
 
 process = cms.Process("RA3")
 
@@ -20,13 +20,13 @@ process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 process.MessageLogger.suppressWarning = cms.untracked.vstring('newSecondaryVertexTagInfos')
 process.MessageLogger.suppressError = cms.untracked.vstring('ecalLaserCorrFilter')
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(100) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
 process.source = cms.Source("PoolSource",
-                            noEventSort = cms.untracked.bool(True),
-                            duplicateCheckMode = cms.untracked.string('noDuplicateCheck'),
-                            fileNames = cms.untracked.vstring( )
-                            )
+    noEventSort = cms.untracked.bool(True),
+    duplicateCheckMode = cms.untracked.string('noDuplicateCheck'),
+    fileNames = cms.untracked.vstring( )
+)
 
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('Configuration.Geometry.GeometryIdeal_cff')
@@ -42,9 +42,8 @@ process.load("JetMETCorrections.Type1MET.caloMETCorrections_cff")
 
 # SusyNtuplizer options
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
-process.susyNtuplizer.debugLevel = cms.int32(0)
-if isFastSim:
-    process.susyNtuplizer.isFastSim = cms.bool(True)
+process.susyNtuplizer.debugLevel = 0
+process.susyNtuplizer.isFastSim = isFastSim
 # For FNAL users
 #process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
 # For use in CRAB - mkdir SusyAnalysis/SusyNtuplizer/data; mv gbrv3ph_52x.root SusyAnalysis/SusyNtuplizer/data/
@@ -52,7 +51,7 @@ if isFastSim:
 
 # http://cmssw.cvs.cern.ch/cgi-bin/cmssw.cgi/CMSSW/JetMETCorrections/Type1MET/python/pfMETsysShiftCorrections_cfi.py?revision=1.6&view=markup
 # pfMEtSysShiftCorrParameters_2012runABCvsNvtx_data (_mc)
-if realData:
+if isRealData:
     process.pfMEtSysShiftCorr.parameter = cms.PSet(
         px = cms.string("+0.2661 + 0.3217*Nvtx"),
         py = cms.string("-0.2251 - 0.1747*Nvtx")
@@ -123,8 +122,7 @@ process.load('RecoMET.METFilters.EcalDeadCellBoundaryEnergyFilter_cfi')
 process.EcalDeadCellBoundaryEnergyFilter.taggingMode = cms.bool(True)
 
 # Tracking failure filter
-process.goodVertices = cms.EDFilter(
-    "VertexSelector",
+process.goodVertices = cms.EDFilter("VertexSelector",
     filter = cms.bool(False),
     src = cms.InputTag("offlinePrimaryVertices"),
     cut = cms.string("!isFake && ndof > 4 && abs(z) <= 24 && position.rho < 2")
@@ -164,7 +162,7 @@ process.logErrorTooManyClusters.taggedMode = cms.untracked.bool(True)
 process.logErrorTooManyClusters.forcedValue = cms.untracked.bool(False)
 
 #Add up all MET filters
-if realData or not isFastSim:
+if isRealData or not isFastSim:
     process.metFiltersSequence = cms.Sequence(
         process.HBHENoiseFilterResultProducer +
         process.hcalLaserEventFilter +
@@ -195,7 +193,10 @@ else:
     )
 
 process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi')
-process.eidMVASequence = cms.Sequence( process.mvaTrigV0 * process.mvaNonTrigV0 )
+process.eidMVASequence = cms.Sequence(
+    process.mvaTrigV0 *
+    process.mvaNonTrigV0
+)
 
 process.load("SimGeneral.HepPDTESSource.pythiapdt_cfi")
 
@@ -248,7 +249,7 @@ process.recoPuJetIdSqeuence = cms.Sequence(
     process.recoPuJetMva
 )
 
-if realData:
+if isRealData:
     process.source.fileNames = cms.untracked.vstring(
         '/store/data/Run2012C/DoublePhoton/AOD/PromptReco-v2/000/202/016/D6785FDC-23F5-E111-9DA4-0030486780B4.root'
     )
@@ -257,7 +258,7 @@ if realData:
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3Residual")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
     # JEC for data
-    process.jet = cms.Sequence(
+    process.jecSequence = cms.Sequence(
         process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3Residual * process.ak5CaloJetsL1L2L3Residual *
@@ -277,7 +278,7 @@ else:
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     # JEC for MC
-    process.jet = cms.Sequence(
+    process.jecSequence = cms.Sequence(
         process.ak5PFJets *
         # CaloJets
         process.ak5CaloJetsL2L3 * process.ak5CaloJetsL1L2L3 *
@@ -308,7 +309,7 @@ from CommonTools.ParticleFlow.Tools.pfIsolation import setupPFElectronIso, setup
 process.eleIsoSequence = setupPFElectronIso(process, 'gsfElectrons')
 process.phoIsoSequence = setupPFPhotonIso(process, 'photons')
 
-process.isoDeposit = cms.Sequence(
+process.isoDepositSequence = cms.Sequence(
     process.pfParticleSelectionSequence +
     process.eleIsoSequence +
     process.phoIsoSequence
@@ -409,7 +410,7 @@ process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingMu
 )
 
-if is52xABData and realData:
+if is52xABData and isRealData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
             tag = cms.string("TrackProbabilityCalibration_2D_2012DataTOT_v1_offline"),
@@ -421,7 +422,7 @@ if is52xABData and realData:
         )
     )
 
-if is53xData and realData:
+if is53xData and isRealData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
             tag = cms.string("TrackProbabilityCalibration_2D_Data53X_v2"),
@@ -433,7 +434,7 @@ if is53xData and realData:
         )
     )
 
-if is53xMC and not realData:
+if is53xMC and not isRealData:
     process.GlobalTag.toGet = cms.VPSet(
         cms.PSet(record = cms.string("BTagTrackProbability2DRcd"),
             tag = cms.string("TrackProbabilityCalibration_2D_MC53X_v2"),
@@ -446,13 +447,13 @@ if is53xMC and not realData:
     )
 
 process.p = cms.Path(
-    process.jet *
+    process.jecSequence *
     process.eidMVASequence *
     process.newJetTracksAssociator *
     process.newJetBtagging *
     process.metAnalysisSequence *
     process.metFiltersSequence *
     process.recoPuJetIdSqeuence *
-    process.isoDeposit *
+    process.isoDepositSequence *
     process.susyNtuplizer
 )

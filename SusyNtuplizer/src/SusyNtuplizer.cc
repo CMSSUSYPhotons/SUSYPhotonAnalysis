@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.47 2013/03/31 12:17:27 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.48 2013/03/31 12:27:46 yiiyama Exp $
 //
 //
 
@@ -48,6 +48,7 @@
 #include "DataFormats/Common/interface/TriggerResults.h"
 #include "FWCore/Common/interface/TriggerNames.h"
 #include "HLTrigger/HLTcore/interface/HLTConfigProvider.h"
+#include "DataFormats/HLTReco/interface/TriggerEvent.h"
 
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
@@ -149,6 +150,7 @@
 #include <TH1F.h>
 
 #include "SusyEvent.h"
+#include "SusyTriggerEvent.h"
 
 // Class definition
 class SusyNtuplizer : public edm::EDAnalyzer {
@@ -175,6 +177,7 @@ private:
   void fillPFParticles(edm::Event const&, edm::EventSetup const&);
   void fillGenInfo(edm::Event const&, edm::EventSetup const&);
   void fillGenParticles(edm::Event const&, edm::EventSetup const&);
+  void fillTriggerEvent(edm::Event const&, edm::EventSetup const&);
 
   void fillMet(edm::Event const&, edm::EventSetup const&);
   void fillMuons(edm::Event const&, edm::EventSetup const&);
@@ -200,12 +203,12 @@ private:
   // InputTags
 
   std::string lumiSummaryTag_;
-  //  std::string triggerEventTag_;
   std::string vtxCollectionTag_;
   std::string trackCollectionTag_;
   std::string pfCandidateCollectionTag_;
   std::string genCollectionTag_;
   std::string puSummaryInfoTag_;
+  std::string triggerEventTag_;
   std::vector<std::string> muonCollectionTags_;
   std::vector<std::string> electronCollectionTags_;
   std::vector<std::string> photonCollectionTags_;
@@ -273,7 +276,7 @@ private:
   bool isFastSim_;
 
   // flag for recording TriggerEvent into a separate tree (susyTriggers)
-  //  bool storeTriggerEvents_;
+  bool storeTriggerEvents_;
 
   // electronThreshold
   double electronThreshold_;
@@ -312,19 +315,19 @@ private:
   susy::Event* susyEvent_;
   TTree*       susyTree_;
 
-  //  susy::TriggerEvent* triggerEvent_;
+  susy::TriggerEvent* triggerEvent_;
 };
 
 
 // Constructor - passing parameters, memory allocation to ntuple variables
 SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   lumiSummaryTag_(iConfig.getParameter<std::string>("lumiSummaryTag")),
-  //  triggerEventTag_(iConfig.getParameter<std::string>("triggerEventTag")),
   vtxCollectionTag_(iConfig.getParameter<std::string>("vtxCollectionTag")),
   trackCollectionTag_(iConfig.getParameter<std::string>("trackCollectionTag")),
   pfCandidateCollectionTag_(iConfig.getParameter<std::string>("pfCandidateCollectionTag")),
   genCollectionTag_(iConfig.getParameter<std::string>("genCollectionTag")),
   puSummaryInfoTag_(iConfig.getParameter<std::string>("puSummaryInfoTag")),
+  triggerEventTag_(iConfig.getParameter<std::string>("triggerEventTag")),
   muonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("muonCollectionTags")),
   electronCollectionTags_(iConfig.getParameter<std::vector<std::string> >("electronCollectionTags")),
   photonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("photonCollectionTags")),
@@ -353,7 +356,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   storePFJetPartonMatches_(iConfig.getParameter<bool>("storePFJetPartonMatches")),
   recoMode_(iConfig.getParameter<bool>("recoMode")),
   isFastSim_(iConfig.getParameter<bool>("isFastSim")),
-  //  storeTriggerEvents_(iConfig.getParameter<bool>("storeTriggerEvents")),
+  storeTriggerEvents_(iConfig.getParameter<bool>("storeTriggerEvents")),
   electronThreshold_(iConfig.getParameter<double>("electronThreshold")),
   muonThreshold_(iConfig.getParameter<double>("muonThreshold")),
   photonThreshold_(iConfig.getParameter<double>("photonThreshold")),
@@ -364,8 +367,8 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   scEnergyCorrector_(),
   productStore_(),
   susyEvent_(0),
-  susyTree_(0)
-  //  triggerEvent_(0)
+  susyTree_(0),
+  triggerEvent_(0)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "ctor";
 
@@ -442,19 +445,17 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   susyTree_->Branch("susyEvent", "susy::Event", &susyEvent_);
   susyTree_->SetAutoSave(10000000); // 10M events
 
-//   if(storeTriggerEvents_){
-//     TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
+  if(storeTriggerEvents_){
+    TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
 
-//     triggerEvent_ = new susy::TriggerEvent;
-//     triggerEvent_->bookTrees(triggerFileName);
-//   }
+    triggerEvent_ = new susy::TriggerEvent;
+    triggerEvent_->bookTrees(triggerFileName);
+  }
 }
 
 SusyNtuplizer::~SusyNtuplizer()
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "dtor";
-
-  finalize();
 }
 
 // ------------ method called once each job just before starting event loop  ------------
@@ -476,25 +477,27 @@ void
 SusyNtuplizer::endJob()
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "endJob";
+
+  finalize();
 }
 
 // ---- method called once each job just before starting event loop  ---
 void
-SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
+SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "beginRun";
 
   try{
     if(storeL1Info_){
       if(!l1GtUtils_) l1GtUtils_ = new L1GtUtils;
-      l1GtUtils_->getL1GtRunCache(iRun, iSetup, true, false); // use event setup, do not use L1TriggerMenuLite
+      l1GtUtils_->getL1GtRunCache(iRun, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
     }
 
     if(storeHLTInfo_){
       //intialize HLTConfigProvider
       if(!hltConfig_) hltConfig_ = new HLTConfigProvider;
       bool menuChanged;
-      if(!hltConfig_->init(iRun, iSetup, "HLT", menuChanged))
+      if(!hltConfig_->init(iRun, _eventSetup, "HLT", menuChanged))
         throw cms::Exception("RuntimeError") << "HLTConfigProvider::init() returned non 0";
 
       if(menuChanged) edm::LogInfo(name()) << "beginRun: HLT configuration changed to " << hltConfig_->tableName();
@@ -503,7 +506,7 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
     if(photonCollectionTags_.size() != 0){
       // initialize Photon SC energy MVA regression
       // EventSetup is not used if the third argument is false
-      scEnergyCorrector_.Initialize(iSetup, photonSCRegressionWeights_, false);
+      scEnergyCorrector_.Initialize(_eventSetup, photonSCRegressionWeights_, false);
     }
   }
   catch(...){
@@ -515,7 +518,7 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& iSetup)
 // ------------ method called to for each event  ------------
 // fill the tree variables
 void
-SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& iSetup)
+SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze";
 
@@ -527,8 +530,8 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& iSetup)
 
       edm::ESHandle<MagneticField> fieldHndl;
       edm::ESHandle<TransientTrackBuilder> builderHndl;
-      iSetup.get<IdealMagneticFieldRecord>().get(fieldHndl);
-      iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builderHndl);
+      _eventSetup.get<IdealMagneticFieldRecord>().get(fieldHndl);
+      _eventSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builderHndl);
 
       propagator_ = new PropagatorWithMaterial(alongMomentum, 0.000511, fieldHndl.product());
       transientTrackBuilder_ = builderHndl.product();
@@ -578,39 +581,41 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& iSetup)
                                              << ", isRealData " << _event.isRealData()
                                              << ", lumiBlock " << _event.luminosityBlock();
 
-    fillLumiSummary(_event, iSetup);
+    fillLumiSummary(_event, _eventSetup);
 
-    fillBeamSpot(_event, iSetup);
+    fillBeamSpot(_event, _eventSetup);
 
-    fillRhos(_event, iSetup);
+    fillRhos(_event, _eventSetup);
 
-    fillTriggerMaps(_event, iSetup);
+    fillTriggerMaps(_event, _eventSetup);
 
-    fillGeneralTracks(_event, iSetup);
+    fillGeneralTracks(_event, _eventSetup);
 
-    fillMetFilters(_event, iSetup);
+    fillMetFilters(_event, _eventSetup);
 
-    fillPFParticles(_event, iSetup);
+    fillPFParticles(_event, _eventSetup);
 
-    fillMet(_event, iSetup);
+    fillMet(_event, _eventSetup);
 
-    fillPhotons(_event, iSetup);
+    fillPhotons(_event, _eventSetup);
 
-    fillElectrons(_event, iSetup);
+    fillElectrons(_event, _eventSetup);
 
-    fillMuons(_event, iSetup);
+    fillMuons(_event, _eventSetup);
 
-    fillCaloJets(_event, iSetup);
+    fillCaloJets(_event, _eventSetup);
 
-    fillPFJets(_event, iSetup);
+    fillPFJets(_event, _eventSetup);
 
-    //  fillJPTJets(_event, iSetup);
+    //  fillJPTJets(_event, _eventSetup);
 
-    fillVertices(_event, iSetup);
+    fillVertices(_event, _eventSetup);
 
-    fillGenInfo(_event, iSetup);
+    fillGenInfo(_event, _eventSetup);
 
-    fillGenParticles(_event, iSetup);
+    fillGenParticles(_event, _eventSetup);
+
+    fillTriggerEvent(_event, _eventSetup);
 
   }
   catch(...){
@@ -682,7 +687,7 @@ SusyNtuplizer::fillRhos(edm::Event const& _event, edm::EventSetup const&)
 }
 
 void
-SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps";
 
@@ -691,10 +696,10 @@ SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& 
     if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps: L1 map";
 
     // Get and cache L1 menu
-    l1GtUtils_->getL1GtRunCache(_event, _es, true, false); // use event setup, do not use L1TriggerMenuLite
+    l1GtUtils_->getL1GtRunCache(_event, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
 
     edm::ESHandle<L1GtTriggerMenu> handleL1GtTriggerMenu;
-    _es.get<L1GtTriggerMenuRcd>().get(handleL1GtTriggerMenu);
+    _eventSetup.get<L1GtTriggerMenuRcd>().get(handleL1GtTriggerMenu);
 
     AlgorithmMap const& l1GtAlgorithms(handleL1GtTriggerMenu->gtAlgorithmMap());
 
@@ -751,7 +756,7 @@ SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& 
 
   // loop over hlt paths
   for(unsigned i(0); i < nHlt; ++i){
-    int prescale(hltConfig_->prescaleValue(_event, _es, hltTriggerNames.triggerName(i)));
+    int prescale(hltConfig_->prescaleValue(_event, _eventSetup, hltTriggerNames.triggerName(i)));
 
     susyEvent_->hltMap[hltTriggerNames.triggerName(i)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
 
@@ -812,7 +817,7 @@ SusyNtuplizer::fillGeneralTracks(edm::Event const& _event, edm::EventSetup const
 }
 
 void
-SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMetFilters";
 
@@ -1178,6 +1183,41 @@ SusyNtuplizer::fillGenParticles(edm::Event const& _event, edm::EventSetup const&
 }
 
 void
+SusyNtuplizer::fillTriggerEvent(edm::Event const& _event, edm::EventSetup const&)
+{
+  if(!storeTriggerEvents_) return;
+
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerEvent";
+
+  triggerEvent_->initializeEvent(_event.id().run(), _event.id().event());
+
+  try{
+    edm::Handle<trigger::TriggerEvent> teH;
+    _event.getByLabel(triggerEventTag_, teH);
+
+    trigger::TriggerObjectCollection const& objects(teH->getObjects());
+    unsigned nObj(objects.size());
+    for(unsigned iObj(0); iObj < nObj; ++iObj){
+      trigger::TriggerObject const& obj(objects.at(iObj));
+      triggerEvent_->fillObject(susy::TriggerObject(obj.pt(), obj.eta(), obj.phi(), obj.mass()));
+    }
+
+    unsigned nF(teH->sizeFilters());
+    for(unsigned iF(0); iF < nF; ++iF){
+      trigger::Vids const& vids(teH->filterIds(iF));
+      trigger::Keys const& keys(teH->filterKeys(iF));
+      triggerEvent_->fillFilter(teH->filterTag(iF).label(), vids, keys);
+    }
+  }
+  catch(...){
+    triggerEvent_->fillEvent();
+    throw;
+  }
+
+  triggerEvent_->fillEvent();
+}
+
+void
 SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
 {
   if(metCollectionTags_.size() == 0) return;
@@ -1225,7 +1265,7 @@ SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
 }
 
 void
-SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(photonCollectionTags_.size() == 0) return;
 
@@ -1238,11 +1278,11 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
   _event.getByLabel("reducedEcalRecHitsEE", endcapRecHitsHandle);
 
   edm::ESHandle<CaloGeometry> cgH;
-  _es.get<CaloGeometryRecord>().get(cgH);
+  _eventSetup.get<CaloGeometryRecord>().get(cgH);
   CaloGeometry const* caloGeometry(cgH.product());
 
   edm::ESHandle<CaloTopology> ctH;
-  _es.get<CaloTopologyRecord>().get(ctH);
+  _eventSetup.get<CaloTopologyRecord>().get(ctH);
   CaloTopology const* caloTopology(ctH.product());
 
   edm::Handle<reco::ConversionCollection> hVetoConversions;
@@ -1269,7 +1309,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
 
   math::XYZPoint beamSpot(susyEvent_->beamSpot.X(), susyEvent_->beamSpot.Y(), susyEvent_->beamSpot.Z());
 
-  EcalClusterLazyTools lazyTools(_event, _es, edm::InputTag("reducedEcalRecHitsEB"), edm::InputTag("reducedEcalRecHitsEE"));
+  EcalClusterLazyTools lazyTools(_event, _eventSetup, edm::InputTag("reducedEcalRecHitsEB"), edm::InputTag("reducedEcalRecHitsEE"));
 
   edm::Handle<reco::PhotonCollection> photonH;
   for(unsigned int iPhoC=0; iPhoC<photonCollectionTags_.size(); iPhoC++){
@@ -1489,7 +1529,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
       fillTracksAround(*it, 0.4, trkH);
 
       // using kt6PFJets:rho
-      pho.MVAregEnergyAndErr = scEnergyCorrector_.CorrectedEnergyWithErrorV3(*it, *vtxWithBSH, susyEvent_->rho, lazyTools, _es);
+      pho.MVAregEnergyAndErr = scEnergyCorrector_.CorrectedEnergyWithErrorV3(*it, *vtxWithBSH, susyEvent_->rho, lazyTools, _eventSetup);
       double regEnergy(pho.MVAregEnergyAndErr.first);
       pho.MVAcorrMomentum.SetVect(pho.caloPosition * (regEnergy / pho.caloPosition.Mag()));
       pho.MVAcorrMomentum.SetE(regEnergy);
@@ -1505,7 +1545,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _es)
 }
 
 void
-SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(electronCollectionTags_.size() == 0) return;
 
@@ -1720,7 +1760,7 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 }
 
 void
-SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(muonCollectionTags_.size() == 0) return;
 
@@ -1850,7 +1890,7 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _es)
 }
 
 void
-SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(caloJetCollectionTags_.size() == 0) return;
 
@@ -1883,19 +1923,19 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es
     JetCorrector const* corrL2L3(0);
     JetCorrector const* corrL1L2L3(0);
     if(_event.isRealData()){
-      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3Residual", _es);
-      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3Residual", _es);
+      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3Residual", _eventSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3Residual", _eventSetup);
     }
     else{
-      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3", _es);
-      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3", _es);
+      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3", _eventSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3", _eventSetup);
     }
 
     int ijet(0);
     for(reco::CaloJetCollection::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
 
       TLorentzVector corrP4(it->px(), it->py(), it->pz(), it->energy());
-      float l1l2l3Scale(corrL1L2L3->correction(*it, _event, _es));
+      float l1l2l3Scale(corrL1L2L3->correction(*it, _event, _eventSetup));
       corrP4 *= l1l2l3Scale;
 
       if(corrP4.Pt() < jetThreshold_) continue;
@@ -1975,7 +2015,7 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _es
 }
 
 void
-SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(pfJetCollectionTags_.size() == 0) return;
 
@@ -2028,12 +2068,12 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
     JetCorrector const* corrL2L3(0);
     JetCorrector const* corrL1FastL2L3(0);
     if(_event.isRealData()){
-      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3Residual", _es);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3Residual", _es);
+      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3Residual", _eventSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3Residual", _eventSetup);
     }
     else{
-      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3", _es);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3", _es);
+      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3", _eventSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3", _eventSetup);
     }
 
     // Get Pileup Jet ID information
@@ -2051,7 +2091,7 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
     for(edm::View<reco::PFJet>::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
 
       TLorentzVector corrP4(it->px(), it->py(), it->pz(), it->energy());
-      float l1fastl2l3Scale(corrL1FastL2L3->correction(*it, _event, _es));
+      float l1fastl2l3Scale(corrL1FastL2L3->correction(*it, _event, _eventSetup));
       corrP4 *= l1fastl2l3Scale;
 
       if(corrP4.Pt() < jetThreshold_) continue;
@@ -2161,7 +2201,7 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _es)
 }
 
 void
-SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
+SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(jptJetCollectionTags_.size() == 0) return;
 
@@ -2196,12 +2236,12 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
     JetCorrector const* corrL2L3(0);
     JetCorrector const* corrL1L2L3(0);
     if(_event.isRealData()){
-      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3Residual", _es);
-      corrL1L2L3 = JetCorrector::getJetCorrector("ak5JPTL1L2L3Residual", _es);
+      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3Residual", _eventSetup);
+      corrL1L2L3 = JetCorrector::getJetCorrector("ak5JPTL1L2L3Residual", _eventSetup);
     }
     else{
-      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3", _es);
-      corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3", _es);
+      corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3", _eventSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3", _eventSetup);
     }
 
     int ijet = 0;
@@ -2247,7 +2287,7 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _es)
       jet.getZSPCor           = it->getZSPCor();
 
       jet.jecScaleFactors["L2L3"] = l2l3Scale;
-      jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction(*it, reco::JetBaseRef(jetRef), _event, _es);
+      jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction(*it, reco::JetBaseRef(jetRef), _event, _eventSetup);
 
       susyCollection.push_back(jet);
 
@@ -2460,11 +2500,11 @@ SusyNtuplizer::finalize()
   delete isolator03_;
   isolator03_ = 0;
 
-//   if(storeTriggerEvents_)
-//     triggerEvent_->write();
+  if(storeTriggerEvents_)
+    triggerEvent_->write();
 
-//   delete triggerEvent_;
-//   triggerEvent_ = 0;
+  delete triggerEvent_;
+  triggerEvent_ = 0;
 
   if(susyTree_){
     TFile* outF(susyTree_->GetCurrentFile());
