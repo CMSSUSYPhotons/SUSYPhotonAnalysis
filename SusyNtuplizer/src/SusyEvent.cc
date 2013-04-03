@@ -10,7 +10,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.27 2013/03/18 19:56:42 kiesel Exp $
+// $Id: SusyEvent.cc,v 1.28 2013/03/30 13:24:11 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -91,6 +91,7 @@ void susy::Track::Init() {
   numberOfValidMuonHits            = 0;
   numberOfValidPixelHits           = 0;
   numberOfValidStripHits           = 0;
+  vertexIndex                      = -1;
   chi2                             = 0;
   ndof                             = 0;
   charge                           = 0;
@@ -156,7 +157,7 @@ void susy::Photon::Init() {
   convInfo                        = kFALSE;
   convDist                        = 0.;
   convDcot                        = 0.;
-  convVtxChi2                     = 0;
+  convVtxChi2                     = -1.;
   convVtxNdof                     = 0;
   convVertex                     *= 0;
   convDxy                         = 0.;
@@ -214,9 +215,11 @@ void susy::Electron::Init() {
 
   sigmaEtaEta                      = 0;
   sigmaIetaIeta                    = 0;
+  sigmaIphiIphi                    = 0;
   e1x5                             = 0;
   e2x5Max                          = 0;
   e5x5                             = 0;
+  r9                               = 0;
   hcalDepth1OverEcal               = 0;
   hcalDepth2OverEcal               = 0;
   hcalOverEcalBc                   = 0;
@@ -313,6 +316,10 @@ void susy::Muon::Init() {
     trackIndex              = -1;
     standAloneTrackIndex    = -1;
     combinedTrackIndex      = -1;
+    tpfmsTrackIndex         = -1;
+    pickyTrackIndex         = -1;
+    dytTrackIndex           = -1;
+
     momentum               *= 0;
 
     idPairs.clear();
@@ -414,6 +421,8 @@ void susy::PFJet::Init() {
   momentum                 *= 0;
 
   tracklist.clear();
+
+  pfParticleList.clear();
 
   puJetIdDiscriminants.clear();
   puJetIdFlags.clear();

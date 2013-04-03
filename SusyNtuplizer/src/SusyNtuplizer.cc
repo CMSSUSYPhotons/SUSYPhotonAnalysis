@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.48 2013/03/31 12:27:46 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.49 2013/04/01 09:53:25 yiiyama Exp $
 //
 //
 
@@ -144,6 +144,7 @@
 #include <set>
 #include <list>
 #include <map>
+#include <cstdlib>
 
 #include <TTree.h>
 #include <TFile.h>
@@ -191,6 +192,7 @@ private:
   unsigned fillGsfTrack(reco::GsfTrackRef const&);
   unsigned fillSuperCluster(reco::SuperClusterRef const&);
   unsigned fillCluster(reco::CaloClusterPtr const&);
+  unsigned fillPFParticle(reco::PFCandidatePtr const&);
 
   unsigned fillTrackCommon(edm::Ptr<reco::Track> const&, bool&);
 
@@ -228,7 +230,7 @@ private:
   PropagatorWithMaterial* propagator_;
   TransientTrackBuilder const* transientTrackBuilder_;
 
-  //for HLT prescales
+  // for HLT prescales
   HLTConfigProvider* hltConfig_;
 
   // for L1 menu
@@ -236,6 +238,9 @@ private:
 
   // PFIsolator
   PFIsolationEstimator* isolator03_;
+
+  // text-based event veto for HcalLaser2012 MET filter
+  EventFilterFromListStandAlone* hcalLaser2012Filter_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -301,15 +306,17 @@ private:
   //Photon SC energy MVA regression
   EGEnergyCorrector scEnergyCorrector_;
 
-  // since we deal with both reco::Track and reco::GsfTrack, the reference needs to be polymorphic
+  // since we deal with both reco::Track and reco::GsfTrack, the track reference needs to be polymorphic
   typedef std::map<edm::Ptr<reco::Track>, unsigned> TrackStore;
   typedef std::map<reco::SuperClusterRef, unsigned> SuperClusterStore;
   typedef std::map<reco::CaloClusterPtr, unsigned> CaloClusterStore;
+  typedef std::map<reco::PFCandidatePtr, unsigned> PFCandidateStore;
   struct ProductStore {
-    void clear() { tracks.clear(); superClusters.clear(); basicClusters.clear(); }
+    void clear() { tracks.clear(); superClusters.clear(); basicClusters.clear(); pfCandidates.clear(); }
     TrackStore tracks;
     SuperClusterStore superClusters;
     CaloClusterStore basicClusters;
+    PFCandidateStore pfCandidates;
   } productStore_;
 
   susy::Event* susyEvent_;
@@ -348,6 +355,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
+  hcalLaser2012Filter_(0),
   debugLevel_(iConfig.getParameter<int>("debugLevel")),
   storeL1Info_(iConfig.getParameter<bool>("storeL1Info")),
   storeHLTInfo_(iConfig.getParameter<bool>("storeHLTInfo")),
@@ -470,6 +478,18 @@ SusyNtuplizer::beginJob()
     isolator03_->initializePhotonIsolation(true); // bool applyVeto
     isolator03_->setConeSize(0.3);
   }
+
+  l1GtUtils_ = new L1GtUtils;
+
+  hltConfig_ = new HLTConfigProvider;
+
+  std::string hcalLaserFilterFile(std::getenv("CMSSW_BASE"));
+  hcalLaserFilterFile += "/src/EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz";
+  gzFile dummyFP(gzopen(hcalLaserFilterFile.c_str(), "r"));
+  if(dummyFP != 0){
+    gzclose(dummyFP);
+    hcalLaser2012Filter_ = new EventFilterFromListStandAlone(hcalLaserFilterFile);
+  }
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
@@ -488,14 +508,11 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
   if(debugLevel_ > 0) edm::LogInfo(name()) << "beginRun";
 
   try{
-    if(storeL1Info_){
-      if(!l1GtUtils_) l1GtUtils_ = new L1GtUtils;
+    if(storeL1Info_)
       l1GtUtils_->getL1GtRunCache(iRun, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
-    }
 
     if(storeHLTInfo_){
       //intialize HLTConfigProvider
-      if(!hltConfig_) hltConfig_ = new HLTConfigProvider;
       bool menuChanged;
       if(!hltConfig_->init(iRun, _eventSetup, "HLT", menuChanged))
         throw cms::Exception("RuntimeError") << "HLTConfigProvider::init() returned non 0";
@@ -698,10 +715,12 @@ SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& 
     // Get and cache L1 menu
     l1GtUtils_->getL1GtRunCache(_event, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
 
-    edm::ESHandle<L1GtTriggerMenu> handleL1GtTriggerMenu;
-    _eventSetup.get<L1GtTriggerMenuRcd>().get(handleL1GtTriggerMenu);
+    int err;
+    L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
+    if(err != 0)
+      throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
 
-    AlgorithmMap const& l1GtAlgorithms(handleL1GtTriggerMenu->gtAlgorithmMap());
+    AlgorithmMap const& l1GtAlgorithms(menu->gtAlgorithmMap());
 
     for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo){
       std::string const& algoName(iAlgo->second.algoName());
@@ -788,12 +807,11 @@ SusyNtuplizer::fillVertices(edm::Event const& _event, edm::EventSetup const&)
 
     if(debugLevel_ > 2) edm::LogInfo(name()) << "vtx" << iV << " : " << recoVtx.x() << ", " << recoVtx.y() << ", " << recoVtx.z();
 
-    // future addition of vertexIndex to susy::Track
-//     for(reco::Vertex::trackRef_iterator trkItr(recoVtx.tracks_begin()); trkItr != recoVtx.tracks_end(); ++trkItr){
-//       TrackStore::const_iterator itr(productStore_.tracks.find(*trkItr));
-//       if(itr != productStore_.tracks.end())
-//         susyEvent_->tracks[itr->second].vertexIndex = iV;
-//     }
+    for(reco::Vertex::trackRef_iterator trkItr(recoVtx.tracks_begin()); trkItr != recoVtx.tracks_end(); ++trkItr){
+      TrackStore::const_iterator itr(productStore_.tracks.find(edm::refToPtr(trkItr->castTo<edm::Ref<reco::TrackCollection> >())));
+      if(itr != productStore_.tracks.end())
+        susyEvent_->tracks[itr->second].vertexIndex = iV;
+    }
   }
 }
 
@@ -872,10 +890,10 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
     pass[susy::kCSCBeamHalo] = !(beamHaloSummary->CSCTightHaloId());
   }
 
-  if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kHcalLaser2012];
-
-  EventFilterFromListStandAlone hcalLaser2012Filter("./HCALLaser2012AllDatasets.txt.gz");
-  pass[susy::kHcalLaser2012] = hcalLaser2012Filter.filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
+  if(hcalLaser2012Filter_){
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kHcalLaser2012];
+    pass[susy::kHcalLaser2012] = hcalLaser2012Filter_->filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
+  }
 
   for(unsigned iF(0); iF != susy::nMetFilters; ++iF)
     susyEvent_->metFilterBit |= (pass[iF] ? 1 << iF : 0);
@@ -891,38 +909,15 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
   edm::Handle<reco::PFCandidateCollection> pfH;
   _event.getByLabel(edm::InputTag(pfCandidateCollectionTag_), pfH);
 
-  reco::PFCandidateCollection const& candidates(*pfH);
-
-  // temporary measure (I believe pfParticles should be just a vector instead of map<TString, vector>)
-  susy::PFParticleCollection& susyCollection(susyEvent_->pfParticles[pfCandidateCollectionTag_]);
-
   if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFParticles: size of PFCandidateCollection = " << pfH->size();
 
-  unsigned nP(pfH->size());
-  for(unsigned iP(0); iP != nP; ++iP){
-    reco::PFCandidate const& cand(candidates[iP]);
+  unsigned iPart(0);
+  for(reco::PFCandidateCollection::const_iterator pItr(pfH->begin()); pItr != pfH->end(); ++pItr, ++iPart){
+    if(pItr->pt() < pfParticleThreshold_) continue;
+    fillPFParticle(reco::PFCandidatePtr(pfH, iPart));
 
-    if(cand.pt() < pfParticleThreshold_) continue;
-
-    susy::PFParticle pf;
-
-    pf.pdgId                 = cand.translateTypeToPdgId(cand.particleId());
-    pf.charge                = cand.charge();
-    pf.ecalEnergy            = cand.ecalEnergy();
-    pf.rawEcalEnergy         = cand.rawEcalEnergy();
-    pf.hcalEnergy            = cand.hcalEnergy();
-    pf.rawHcalEnergy         = cand.rawHcalEnergy();
-    pf.pS1Energy             = cand.pS1Energy();
-    pf.pS2Energy             = cand.pS2Energy();
-
-    pf.vertex.SetXYZ(cand.vx(),cand.vy(),cand.vz());
-    pf.positionAtECALEntrance.SetXYZ(cand.positionAtECALEntrance().x(),cand.positionAtECALEntrance().y(),cand.positionAtECALEntrance().z());
-    pf.momentum.SetXYZT(cand.px(),cand.py(),cand.pz(),cand.energy());
-
-    susyCollection.push_back(pf);
-
-    if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << cand.energy() << ", "
-                                             << cand.px() << ", " << cand.py() << ", " << cand.pz();
+    if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << pItr->energy() << ", "
+                                             << pItr->px() << ", " << pItr->py() << ", " << pItr->pz();
   } // for
 }
 
@@ -1458,8 +1453,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
 
       pho.nPixelSeeds                       = it->electronPixelSeeds().size();
       pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, beamSpot);
-      pho.convInfo=kFALSE;
-      pho.convVtxChi2 = -1;
+
       // conversion Id
       if(it->conversions().size() > 0
          && it->conversions()[0]->nTracks() == 2
@@ -1605,7 +1599,6 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       bool isPF = (it->candidateP4Kind() == reco::GsfElectron::P4_PFLOW_COMBINATION);
 
       // fiducial bits
-      ele.fidBit  = 0;
       ele.fidBit |= it->isEB()        << 0;
       ele.fidBit |= it->isEE()        << 1;
       ele.fidBit |= it->isEBEEGap()   << 2;
@@ -1616,7 +1609,6 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 
       ele.scPixCharge = it->scPixCharge();
 
-      ele.boolPack = 0;
       ele.boolPack |= it->isGsfCtfScPixChargeConsistent() << 0;
       ele.boolPack |= it->isGsfScPixChargeConsistent()    << 1;
       ele.boolPack |= it->isGsfCtfChargeConsistent()      << 2;
@@ -1667,9 +1659,11 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
         GsfElectron::ShowerShape const& ss(it->pfShowerShape());
         ele.sigmaEtaEta                       = ss.sigmaEtaEta;
         ele.sigmaIetaIeta                     = ss.sigmaIetaIeta;
+        ele.sigmaIphiIphi                     = ss.sigmaIphiIphi;
         ele.e1x5                              = ss.e1x5;
         ele.e2x5Max                           = ss.e2x5Max;
         ele.e5x5                              = ss.e5x5;
+        ele.r9                                = ss.r9;
         ele.hcalDepth1OverEcal                = ss.hcalDepth1OverEcal;
         ele.hcalDepth2OverEcal                = ss.hcalDepth2OverEcal;
       }
@@ -1678,9 +1672,11 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 
         ele.sigmaEtaEta                       = it->sigmaEtaEta();
         ele.sigmaIetaIeta                     = it->sigmaIetaIeta();
+        ele.sigmaIphiIphi                     = it->sigmaIphiIphi();
         ele.e1x5                              = it->e1x5();
         ele.e2x5Max                           = it->e2x5Max();
         ele.e5x5                              = it->e5x5();
+        ele.r9                                = it->r9();
         ele.hcalDepth1OverEcal                = it->hcalDepth1OverEcal();
         ele.hcalDepth2OverEcal                = it->hcalDepth2OverEcal();
       }
@@ -1850,11 +1846,13 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
       }
 
       Short_t* trackIndices[] = {
-        &mu.trackIndex, &mu.standAloneTrackIndex, &mu.combinedTrackIndex
+        &mu.trackIndex, &mu.standAloneTrackIndex, &mu.combinedTrackIndex,
+        &mu.tpfmsTrackIndex, &mu.pickyTrackIndex, &mu.dytTrackIndex
       };
 
       reco::Muon::MuonTrackType trackTypes[] = {
-        reco::Muon::InnerTrack, reco::Muon::OuterTrack, reco::Muon::CombinedTrack
+        reco::Muon::InnerTrack, reco::Muon::OuterTrack, reco::Muon::CombinedTrack,
+        reco::Muon::TPFMS, reco::Muon::Picky, reco::Muon::DYT
       };
 
       for(unsigned iT(0); iT != sizeof(trackTypes) / sizeof(reco::Muon::MuonTrackType); ++iT){
@@ -2161,6 +2159,10 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       for(reco::TrackRefVector::const_iterator t_it(trkvec.begin()); t_it != trkvec.end(); ++t_it)
         jet.tracklist.push_back(fillTrack(*t_it));
 
+      std::vector<reco::PFCandidatePtr> constituents(it->getPFConstituents());
+      for(unsigned iC(0); iC != constituents.size(); ++iC)
+        jet.pfParticleList.push_back(fillPFParticle(constituents[iC]));
+
       // if MC, add parton flavor id matches
       if(!susyEvent_->isRealData){
         try{
@@ -2345,7 +2347,7 @@ SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillSuperCluster";
 
   if(susyEvent_->superClusters.size() != productStore_.superClusters.size())
-    throw cms::Exception("RuntimeError") << "Number of buffered SCs do not match the number of SCs in the susyEvent";
+    throw cms::Exception("RuntimeError") << "Number of buffered SCs does not match the number of SCs in the susyEvent";
 
   if(_scRef.isNull()) return -1;
 
@@ -2379,7 +2381,7 @@ SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillCluster";
 
   if(susyEvent_->clusters.size() != productStore_.basicClusters.size())
-    throw cms::Exception("RuntimeError") << "Number of buffered SCs do not match the number of SCs in the susyEvent";
+    throw cms::Exception("RuntimeError") << "Number of buffered SCs does not match the number of SCs in the susyEvent";
 
   if(_clPtr.isNull()) return -1;
 
@@ -2400,12 +2402,50 @@ SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
 }
 
 unsigned
+SusyNtuplizer::fillPFParticle(reco::PFCandidatePtr const& _partPtr)
+{
+  if(debugLevel_ > 2) edm::LogInfo(name()) << "fillPFParticle";
+
+  // temporary measure (I believe pfParticles should be just a vector instead of map<TString, vector>)
+  susy::PFParticleCollection& col(susyEvent_->pfParticles[pfCandidateCollectionTag_]);
+
+  if(col.size() != productStore_.pfCandidates.size())
+    throw cms::Exception("RuntimeError") << "Number of buffered PFCandidates does not match the number of pfParticles in the susyEvent";
+
+  if(_partPtr.isNull()) return -1;
+
+  std::pair<PFCandidateStore::iterator, bool> insertion(productStore_.pfCandidates.insert(std::pair<reco::PFCandidatePtr, unsigned>(_partPtr, productStore_.pfCandidates.size())));
+
+  if(!insertion.second) return insertion.first->second;
+  else{
+    susy::PFParticle pf;
+
+    pf.pdgId         = _partPtr->translateTypeToPdgId(_partPtr->particleId());
+    pf.charge        = _partPtr->charge();
+    pf.ecalEnergy    = _partPtr->ecalEnergy();
+    pf.rawEcalEnergy = _partPtr->rawEcalEnergy();
+    pf.hcalEnergy    = _partPtr->hcalEnergy();
+    pf.rawHcalEnergy = _partPtr->rawHcalEnergy();
+    pf.pS1Energy     = _partPtr->pS1Energy();
+    pf.pS2Energy     = _partPtr->pS2Energy();
+
+    pf.vertex.SetXYZ(_partPtr->vx(),_partPtr->vy(),_partPtr->vz());
+    pf.positionAtECALEntrance.SetXYZ(_partPtr->positionAtECALEntrance().x(),_partPtr->positionAtECALEntrance().y(),_partPtr->positionAtECALEntrance().z());
+    pf.momentum.SetXYZT(_partPtr->px(),_partPtr->py(),_partPtr->pz(),_partPtr->energy());
+
+    col.push_back(pf);
+
+    return col.size() - 1;
+  }
+}
+
+unsigned
 SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _existed)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTrackCommon";
 
   if(susyEvent_->tracks.size() != productStore_.tracks.size())
-    throw cms::Exception("RuntimeError") << "Number of buffered tracks do not match the number of tracks in the susyEvent";
+    throw cms::Exception("RuntimeError") << "Number of buffered tracks does not match the number of tracks in the susyEvent";
 
   std::pair<TrackStore::iterator, bool> insertion(productStore_.tracks.insert(TrackStore::value_type(_trkPtr, productStore_.tracks.size())));
 
@@ -2499,6 +2539,8 @@ SusyNtuplizer::finalize()
   l1GtUtils_ = 0;
   delete isolator03_;
   isolator03_ = 0;
+  delete hcalLaser2012Filter_;
+  hcalLaser2012Filter_ = 0;
 
   if(storeTriggerEvents_)
     triggerEvent_->write();

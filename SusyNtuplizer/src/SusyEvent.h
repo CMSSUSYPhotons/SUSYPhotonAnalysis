@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.37 2013/03/18 19:56:42 kiesel Exp $
+// $Id: SusyEvent.h,v 1.38 2013/03/30 13:24:12 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -117,9 +117,9 @@ namespace susy {
     void Init();
 
     UChar_t status;
+    Char_t  charge;
     Short_t   motherIndex;
     Int_t   pdgId;
-    Char_t  charge;
     TVector3 vertex;
     TLorentzVector momentum;
 
@@ -175,7 +175,7 @@ namespace susy {
 
     Float_t  chi2;
     Float_t  ndof;
-    UChar_t  tracksSize;
+    UShort_t  tracksSize;
     TVector3 position;
 
   };
@@ -210,7 +210,7 @@ namespace susy {
     Float_t  phiWidth;
     Float_t  etaWidth;
     TVector3 position;
-    std::vector<Int_t> basicClusterIndices;
+    std::vector<UShort_t> basicClusterIndices;
 
   };
 
@@ -224,27 +224,28 @@ namespace susy {
     void Init();
 
     // derived quantities
-    float normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
-    float qoverp() const { return charge/momentum.P(); }
-    float lambda() const { return M_PI/2 - momentum.Theta(); }
-    float dsz() const { return vertex.Z()*momentum.Pt()/momentum.P() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * momentum.Pz()/momentum.P(); }
-    float dz() const { return vertex.Z() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * (momentum.Pz()/momentum.Pt()); }
-    float dxy() const { return (-vertex.X()*momentum.Py() + vertex.Y()*momentum.Px())/momentum.Pt(); }
-    float d0() const { return -dxy(); }
-    float phi() const { return momentum.Phi(); }
-    bool loose() const {         return (quality & ( 0x1 << 0)); }
-    bool tight() const {         return (quality & ( 0x1 << 1)); }
-    bool highPurity() const {    return (quality & ( 0x1 << 2)); }
-    bool confirmed() const {     return (quality & ( 0x1 << 3)); }
-    bool goodIterative() const { return (confirmed() || highPurity()); }
+    Float_t normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
+    Float_t qoverp() const { return charge/momentum.P(); }
+    Float_t lambda() const { return M_PI/2 - momentum.Theta(); }
+    Float_t dsz() const { return vertex.Z()*momentum.Pt()/momentum.P() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * momentum.Pz()/momentum.P(); }
+    Float_t dz() const { return vertex.Z() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * (momentum.Pz()/momentum.Pt()); }
+    Float_t dxy() const { return (-vertex.X()*momentum.Py() + vertex.Y()*momentum.Px())/momentum.Pt(); }
+    Float_t d0() const { return -dxy(); }
+    Float_t phi() const { return momentum.Phi(); }
+    Bool_t loose() const {         return (quality & ( 0x1 << 0)); }
+    Bool_t tight() const {         return (quality & ( 0x1 << 1)); }
+    Bool_t highPurity() const {    return (quality & ( 0x1 << 2)); }
+    Bool_t confirmed() const {     return (quality & ( 0x1 << 3)); }
+    Bool_t goodIterative() const { return (confirmed() || highPurity()); }
 
-    Int_t          algorithm;
-    Int_t          quality;
+    UChar_t        algorithm;
+    UChar_t        quality;
     UChar_t        numberOfValidHits;
     UChar_t        numberOfValidTrackerHits;
     UChar_t        numberOfValidMuonHits;
     UChar_t        numberOfValidPixelHits;
     UChar_t        numberOfValidStripHits;
+    Short_t        vertexIndex;
     Float_t        chi2;
     Float_t        ndof;
     Float_t        charge;
@@ -389,39 +390,39 @@ namespace susy {
     void Init();
 
     // fiducial bits
-    bool isEB() {        return (fidBit & (0x1 << 0)); }
-    bool isEE() {        return (fidBit & (0x1 << 1)); }
-    bool isEBEEGap() {   return (fidBit & (0x1 << 2)); }
-    bool isEBEtaGap() {  return (fidBit & (0x1 << 3)); }
-    bool isEBPhiGap() {  return (fidBit & (0x1 << 4)); }
-    bool isEEDeeGap() {  return (fidBit & (0x1 << 5)); }
-    bool isEERingGap() { return (fidBit & (0x1 << 6)); }
-    bool isEBGap() {     return (isEBEtaGap() || isEBPhiGap()); }
-    bool isEEGap() {     return (isEEDeeGap() || isEERingGap()); }
-    bool isGap() {       return (isEBGap() || isEEGap() || isEBEEGap()); }
+    Bool_t isEB() {        return (fidBit & (0x1 << 0)); }
+    Bool_t isEE() {        return (fidBit & (0x1 << 1)); }
+    Bool_t isEBEEGap() {   return (fidBit & (0x1 << 2)); }
+    Bool_t isEBEtaGap() {  return (fidBit & (0x1 << 3)); }
+    Bool_t isEBPhiGap() {  return (fidBit & (0x1 << 4)); }
+    Bool_t isEEDeeGap() {  return (fidBit & (0x1 << 5)); }
+    Bool_t isEERingGap() { return (fidBit & (0x1 << 6)); }
+    Bool_t isEBGap() {     return (isEBEtaGap() || isEBPhiGap()); }
+    Bool_t isEEGap() {     return (isEEDeeGap() || isEERingGap()); }
+    Bool_t isGap() {       return (isEBGap() || isEEGap() || isEBEEGap()); }
 
     // boolean variables packed in boolPack
-    bool isGsfCtfScPixChargeConsistent() { return (boolPack & (0x1 << 0)); }
-    bool isGsfScPixChargeConsistent() {    return (boolPack & (0x1 << 1)); }
-    bool isGsfCtfChargeConsistent() {      return (boolPack & (0x1 << 2)); }
-    bool ecalDrivenSeed() {                return (boolPack & (0x1 << 3)); }
-    bool trackerDrivenSeed() {             return (boolPack & (0x1 << 4)); }
-    bool passingCutBasedPreselection() {   return (boolPack & (0x1 << 5)); }
-    bool passingMvaPreselection() {        return (boolPack & (0x1 << 6)); }
-    bool ambiguous() {                     return (boolPack & (0x1 << 7)); }
-    bool isEcalEnergyCorrected() {         return (boolPack & (0x1 << 8)); }
-    bool isEnergyScaleCorrected() {        return (boolPack & (0x1 << 9)); }
-    bool convFlags() {                     return (boolPack & (0x1 << 10)); }
-    bool isPF() {                          return (boolPack & (0x1 << 11)); }
-    bool ecalDriven() {                    return (ecalDrivenSeed() && passingCutBasedPreselection()); }
+    Bool_t isGsfCtfScPixChargeConsistent() { return (boolPack & (0x1 << 0)); }
+    Bool_t isGsfScPixChargeConsistent() {    return (boolPack & (0x1 << 1)); }
+    Bool_t isGsfCtfChargeConsistent() {      return (boolPack & (0x1 << 2)); }
+    Bool_t ecalDrivenSeed() {                return (boolPack & (0x1 << 3)); }
+    Bool_t trackerDrivenSeed() {             return (boolPack & (0x1 << 4)); }
+    Bool_t passingCutBasedPreselection() {   return (boolPack & (0x1 << 5)); }
+    Bool_t passingMvaPreselection() {        return (boolPack & (0x1 << 6)); }
+    Bool_t ambiguous() {                     return (boolPack & (0x1 << 7)); }
+    Bool_t isEcalEnergyCorrected() {         return (boolPack & (0x1 << 8)); }
+    Bool_t isEnergyScaleCorrected() {        return (boolPack & (0x1 << 9)); }
+    Bool_t convFlags() {                     return (boolPack & (0x1 << 10)); }
+    Bool_t isPF() {                          return (boolPack & (0x1 << 11)); }
+    Bool_t ecalDriven() {                    return (ecalDrivenSeed() && passingCutBasedPreselection()); }
 
     Float_t hcalOverEcal() { return (hcalDepth1OverEcal + hcalDepth2OverEcal); }
     Float_t dr03HcalTowerSumEt() { return (dr03HcalDepth1TowerSumEt + dr03HcalDepth2TowerSumEt); }
     Float_t dr04HcalTowerSumEt() { return (dr04HcalDepth1TowerSumEt + dr04HcalDepth2TowerSumEt); }
 
-    Int_t          fidBit;
-    Int_t          boolPack;
-    Int_t          scPixCharge;
+    UChar_t        fidBit;
+    UShort_t       boolPack;
+    Char_t         scPixCharge;
 
     Float_t        eSuperClusterOverP;
     Float_t        eSeedClusterOverP;
@@ -438,9 +439,11 @@ namespace susy {
 
     Float_t        sigmaEtaEta;
     Float_t        sigmaIetaIeta;
+    Float_t        sigmaIphiIphi;
     Float_t        e1x5;
     Float_t        e2x5Max;
     Float_t        e5x5;
+    Float_t        r9;
     Float_t        hcalDepth1OverEcal;          // hadronic energy on depth1 / em enrgy
     Float_t        hcalDepth2OverEcal;          // hadronic energy on depth2 / em enrgy
     Float_t        hcalOverEcalBc;   //2012 hOverE
@@ -483,7 +486,7 @@ namespace susy {
     Short_t        superClusterIndex;
 
     Int_t          nMissingHits;
-    bool           passConversionVeto;
+    Bool_t         passConversionVeto;
 
     // AtVtx, AtCalo
     std::map<TString,TVector3> trackPositions;
@@ -507,14 +510,16 @@ namespace susy {
     void Init();
 
     // muon type
-    bool isGlobalMuon() {     return (type & (0x1 << 1)); }
-    bool isTrackerMuon() {    return (type & (0x1 << 2)); }
-    bool isStandAloneMuon() { return (type & (0x1 << 3)); }
-    bool isCaloMuon() {       return (type & (0x1 << 4)); }
-    bool isPFMuon() {         return (type & (0x1 << 5)); }
+    Bool_t isGlobalMuon() {     return (type & (0x1 << 1)); }
+    Bool_t isTrackerMuon() {    return (type & (0x1 << 2)); }
+    Bool_t isStandAloneMuon() { return (type & (0x1 << 3)); }
+    Bool_t isCaloMuon() {       return (type & (0x1 << 4)); }
+    Bool_t isPFMuon() {         return (type & (0x1 << 5)); }
     Short_t bestTrackIndex() { switch(bestTrackType){
       case 1: return trackIndex; case 2: return standAloneTrackIndex;
-      case 3: return combinedTrackIndex; default: return -1;
+      case 3: return combinedTrackIndex; case 4: return tpfmsTrackIndex;
+      case 5: return pickyTrackIndex; case 6: return dytTrackIndex;
+      default: return -1;
       } }
 
     // arbitration type is default
@@ -561,6 +566,9 @@ namespace susy {
     Short_t        trackIndex;             // tracker only
     Short_t        standAloneTrackIndex;   // muon detector only
     Short_t        combinedTrackIndex;     // combined
+    Short_t        tpfmsTrackIndex;
+    Short_t        pickyTrackIndex;
+    Short_t        dytTrackIndex;
     TLorentzVector momentum;
 
     std::map<TString, UChar_t> idPairs;
@@ -677,15 +685,18 @@ namespace susy {
     UChar_t        neutralMultiplicity;
 
     // Should contain ntuple indices of tracks associated with this jet
-    std::vector<int> tracklist;
+    std::vector<UShort_t> tracklist;
+
+    // List of constituent PFParticles
+    std::vector<UShort_t> pfParticleList;
 
     // Pileup Jet Id info
     std::vector<Float_t> puJetIdDiscriminants;
     std::vector<Int_t> puJetIdFlags;
 
-    bool passPuJetIdLoose(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 2) ) != 0 : false ; }
-    bool passPuJetIdMedium(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 1) ) != 0 : false ; }
-    bool passPuJetIdTight(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 0) ) != 0 : false ; }
+    Bool_t passPuJetIdLoose(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 2) ) != 0 : false ; }
+    Bool_t passPuJetIdMedium(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 1) ) != 0 : false ; }
+    Bool_t passPuJetIdTight(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 0) ) != 0 : false ; }
 
     // IMPORTANT: This vector of float stores btag-discriminator variables from various collections
     // which defined in susyNtuplizer_cfi.py file. The order of variables are strongly

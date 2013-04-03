@@ -1,14 +1,14 @@
 import FWCore.ParameterSet.Config as cms
 
-# change this to 0 if you run on MC files
+# change this to False if you run on MC files
 isRealData = True
 
-# change this to 0 if you run on FullSim MC
+# change this to False if you run on FullSim MC
 isFastSim = False
 
 # These are fixes for the JetProbability b-tagger calibrations as recommended by BTV.
 # See https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideBTagJetProbabilityCalibration#Calibration_in_52x_Data_and_MC
-# Leaving these as all 0s results in no changes to the GlobalTag used.
+# Leaving these as all False results in no changes to the GlobalTag used.
 is52xABData = False
 is53xData = True
 is53xMC = False
@@ -19,6 +19,8 @@ process.load('FWCore.MessageService.MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 process.MessageLogger.suppressWarning = cms.untracked.vstring('newSecondaryVertexTagInfos')
 process.MessageLogger.suppressError = cms.untracked.vstring('ecalLaserCorrFilter')
+process.MessageLogger.categories.append('SusyNtuplizer')
+process.MessageLogger.cerr.SusyNtuplizer = cms.untracked.PSet( limit = cms.untracked.int32(100) )
 
 process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(-1) )
 
@@ -272,7 +274,7 @@ if isRealData:
 
 else:
     process.source.fileNames = cms.untracked.vstring(
-        'dcap:///pnfs/cms/WAX/11/store/mc/Summer12/WJetsToLNu_TuneZ2Star_8TeV-madgraph-tarball/AODSIM/PU_S7_START52_V9-v1/0001/FE8F81B3-C494-E111-B50D-003048D476BC.root'
+        'root://xrootd.unl.edu//store/mc/Summer12_DR53X/GVJets_Incl_8TeV-madgraph/AODSIM/PU_S10_START53_V7C-v1/00001/FEE4A970-1333-E211-A759-00261894398B.root'
     )
     process.GlobalTag.globaltag = 'START53_V11::All'
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
