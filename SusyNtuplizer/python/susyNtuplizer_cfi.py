@@ -20,98 +20,91 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
         "ak5CaloJets"
     ),
     pfJetCollectionTags = cms.vstring(
-        "ak5PFJets"
+        "ak5PFJets",
+        "ak5PFchsJets"
     ),
     jptJetCollectionTags = cms.vstring(),
-    muonIdTags = cms.PSet(
-        muons = cms.vstring(
-            "muons:muidAllArbitrated",
-            "muons:muidGMStaChiCompatibility",
-            "muons:muidGMTkChiCompatibility",
-            "muons:muidGMTkKinkTight",
-            "muons:muidGlobalMuonPromptTight",
-            "muons:muidTM2DCompatibilityLoose",
-            "muons:muidTM2DCompatibilityTight",
-            "muons:muidTMLastStationAngLoose",
-            "muons:muidTMLastStationAngTight",
-            "muons:muidTMLastStationLoose",
-            "muons:muidTMLastStationOptimizedLowPtLoose",
-            "muons:muidTMLastStationOptimizedLowPtTight",
-            "muons:muidTMLastStationTight",
-            "muons:muidTMOneStationAngLoose",
-            "muons:muidTMOneStationAngTight",
-            "muons:muidTMOneStationLoose",
-            "muons:muidTMOneStationTight",
-            "muons:muidTrackerMuonArbitrated"
-        )
-    ),
-    electronIdTags = cms.PSet(
-        gsfElectrons = cms.vstring(
-            "eidLoose",
-            "eidRobustHighEnergy",
-            "eidRobustLoose",
-            "eidRobustTight",
-            "eidTight",
-            "mvaTrigV0",
-            "mvaNonTrigV0"
-        )
-    ),
-    photonIdTags = cms.PSet(
-        photons = cms.vstring(
-            "PhotonIDProd:PhotonCutBasedIDLoose",
-            "PhotonIDProd:PhotonCutBasedIDLooseEM",
-            "PhotonIDProd:PhotonCutBasedIDTight"
+    electronMVAIdTags = cms.PSet(
+        gsfElectrons = cms.PSet(
+            triggering = cms.string("mvaTrigV0"),
+            nonTriggering = cms.string("mvaNonTrigV0")
         )
     ),
     photonIsoDepTags = cms.PSet(
         photons = cms.PSet(
-            chargedHadron = cms.string('phPFIsoValueCharged03PFIdPFIso'),
-            neutralHadron = cms.string('phPFIsoValueNeutral03PFIdPFIso'),
-            photon = cms.string('phPFIsoValueGamma03PFIdPFIso')
+            chargedHadron = cms.string('photonPFIsoValueCharged03'),
+            neutralHadron = cms.string('photonPFIsoValueNeutral03'),
+            photon = cms.string('photonPFIsoValueGamma03')
         )
     ),
     electronIsoDepTags = cms.PSet(
         gsfElectrons = cms.PSet(
-            chargedHadron = cms.string('elPFIsoValueCharged03PFIdPFIso'),
-            neutralHadron = cms.string('elPFIsoValueNeutral03PFIdPFIso'),
-            photon = cms.string('elPFIsoValueGamma03PFIdPFIso')
+            chargedHadron = cms.string('gsfElectronPFIsoValueCharged03'),
+            neutralHadron = cms.string('gsfElectronPFIsoValueNeutral03'),
+            photon = cms.string('gsfElectronPFIsoValueGamma03')
         )
     ),
     metCollectionTags = cms.vstring(
-        "pfMet",
         "genMetTrue",
+        "met",
+        "corMetGlobalMuons",
+        "caloType1CorrectedMet",
+        "caloType1p2CorrectedMet",
+        "tcMet",
+        "pfMet",
         "pfType1CorrectedMet",
         "pfType1p2CorrectedMet",
-        "pfType1CorrectedMetsysShiftCorr",
-        "pfType1p2CorrectedMetsysShiftCorr"
+        "pfType0CorrectedMet",
+        "pfSysShiftCorrectedMet",
+        "pfType01SysShiftCorrectedMet",
+        "pfType01p2SysShiftCorrectedMet",
+        "pfNoPileUpMet",
+        "pfMVAMet"
     ),
-    bTagCollectionTags = cms.vstring(
-        "newTrackCountingHighEffBJetTags",
-        "newTrackCountingHighPurBJetTags",
-        "newJetProbabilityBJetTags",
-        "newJetBProbabilityBJetTags",
-        "newSimpleSecondaryVertexBJetTags",
-        "newCombinedSecondaryVertexBJetTags",
-        "newCombinedSecondaryVertexMVABJetTags",
-        "newSoftElectronBJetTags",
-        "newSoftMuonBJetTags"
-    ),
-    puJetIdTags = cms.PSet(
-        ak5PFJets = cms.vstring(
-            "recoPuJetMva:full",
-            "recoPuJetMva:cutbased",
-            "recoPuJetMva:simple"
+    bTagCollectionTags = cms.PSet(
+        ak5PFJets = cms.PSet(
+            TrackCountingHighEff = cms.string("newTrackCountingHighEffBJetTags"),
+            TrackCountingHighPur = cms.string("newTrackCountingHighPurBJetTags"),
+            JetProbability = cms.string("newJetProbabilityBJetTags"),
+            JetBProbability = cms.string("newJetBProbabilityBJetTags"),
+            SimpleSecondaryVertex = cms.string("newSimpleSecondaryVertexBJetTags"),
+            CombinedSecondaryVertex = cms.string("newCombinedSecondaryVertexBJetTags"),
+            CombinedSecondaryVertexMVA = cms.string("newCombinedSecondaryVertexMVABJetTags"),
+            SoftElectron = cms.string("newSoftElectronBJetTags"),
+            SoftMuon = cms.string("newSoftMuonBJetTags")
         )
     ),
+    jetFlavourMatchingTags = cms.PSet(
+        ak5PFJets = cms.PSet(
+            alg = cms.string("flavourAssociationAlg"),
+            phy = cms.string("flavourAssociationPhy")
+        ),
+        ak5PFchsJets = cms.PSet(
+            alg = cms.string("flavourAssociationCHSAlg"),
+            phy = cms.string("flavourAssociationCHSPhy")
+        )
+    ),
+    puJetId = cms.PSet(
+        ak5PFJets = cms.PSet(
+            tag = cms.string("recoPuJetId"),
+            algorithms = cms.vstring("full", "cutbased")
+        ),
+        ak5PFchsJets = cms.PSet(
+            tag = cms.string("recoPuJetIdChs"),
+            algorithms = cms.vstring("full", "cutbased")
+        )
+    ),
+    pfPUCandidatesTag = cms.string("pfPileUp"),
     genCollectionTag = cms.string("genParticles"),
     puSummaryInfoTag = cms.string("addPileupInfo"),
     triggerEventTag = cms.string("hltTriggerSummaryAOD"),
+    gridParams = cms.vstring("ptHat"),
     photonSCRegressionWeights = cms.string("/afs/cern.ch/user/b/bendavid/cmspublic/regweights52xV3/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),
     electronThreshold = cms.double(2.0),
     photonThreshold = cms.double(10.0),
     jetThreshold = cms.double(20.0),
-    pfParticleThreshold = cms.double(1.0),
+    pfParticleThreshold = cms.double(3.0),
     debugLevel = cms.int32(0),
     storeL1Info = cms.bool(True),
     storeHLTInfo = cms.bool(True),
@@ -119,7 +112,6 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     storeGeneralTracks = cms.bool(False),
     storePFJetPartonMatches = cms.bool(True),
     storeTriggerEvents = cms.bool(False),
-    recoMode = cms.bool(False),
     isFastSim = cms.bool(False),
     outputFileName = cms.string("susyEvents.root"),
     triggerFileName = cms.string("susyTriggers.root")
