@@ -1,28 +1,228 @@
-Developing recipe for 538p3:
+#################################################################################################
+1. How to set up and run the ntuplizer
+#################################################################################################
+
+1.1 Setup ---------------------------------------------------------------------------------------
 
 setenv SCRAM_ARCH slc5_amd64_gcc462
 cmsrel CMSSW_5_3_8_patch3
 cd CMSSW_5_3_8_patch3/src
 cmsenv
-cvs co -r HEAD -d SusyAnalysis UserCode/LPCPJM/SusyAnalysis
-cvs co -r V00-00-13 RecoMET/METFilters
-cvs co -r V00-00-08 RecoMET/METAnalyzers
-cvs co -r V01-00-11-01 DPGAnalysis/Skims
-cvs co -r V00-11-17 DPGAnalysis/SiStripTools
-cvs co -r V00-00-08 DataFormats/TrackerCommon
-cvs co -r V01-09-05 RecoLocalTracker/SubCollectionProducers
-addpkg PhysicsTools/Utilities V08-03-20-03
-cvs co EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz
-mv EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz SusyAnalysis/SusyNtuplizer
-cvs co -r V00-00-30-00 -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
+############## TODO change this line once we have a tag for the new release ###########
+cvs co -r HEAD -d SusyAnalysis/SusyNtuplizer         UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -r V00-00-13                                  RecoMET/METFilters
+cvs co -r V00-00-08                                  RecoMET/METAnalyzers
+cvs co -r V00-11-17                                  DPGAnalysis/SiStripTools
 cvs co -r V00-00-30-01 -d EGamma/EGammaAnalysisTools UserCode/EGamma/EGammaAnalysisTools
 cd EGamma/EGammaAnalysisTools/data
 cat download.url | xargs wget
 cd ../../../
-addpkg CommonTools/ParticleFlow V00-03-10
-addpkg RecoParticleFlow/PFProducer  CMSSW_5_3_8
-cvs co -r V00-03-03 -d CMGTools/External UserCode/CMG/CMGTools/External
-cvs co -r regressionMay18a RecoEgamma/EgammaTools
-cvs co -r V05-08-20 RecoEcal/EgammaCoreTools
+cvs co -r V15-01-11                                  RecoParticleFlow/PFProducer/python
+cvs co -r V05-11-02                                  RecoJets/JetProducers
+cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/interface/JetSpecific.h
+cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/src/JetSpecific.cc
+cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugins/CATopJetProducer.h
+cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugins/CATopJetProducer.cc
+cvs co -r regressionMay18a                           RecoEgamma/EgammaTools
 scramv1 b -j 4
-cd SusyAnalysis/SusyNtuplizer/
+
+1.2 Running the ntuplizer -----------------------------------------------------------------------
+
+File runOverAOD.py is the standard CMSSW job configuration to produce the SUSY ntuples. For
+most purposes the user only needs to modify the first two blocks (dataset name and source name).
+The list of possible dataset names is given right below the blocks.
+
+1.3 NoPU / MVA MET ------------------------------------------------------------------------------
+
+Two new MET algorithms were developed by the JetMET group in late 2012. These are not yet part
+of CMSSW, and requires a rather large number of additional packages to run. By default, the new
+METs are dropped from the standard ntuplizer configuration. Follow the instructions below to
+run the new algorithms.
+
+a. Check out the following packages
+
+cvs co -r b5_3_X_cvMEtCorr_2013Feb22  DataFormats/METReco
+cvs co -r V03-04-07                   RecoMET/METAlgorithms
+cvs co -r METPU_5_3_X_v4              JetMETCorrections/METPUSubtraction
+cvs co -r V05-00-16                   DataFormats/JetReco
+cvs co -r METPU_5_3_X_v4              RecoJets/JetProducers/data/TMVAClassificationCategory_JetID_MET_53X_Dec2012.weights.xml
+cvs co -r V00-03-34                   PhysicsTools/SelectorUtils
+# The package below depends on DataFormats/METReco & DataForamts/JetReco, and requires a recompile
+cvs co -r CMSSW_5_3_8_patch3          CommonTools/RecoAlgos
+cvs co -r HEAD -d pharrisTmp          UserCode/pharris/MVAMet/data
+cp  -d pharrisTmp/*Dec2012*.root JetMETCorrections/METPUSubtraction/data/
+rm -rf pharrisTmp
+
+b. Then, before compiling, modify the file JetMETCorrections/METPUSubtraction/plugin/NoPileUpPFMEtDataProducer.cc
+
+Remove line 17:
+#include "RecoMET/METAlgorithms/interface/SigInputObj.h"    //PH: preserve 5_3_x dependence
+Add:
+#include "DataFormats/METReco/interface/SigInputObj.h"
+
+c. Compile the workspace.
+
+d. In runOverAOD.py, search for a boolean flag runNoPUMVAMetSequence and set it to True.
+
+#################################################################################################
+2. How to use the ntuples
+#################################################################################################
+
+2.1 Sample macro --------------------------------------------------------------------------------
+
+Sample analysis macro exists in the macro directory. When using with CMSSW (have gone through the
+steps in 1.1), this should work out-of-the-box by
+
+cd macro
+root -b -q ana.C
+
+If instead one wishes to work without the CMSSW framework, the library has to be compiled before
+running the analysis:
+
+############## TODO change this line once we have a tag for the new release ###########
+cvs co -d SusyNtuplizer -r HEAD UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cd SusyNtuplizer/macro
+make
+root -b -q ana.C
+
+ana.C links the library and compiles the two analysis codes, SusyEventAnalyzer.cc and SusyEventPrinter.cc.
+The Printer file contains the utility functions to print out the content of the event. The
+Analyzer file is the analysis skeleton. The user is invited to modify the content of the Run()
+function to fit his/her analysis needs.
+
+2.2 Opening the file in bare ROOT environment ---------------------------------------------------
+
+SUSY ntuples files contain vectors of objects that are defined in src/SusyEvent.h and requires to
+link a library for ROOT to understand their contents. To link the library, do
+
+root[0] gSystem->Load("libSusyEvent.so")
+
+If using ROOT from a CMSSW environment (after issuing cmsenv), or
+
+root[0] gSystem->Load("full_path_to_macro_directory/libSusyEvent.so")
+
+if using ROOT independent of CMSSW (after following 2.1).
+The above function can be included in the user's rootlogon.C file to have the library linked
+automatically whenever ROOT is started.
+
+2.3 susyTree content ----------------------------------------------------------------------------
+
+There is one object in the file, which is a TTree named susyTree. The branches of the tree represent
+event-level information such as run number and event number, collections of generic objects such as
+vertices and tracks, and the collections of physics objects. Since there can be multiple physics
+object collections of the same type (e.g. corrected and uncorrected MET (not a collection but a single
+object in this case)), the branches of physics objects are follow the naming convention of "type_label",
+such as met_pfMet or met_pfType1CorrectedMet.
+
+
+2.4 Parsing the tree with an Event object -------------------------------------------------------
+
+* The following works both in compiled and interactive environments.
+
+The Event object defined in src/SusyEvent.h acts as a container of all information that is in an
+entry of the susyTree.
+To instatiate an event, do
+
+susy::Event* event = new susy::Event;
+
+then pass the TTree object to it:
+
+TTree* susyTree;
+inputFile->GetObject("susyTree", susyTree);
+event->bindTree(*susyTree);
+
+After this, the content of the event will be automatically filled by the GetEntry() function of
+the TTree:
+
+susyTree->GetEntry(entry_number);
+
+At the end of the analysis code, the Event object must be deleted before the TTree is deleted:
+
+delete event;
+delete susyTree;
+
+2.4.a Object members referencing other objects --------------------------------------------------
+
+Some objects (e.g. Photon) has members that points to other objects in the event
+(e.g. Photon::superCluster). The "references" are not automatically set at the time of GetEntry
+time. To enable the links, one needs to add
+
+event->fillRefs();
+
+at the beginning of the event loop.
+
+#################################################################################################
+3. Detailed remarks
+#################################################################################################
+
+3.1 Accessing physics objects in the Event ------------------------------------------------------
+
+As explained in 2.3, susyTree can contain multiple collections of the same type with different
+labels. These "collections of collections" are represented in the Event object using a std::map
+from TString to the collection, where the string is the object label. See macro/SusyEventAnalyzer.cc
+for an example of how to access the collections.
+
+3.2 Accessing the trigger results ---------------------------------------------------------------
+
+hltMap and l1Map members of the Event holds the trigger prescales and results, which can be retrieved
+by the functions prescale(TString) and pass(TString) respectively. The string argument of the
+functions are the trigger path names, which is required to be either exact or a wildcard expression.
+The only allowed wildcard character is the *, for strings of any length, and it has to come at the
+end of the path name.
+
+Note that CMS HLT path names always end with the version number that can be different among the run
+periods. Therefore, to require the results of all triggers of e.g. Photon36_Photon22, one has to
+append "_v*" to the path name.
+
+3.3 Jet energy correction and detailed scales and uncertainties ---------------------------------
+
+The jet objects in susyTree contain L1L2L3 correction, L2L3 correction, and the unceratinty on L1L2L3
+correction. They are stored as a map from a string to the scale factor. The available corrections
+are:
+
+PFJet:
+ - "L2L3"
+ - "L1FastL2L3"
+CaloJet:
+ - "L2L3"
+ - "L1L2L3"
+JPTJet:
+ - "L2L3"
+ - "L1L2L3"
+
+In all cases, the residual correction is included for jets in real data.
+
+* The following works only in a CMSSW environment.
+
+If the user wishes to know what the individual correction factor/uncertainty is,the following
+steps has to be followed. The sample macro of 2.1 is used as an example.
+
+a. Modify jec/jec.py to use the correct global tag and run the job
+
+b. Add the following lines at the beggining of ana.C
+
+gSystem->AddIncludePath("-I" + TString(gSystem->Getenv("CMSSW_RELEASE_BASE")) + "/src");
+gSystem->Load("libCondFormatsJetMETObjects.so");
+
+c. In SusyEventAnalyzer.cc, include the necessary headers
+
+#include "CondFormats/JetMETObjects/interface/FactorizedJetCorrector.h" // to access the JEC scales
+#include "CondFormats/JetMETObjects/interface/JetCorrectionUncertainty.h" // to access the uncertainties
+
+d. In Run(), instantiate the correction objects before the event loop
+
+TString fullPathBase("full_path_to_jec_directory");
+// For the scales
+FactorizedJetCorrector jec("L4EMF:L5Flavor", fullPathBase + "/name_of_L4_file:" + fullPathBase + "/name_of_L5_file");
+// For the uncertainties
+JetCorrectionUnceratinty jecUncert(fullPathBase + "/name_of_uncertainty_file");
+
+e. In the jet loop, use the objects
+
+jec.setJetEta(jet.momentum.Eta());
+jec.setJetPt(jet.momentum.Pt());
+float scale = jec.getCorrection();
+
+jecUncert.setJetEta(jet.momentum.Eta());
+jecUncert.setJetPt(jet.momentum.Pt() * scale);
+float uncertainty = jecUncert.getUncertainty(true);
