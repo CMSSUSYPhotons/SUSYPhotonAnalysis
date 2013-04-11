@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.49 2013/04/01 09:53:25 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.50 2013/04/03 22:04:53 yiiyama Exp $
 //
 //
 
@@ -24,7 +24,6 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/LuminosityBlock.h"
-#include "DataFormats/Luminosity/interface/LumiSummary.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
@@ -34,12 +33,15 @@
 #include "DataFormats/Math/interface/Point3D.h"
 #include "DataFormats/Math/interface/deltaR.h"
 
+#include "DataFormats/Luminosity/interface/LumiSummary.h"
+
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 
 #include "DataFormats/VertexReco/interface/Vertex.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
+#include "RecoVertex/PrimaryVertexProducer/interface/VertexHigherPtSquared.h"
 
-#include "DataFormats/METReco/interface/BeamHaloSummary.h"
+#include "DataFormats/METReco/interface/MET.h"
 
 #include "DataFormats/L1GlobalTrigger/interface/L1GlobalTriggerReadoutSetup.h"
 #include "CondFormats/L1TObjects/interface/L1GtTriggerMenu.h"
@@ -58,61 +60,52 @@
 #include "DataFormats/EgammaReco/interface/SuperCluster.h"
 #include "DataFormats/EgammaReco/interface/SuperClusterFwd.h"
 
-#include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
 #include "DataFormats/GsfTrackReco/interface/GsfTrack.h"
-
-#include "DataFormats/METReco/interface/MET.h"
-#include "DataFormats/EgammaCandidates/interface/Photon.h"
-#include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectron.h"
 #include "DataFormats/EgammaCandidates/interface/GsfElectronFwd.h"
+
+#include "DataFormats/EgammaCandidates/interface/Photon.h"
+#include "DataFormats/EgammaCandidates/interface/PhotonFwd.h"
+
 #include "DataFormats/EgammaCandidates/interface/Conversion.h"
 #include "DataFormats/EgammaCandidates/interface/ConversionFwd.h"
-#include "DataFormats/MuonReco/interface/Muon.h"
-#include "DataFormats/MuonReco/interface/MuonFwd.h"
-#include "DataFormats/JetReco/interface/CaloJet.h"
-#include "DataFormats/JetReco/interface/CaloJetCollection.h"
-#include "DataFormats/JetReco/interface/PFJet.h"
-#include "DataFormats/JetReco/interface/PFJetCollection.h"
-#include "DataFormats/JetReco/interface/JPTJet.h"
-#include "DataFormats/JetReco/interface/JPTJetCollection.h"
-#include "DataFormats/JetReco/interface/JetID.h"
-#include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
-#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
-
-// simple geometry
-#include "RecoParticleFlow/PFTracking/interface/PFGeometry.h"
-
-// for track extrapolation
-#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
-#include "DataFormats/TrajectorySeed/interface/PropagationDirection.h"
-#include "DataFormats/GeometrySurface/interface/Cylinder.h"
-#include "DataFormats/GeometrySurface/interface/Plane.h"
-#include "DataFormats/GeometrySurface/interface/BoundCylinder.h"
-#include "DataFormats/GeometrySurface/interface/BoundPlane.h"
-#include "TrackingTools/Records/interface/TransientTrackRecord.h"
-#include "TrackingTools/TrajectoryState/interface/TrajectoryStateOnSurface.h"
-#include "TrackingTools/MaterialEffects/interface/PropagatorWithMaterial.h"
-#include "TrackingTools/TransientTrack/interface/TransientTrack.h"
-#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 
 //for conversion safe electron veto
 #include "RecoEgamma/EgammaTools/interface/ConversionTools.h"
 
+#include "DataFormats/MuonReco/interface/Muon.h"
+#include "DataFormats/MuonReco/interface/MuonFwd.h"
+#include "DataFormats/MuonReco/interface/MuonCocktails.h"
+#include "DataFormats/MuonReco/interface/MuonSelectors.h"
+
+#include "DataFormats/JetReco/interface/CaloJet.h"
+#include "DataFormats/JetReco/interface/CaloJetCollection.h"
+
+#include "DataFormats/JetReco/interface/PFJet.h"
+#include "DataFormats/JetReco/interface/PFJetCollection.h"
+
+#include "DataFormats/JetReco/interface/JPTJet.h"
+#include "DataFormats/JetReco/interface/JPTJetCollection.h"
+
+#include "DataFormats/JetReco/interface/JetID.h"
+
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidateFwd.h"
+#include "DataFormats/ParticleFlowCandidate/interface/PFCandidate.h"
+
 // for ecal rechit related
-#include "DataFormats/EcalDetId/interface/EBDetId.h"
-#include "DataFormats/EcalDetId/interface/EEDetId.h"
 #include "DataFormats/EcalRecHit/interface/EcalRecHitCollections.h"
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "Geometry/CaloTopology/interface/CaloTopology.h"
 #include "Geometry/CaloEventSetup/interface/CaloTopologyRecord.h"
 #include "Calibration/IsolatedParticles/interface/eECALMatrix.h"
-
 #include "RecoEcal/EgammaCoreTools/interface/EcalClusterTools.h"
 
 // Jet Energy Correction
 #include "JetMETCorrections/Objects/interface/JetCorrector.h"
+#include "JetMETCorrections/Objects/interface/JetCorrectionsRecord.h"
+#include "CondFormats/JetMETObjects/interface/JetCorrectorParameters.h"
+#include "CondFormats/JetMETObjects/interface/JetCorrectionUncertainty.h"
 
 // pileup summary info
 #include "SimDataFormats/PileupSummaryInfo/interface/PileupSummaryInfo.h"
@@ -123,17 +116,17 @@
 #include "SimDataFormats/JetMatching/interface/JetFlavourMatching.h"
 
 // Pileup Jet Id
-#include "CMGTools/External/interface/PileupJetIdentifier.h"
+#include "DataFormats/JetReco/interface/PileupJetIdentifier.h"
 
 // PFIsolation
-#include "DataFormats/RecoCandidate/interface/IsoDeposit.h"
 #include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
 
-//Photon SC energy MVA regression
+// Photon SC energy MVA regression
 #include "RecoEgamma/EgammaTools/interface/EGEnergyCorrector.h"
 
-//HCAL laser events 2012 filter
+// MET filters
 #include "PhysicsTools/Utilities/interface/EventFilterFromListStandAlone.h"
+#include "DataFormats/METReco/interface/BeamHaloSummary.h"
 
 // system include files
 #include <memory>
@@ -148,10 +141,12 @@
 
 #include <TTree.h>
 #include <TFile.h>
-#include <TH1F.h>
+#include <TMVA/MsgLogger.h>
 
 #include "SusyEvent.h"
 #include "SusyTriggerEvent.h"
+
+typedef std::vector<std::string> VString;
 
 // Class definition
 class SusyNtuplizer : public edm::EDAnalyzer {
@@ -211,24 +206,21 @@ private:
   std::string genCollectionTag_;
   std::string puSummaryInfoTag_;
   std::string triggerEventTag_;
-  std::vector<std::string> muonCollectionTags_;
-  std::vector<std::string> electronCollectionTags_;
-  std::vector<std::string> photonCollectionTags_;
-  std::vector<std::string> caloJetCollectionTags_;
-  std::vector<std::string> pfJetCollectionTags_;
-  std::vector<std::string> jptJetCollectionTags_;
-  std::vector<std::string> metCollectionTags_;
-  std::vector<std::string> bTagCollectionTags_;
-  std::map<std::string, std::vector<std::string> > muonIdCollectionTags_;
-  std::map<std::string, std::vector<std::string> > electronIdCollectionTags_;
-  std::map<std::string, std::vector<std::string> > photonIdCollectionTags_;
-  std::map<std::string, std::vector<std::string> > photonIsoDepTags_;
-  std::map<std::string, std::vector<std::string> > electronIsoDepTags_;
-  std::map<std::string, std::vector<std::string> > puJetIdCollectionTags_;
+  VString muonCollectionTags_;
+  VString electronCollectionTags_;
+  VString photonCollectionTags_;
+  VString caloJetCollectionTags_;
+  VString pfJetCollectionTags_;
+  VString jptJetCollectionTags_;
+  VString metCollectionTags_;
+  std::map<std::string, VString> photonIsoDepTags_;
+  std::map<std::string, VString> electronIsoDepTags_;
+  std::map<std::string, VString> bTagCollectionTags_;
+  std::map<std::string, std::pair<std::string, std::string> > electronMVAIdTags_;
+  std::map<std::string, std::pair<std::string, std::string> > jetFlavourMatchingTags_;
+  std::map<std::string, VString> puJetIdCollectionTags_;
+  std::string pfPUCandidatesTag_;
   std::string photonSCRegressionWeights_;
-
-  PropagatorWithMaterial* propagator_;
-  TransientTrackBuilder const* transientTrackBuilder_;
 
   // for HLT prescales
   HLTConfigProvider* hltConfig_;
@@ -269,12 +261,6 @@ private:
   // default : true (turned off in runOverAOD.py)
   bool storePFJetPartonMatches_;
 
-  // input RECO mode
-  // false : default - reading from AOD
-  //         no extrapolation info will be saved in ntuples
-  // true : reading from RECO
-  bool recoMode_;
-
   // flag for whether or not MC is fastsim
   // certain collections are not produced by FamosSequence so we skip them
   // default: false (turned on in runOverAOD.py)
@@ -297,11 +283,6 @@ private:
 
   // PFParticleThreshold
   double pfParticleThreshold_;
-
-  // vector of ak5pf and pdgId matches
-  // JetPartonMatcher matches, and we store them in here to match to specific susy::PFJet later
-  std::vector< std::pair<reco::Jet, int> > physicsDefinitionMatches;
-  std::vector< std::pair<reco::Jet, int> > algorithmicDefinitionMatches;
 
   //Photon SC energy MVA regression
   EGEnergyCorrector scEnergyCorrector_;
@@ -335,23 +316,21 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   genCollectionTag_(iConfig.getParameter<std::string>("genCollectionTag")),
   puSummaryInfoTag_(iConfig.getParameter<std::string>("puSummaryInfoTag")),
   triggerEventTag_(iConfig.getParameter<std::string>("triggerEventTag")),
-  muonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("muonCollectionTags")),
-  electronCollectionTags_(iConfig.getParameter<std::vector<std::string> >("electronCollectionTags")),
-  photonCollectionTags_(iConfig.getParameter<std::vector<std::string> >("photonCollectionTags")),
-  caloJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("caloJetCollectionTags")),
-  pfJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("pfJetCollectionTags")),
-  jptJetCollectionTags_(iConfig.getParameter<std::vector<std::string> >("jptJetCollectionTags")),
-  metCollectionTags_(iConfig.getParameter<std::vector<std::string> >("metCollectionTags")),
-  bTagCollectionTags_(iConfig.getParameter<std::vector<std::string> >("bTagCollectionTags")),
-  muonIdCollectionTags_(),
-  electronIdCollectionTags_(),
-  photonIdCollectionTags_(),
+  muonCollectionTags_(iConfig.getParameter<VString>("muonCollectionTags")),
+  electronCollectionTags_(iConfig.getParameter<VString>("electronCollectionTags")),
+  photonCollectionTags_(iConfig.getParameter<VString>("photonCollectionTags")),
+  caloJetCollectionTags_(iConfig.getParameter<VString>("caloJetCollectionTags")),
+  pfJetCollectionTags_(iConfig.getParameter<VString>("pfJetCollectionTags")),
+  jptJetCollectionTags_(iConfig.getParameter<VString>("jptJetCollectionTags")),
+  metCollectionTags_(iConfig.getParameter<VString>("metCollectionTags")),
   photonIsoDepTags_(),
   electronIsoDepTags_(),
+  bTagCollectionTags_(),
+  electronMVAIdTags_(),
+  jetFlavourMatchingTags_(),
   puJetIdCollectionTags_(),
+  pfPUCandidatesTag_(iConfig.getParameter<std::string>("pfPUCandidatesTag")),
   photonSCRegressionWeights_(""),
-  propagator_(0),
-  transientTrackBuilder_(0),
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
@@ -362,7 +341,6 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   storeGenInfo_(iConfig.getParameter<bool>("storeGenInfo")),
   storeGeneralTracks_(iConfig.getParameter<bool>("storeGeneralTracks")),
   storePFJetPartonMatches_(iConfig.getParameter<bool>("storePFJetPartonMatches")),
-  recoMode_(iConfig.getParameter<bool>("recoMode")),
   isFastSim_(iConfig.getParameter<bool>("isFastSim")),
   storeTriggerEvents_(iConfig.getParameter<bool>("storeTriggerEvents")),
   electronThreshold_(iConfig.getParameter<double>("electronThreshold")),
@@ -370,8 +348,6 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   photonThreshold_(iConfig.getParameter<double>("photonThreshold")),
   jetThreshold_(iConfig.getParameter<double>("jetThreshold")),
   pfParticleThreshold_(iConfig.getParameter<double>("pfParticleThreshold")),
-  physicsDefinitionMatches(),
-  algorithmicDefinitionMatches(),
   scEnergyCorrector_(),
   productStore_(),
   susyEvent_(0),
@@ -380,67 +356,140 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "ctor";
 
+  /*
+    Suppress TMVA messages. Only effective for MVA methods invoked from this module.
+   */
+  TMVA::MsgLogger::InhibitOutput();
+
+  /*
+    Input to photon supercluster energy correction.
+    Obtain file path from the configuration and check file existence.
+   */
   if(iConfig.existsAs<std::string>("photonSCRegressionWeights"))
     photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
   else
     photonSCRegressionWeights_ = iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath();
-
-  // check if the file exists
   TFile* dummyFile(TFile::Open(photonSCRegressionWeights_.c_str()));
   if(!dummyFile || dummyFile->IsZombie())
     throw cms::Exception("IOError") << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
   delete dummyFile;
 
-  edm::ParameterSet const& muonIdTags(iConfig.getParameterSet("muonIdTags"));
-  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
-    if(muonIdTags.existsAs<std::vector<std::string> >(*tItr))
-      muonIdCollectionTags_[*tItr] = muonIdTags.getParameter<std::vector<std::string> >(*tItr);
-  }
-
-  edm::ParameterSet const& electronIdTags(iConfig.getParameterSet("electronIdTags"));
-  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
-    if(electronIdTags.existsAs<std::vector<std::string> >(*tItr))
-      electronIdCollectionTags_[*tItr] = electronIdTags.getParameter<std::vector<std::string> >(*tItr);
-  }
-
-  edm::ParameterSet const& photonIdTags(iConfig.getParameterSet("photonIdTags"));
-  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
-    if(photonIdTags.existsAs<std::vector<std::string> >(*tItr))
-      photonIdCollectionTags_[*tItr] = photonIdTags.getParameter<std::vector<std::string> >(*tItr);
-  }
-
+  /*
+    Get tags for isolation values calculated through isoDeposit, for Photon and Electron collections.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> VString of tags].
+   */
   edm::ParameterSet const& photonIsoDepTags(iConfig.getParameterSet("photonIsoDepTags"));
-  for(std::vector<std::string>::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
+  for(VString::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr){
     if(!photonIsoDepTags.existsAs<edm::ParameterSet>(*tItr)) continue;
     edm::ParameterSet const& tagsPSet(photonIsoDepTags.getParameterSet(*tItr));
 
-    std::vector<std::string>& tags(photonIsoDepTags_[*tItr]);
-    tags.resize(susy::nPFIsoTypes);
+    VString& tags(photonIsoDepTags_[*tItr]);
+    tags.resize(3);
 
-    tags[susy::kChargedHadron] = tagsPSet.getParameter<std::string>("chargedHadron");
-    tags[susy::kNeutralHadron] = tagsPSet.getParameter<std::string>("neutralHadron");
-    tags[susy::kPhoton] = tagsPSet.getParameter<std::string>("photon");
+    tags[0] = tagsPSet.getParameter<std::string>("chargedHadron");
+    tags[1] = tagsPSet.getParameter<std::string>("neutralHadron");
+    tags[2] = tagsPSet.getParameter<std::string>("photon");
   }
-
   edm::ParameterSet const& electronIsoDepTags(iConfig.getParameterSet("electronIsoDepTags"));
-  for(std::vector<std::string>::iterator tItr(electronCollectionTags_.begin()); tItr != electronCollectionTags_.end(); ++tItr){
+  for(VString::iterator tItr(electronCollectionTags_.begin()); tItr != electronCollectionTags_.end(); ++tItr){
     if(!electronIsoDepTags.existsAs<edm::ParameterSet>(*tItr)) continue;
     edm::ParameterSet const& tagsPSet(electronIsoDepTags.getParameterSet(*tItr));
 
-    std::vector<std::string>& tags(electronIsoDepTags_[*tItr]);
-    tags.resize(susy::nPFIsoTypes);
+    VString& tags(electronIsoDepTags_[*tItr]);
+    tags.resize(3);
 
-    tags[susy::kChargedHadron] = tagsPSet.getParameter<std::string>("chargedHadron");
-    tags[susy::kNeutralHadron] = tagsPSet.getParameter<std::string>("neutralHadron");
-    tags[susy::kPhoton] = tagsPSet.getParameter<std::string>("photon");
+    tags[0] = tagsPSet.getParameter<std::string>("chargedHadron");
+    tags[1] = tagsPSet.getParameter<std::string>("neutralHadron");
+    tags[2] = tagsPSet.getParameter<std::string>("photon");
   }
 
-  edm::ParameterSet const& puJetIdTags(iConfig.getParameterSet("puJetIdTags"));
-  for(std::vector<std::string>::iterator tItr(pfJetCollectionTags_.begin()); tItr != pfJetCollectionTags_.end(); ++tItr){
-    if(puJetIdTags.existsAs<std::vector<std::string> >(*tItr))
-      puJetIdCollectionTags_[*tItr] = puJetIdTags.getParameter<std::vector<std::string> >(*tItr);
+  /*
+    Get tags for MVA-based electron ID.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> pair of tags].
+  */
+  edm::ParameterSet const& electronMVAIdTags(iConfig.getParameterSet("electronMVAIdTags"));
+  for(VString::iterator tItr(electronCollectionTags_.begin()); tItr != electronCollectionTags_.end(); ++tItr){
+    if(!electronMVAIdTags.existsAs<edm::ParameterSet>(*tItr)) continue;
+    edm::ParameterSet const& tagsPSet(electronMVAIdTags.getParameterSet(*tItr));
+
+    std::pair<std::string, std::string>& tagPair(electronMVAIdTags_[*tItr]);
+
+    tagPair.first = tagsPSet.getParameter<std::string>("triggering");
+    tagPair.second = tagsPSet.getParameter<std::string>("nonTriggering");
   }
 
+  /*
+    Get tags for b-tagging discriminators for PFJet collections.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> VString of tags].
+   */
+  edm::ParameterSet const& bTagCollectionTags(iConfig.getParameterSet("bTagCollectionTags"));
+  for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
+    if(!bTagCollectionTags.existsAs<edm::ParameterSet>(*jItr)) continue;
+    edm::ParameterSet const& tagsPSet(bTagCollectionTags.getParameterSet(*jItr));
+
+    VString& tags(bTagCollectionTags_[*jItr]);
+    tags.resize(susy::nBTagDiscriminators);
+
+    tags[susy::kTCHE] = tagsPSet.getParameter<std::string>("TrackCountingHighEff");
+    tags[susy::kTCHP] = tagsPSet.getParameter<std::string>("TrackCountingHighPur");
+    tags[susy::kJP] = tagsPSet.getParameter<std::string>("JetProbability");
+    tags[susy::kJBP] = tagsPSet.getParameter<std::string>("JetBProbability");
+    tags[susy::kSSV] = tagsPSet.getParameter<std::string>("SimpleSecondaryVertex");
+    tags[susy::kCSV] = tagsPSet.getParameter<std::string>("CombinedSecondaryVertex");
+    tags[susy::kCSVMVA] = tagsPSet.getParameter<std::string>("CombinedSecondaryVertexMVA");
+    tags[susy::kSE] = tagsPSet.getParameter<std::string>("SoftElectron");
+    tags[susy::kSM] = tagsPSet.getParameter<std::string>("SoftMuon");
+  }
+
+  /*
+    Get tags for jet-parton matching for PFJet collections.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> pair of tags].
+   */
+  edm::ParameterSet const& jetFlavourMatchingTags(iConfig.getParameterSet("jetFlavourMatchingTags"));
+  for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
+    if(!jetFlavourMatchingTags.existsAs<edm::ParameterSet>(*jItr)) continue;
+    edm::ParameterSet const& tagsPSet(jetFlavourMatchingTags.getParameterSet(*jItr));
+
+    std::pair<std::string, std::string>& tagPair(jetFlavourMatchingTags_[*jItr]);
+
+    tagPair.first = tagsPSet.getParameter<std::string>("alg");
+    tagPair.second = tagsPSet.getParameter<std::string>("phy");
+  }
+
+  /*
+    Get tags for pileup jet ID for PFJet collections.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> VString of tags].
+   */
+  edm::ParameterSet const& puJetIdConfigs(iConfig.getParameterSet("puJetId"));
+  for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
+    if(!puJetIdConfigs.existsAs<edm::ParameterSet>(*jItr)) continue;
+    edm::ParameterSet const& idConfig(puJetIdConfigs.getParameterSet(*jItr));
+    std::string tag(idConfig.getParameter<std::string>("tag"));
+    VString algos(idConfig.getParameter<VString>("algorithms"));
+
+    VString& collectionTags(puJetIdCollectionTags_[*jItr]);
+    collectionTags.resize(susy::nPUJetIdAlgorithms);
+
+    for(unsigned iA(0); iA != algos.size(); ++iA){
+      if(algos[iA] == "full") collectionTags[susy::kPUJetIdFull] = tag + ":full";
+      else if(algos[iA] == "cutbased") collectionTags[susy::kPUJetIdCutBased] = tag + ":cutbased";
+      else if(algos[iA] == "simple") collectionTags[susy::kPUJetIdSimple] = tag + ":simple";
+    }
+  }
+
+  /*
+    Open the output file.
+   */
   TString outputFileName(iConfig.getParameter<std::string>("outputFileName"));
 
   TFile* outF(TFile::Open(outputFileName, "RECREATE"));
@@ -448,11 +497,57 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     throw cms::Exception("IOError") << "Cannot create file " << outputFileName;
 
   outF->cd();    
-  susyEvent_ = new susy::Event;
   susyTree_ = new TTree("susyTree", "SUSY Event");
-  susyTree_->Branch("susyEvent", "susy::Event", &susyEvent_);
   susyTree_->SetAutoSave(10000000); // 10M events
 
+  /*
+    Construct an Event object and tell it what collections it should expect.
+    The character ':' in the collection tags need to be replaced with '_'.
+    Also for jet collections, we historically have the convention to strip off the
+    "CaloJets" and "PFJets" from the collection name.
+   */
+  susyEvent_ = new susy::Event;
+
+  for(VString::iterator tItr(metCollectionTags_.begin()); tItr != metCollectionTags_.end(); ++tItr)
+    susyEvent_->metMap[TString(*tItr).ReplaceAll(":", "_")] = susy::MET();
+  for(VString::iterator tItr(muonCollectionTags_.begin()); tItr != muonCollectionTags_.end(); ++tItr)
+    susyEvent_->muons[TString(*tItr).ReplaceAll(":", "_")] = susy::MuonCollection();
+  for(VString::iterator tItr(electronCollectionTags_.begin()); tItr != electronCollectionTags_.end(); ++tItr)
+    susyEvent_->electrons[TString(*tItr).ReplaceAll(":", "_")] = susy::ElectronCollection();
+  for(VString::iterator tItr(photonCollectionTags_.begin()); tItr != photonCollectionTags_.end(); ++tItr)
+    susyEvent_->photons[TString(*tItr).ReplaceAll(":", "_")] = susy::PhotonCollection();
+  for(VString::iterator tItr(caloJetCollectionTags_.begin()); tItr != caloJetCollectionTags_.end(); ++tItr){
+    TString key(*tItr);
+    key.ReplaceAll("CaloJets", "");
+    susyEvent_->caloJets[key] = susy::CaloJetCollection();
+  }
+  for(VString::iterator tItr(pfJetCollectionTags_.begin()); tItr != pfJetCollectionTags_.end(); ++tItr){
+    TString key(*tItr);
+    key.ReplaceAll("PF", "");
+    key.ReplaceAll("Jets", "");
+    susyEvent_->pfJets[key] = susy::PFJetCollection();
+  }
+  for(VString::iterator tItr(jptJetCollectionTags_.begin()); tItr != jptJetCollectionTags_.end(); ++tItr)
+    susyEvent_->jptJets[TString(*tItr).ReplaceAll(":", "_")] = susy::JPTJetCollection();
+
+  /*
+    Get the list of gridParams to be stored.
+    By its nature, any addition of the gridParams will require modifying the function fillGenInfo and
+    recompiling the code. In addition, the use must specify, as a VString in the python configuration,
+    what the names of the parameters are.
+   */
+  VString gridParamsList(iConfig.getParameter<VString>("gridParams"));
+  for(VString::iterator pItr(gridParamsList.begin()); pItr != gridParamsList.end(); ++pItr)
+    susyEvent_->gridParams[*pItr] = 0.;
+
+  /*
+    Pass the output tree to the Event object for branch bookings.
+   */
+  susyEvent_->bindTree(*susyTree_, kFALSE);
+
+  /*
+    Create a trigger tree if configured.
+   */
   if(storeTriggerEvents_){
     TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
 
@@ -507,28 +602,58 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "beginRun";
 
-  try{
-    if(storeL1Info_)
-      l1GtUtils_->getL1GtRunCache(iRun, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
+  if(storeL1Info_){
+    l1GtUtils_->getL1GtRunCache(iRun, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
 
-    if(storeHLTInfo_){
-      //intialize HLTConfigProvider
-      bool menuChanged;
-      if(!hltConfig_->init(iRun, _eventSetup, "HLT", menuChanged))
-        throw cms::Exception("RuntimeError") << "HLTConfigProvider::init() returned non 0";
+    TString currentConfig(l1GtUtils_->l1TriggerMenu());
+    currentConfig.Remove(currentConfig.Last('/'));
+    currentConfig.ReplaceAll("/", "_");
+    currentConfig.ReplaceAll(".", "_");
+    if(currentConfig != susyEvent_->l1Map.currentConfig){
+      susyEvent_->l1Map.currentConfig = currentConfig;
+      if(!susyEvent_->l1Map.menuExists(currentConfig)){
+        int err(0);
+        L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
+        if(err != 0)
+          throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
 
-      if(menuChanged) edm::LogInfo(name()) << "beginRun: HLT configuration changed to " << hltConfig_->tableName();
-    }
+        VString paths;
+        AlgorithmMap const& l1GtAlgorithms(menu->gtAlgorithmMap());
+        for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo)
+          paths.push_back(iAlgo->second.algoName());
 
-    if(photonCollectionTags_.size() != 0){
-      // initialize Photon SC energy MVA regression
-      // EventSetup is not used if the third argument is false
-      scEnergyCorrector_.Initialize(_eventSetup, photonSCRegressionWeights_, false);
+        susyEvent_->setTriggerTable(currentConfig, paths, false);
+      }
     }
   }
-  catch(...){
-    finalize();
-    throw;
+
+  if(storeHLTInfo_){
+    //intialize HLTConfigProvider
+    bool menuChanged(false);
+    if(!hltConfig_->init(iRun, _eventSetup, "HLT", menuChanged))
+      throw cms::Exception("RuntimeError") << "HLTConfigProvider::init() returned non 0";
+
+    if(menuChanged){
+      edm::LogInfo(name()) << "beginRun: HLT configuration changed to " << hltConfig_->tableName();
+
+      TString currentConfig(hltConfig_->tableName());
+      currentConfig.ReplaceAll("/online/collisions/", "");
+      currentConfig.ReplaceAll("/cdaq/physics/", "");
+      currentConfig.Remove(currentConfig.Index("/HLT"));
+      currentConfig.ReplaceAll("/", "_");
+      currentConfig.ReplaceAll(".", "_");
+
+      susyEvent_->hltMap.currentConfig = currentConfig;
+      if(!susyEvent_->hltMap.menuExists(currentConfig)){
+        susyEvent_->setTriggerTable(currentConfig, hltConfig_->triggerNames());
+      }
+    }
+  }
+
+  if(photonCollectionTags_.size() != 0){
+    // initialize Photon SC energy MVA regression
+    // EventSetup is not used if the third argument is false
+    scEnergyCorrector_.Initialize(_eventSetup, photonSCRegressionWeights_, false);
   }
 }
 
@@ -539,110 +664,65 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& _eventSe
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze";
 
-  // Event processing is in one big try block to exit gracefully in case of exception
-  try{
+  /*
+    Framework will guarantee that the destructor will be called in case of exceptions.
+    There is no need to try-catch in the individual filler functions.
+  */
 
-    if(recoMode_) {
-      if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: setup track extrapolation tools";
+  // reset map from RECO objects to susy objects
+  productStore_.clear();
 
-      edm::ESHandle<MagneticField> fieldHndl;
-      edm::ESHandle<TransientTrackBuilder> builderHndl;
-      _eventSetup.get<IdealMagneticFieldRecord>().get(fieldHndl);
-      _eventSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builderHndl);
+  // initialize susyEvent object
+  susyEvent_->Init();
 
-      propagator_ = new PropagatorWithMaterial(alongMomentum, 0.000511, fieldHndl.product());
-      transientTrackBuilder_ = builderHndl.product();
-    }
+  if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill event info" << std::endl;
 
-    if(!_event.isRealData() && storePFJetPartonMatches_){
-      if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill ak5pf jet parton matches";
+  susyEvent_->isRealData = _event.isRealData() ? 1 : 0;
+  susyEvent_->runNumber = _event.id().run();
+  susyEvent_->eventNumber = _event.id().event();
+  susyEvent_->luminosityBlockNumber = _event.luminosityBlock();
+  susyEvent_->bunchCrossing = _event.bunchCrossing();
 
-      physicsDefinitionMatches.clear();
-      algorithmicDefinitionMatches.clear();
+  if(debugLevel_ > 1) edm::LogInfo(name()) << "analyze: run " << _event.id().run()
+                                           << ", event " << _event.id().event()
+                                           << ", isRealData " << _event.isRealData()
+                                           << ", lumiBlock " << _event.luminosityBlock();
 
-      edm::Handle<reco::JetMatchedPartonsCollection> matchCollH;
-      _event.getByLabel("flavourByRef", matchCollH);
+  fillLumiSummary(_event, _eventSetup);
 
-      for(reco::JetMatchedPartonsCollection::const_iterator p = matchCollH->begin(); p != matchCollH->end(); p++) {
-        const reco::Jet *aJet = (*p).first.get();
-        const reco::MatchedPartons aMatch = (*p).second;
+  fillBeamSpot(_event, _eventSetup);
 
-        const reco::GenParticleRef thePhyDef = aMatch.physicsDefinitionParton();
-        if(thePhyDef.isNonnull()) {
-          physicsDefinitionMatches.push_back( make_pair(*aJet, (int)(thePhyDef.get()->pdgId())) );
-        }
+  fillRhos(_event, _eventSetup);
 
-        const reco::GenParticleRef theAlgDef = aMatch.algoDefinitionParton();
-        if(theAlgDef.isNonnull()) {
-          algorithmicDefinitionMatches.push_back( make_pair(*aJet, (int)(theAlgDef.get()->pdgId())) );
-        }
-      }
-    } // if !isRealData
+  fillTriggerMaps(_event, _eventSetup);
 
-    // reset map from RECO objects to susy objects
-    productStore_.clear();
+  fillGeneralTracks(_event, _eventSetup);
 
-    // initialize susyEvent object
-    susyEvent_->Init();
+  fillMetFilters(_event, _eventSetup);
 
-    if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill event info" << std::endl;
+  fillMet(_event, _eventSetup);
 
-    susyEvent_->isRealData = _event.isRealData() ? 1 : 0;
-    susyEvent_->runNumber = _event.id().run();
-    susyEvent_->eventNumber = _event.id().event();
-    susyEvent_->luminosityBlockNumber = _event.luminosityBlock();
-    susyEvent_->bunchCrossing = _event.bunchCrossing();
+  fillPhotons(_event, _eventSetup);
 
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "analyze: run " << _event.id().run()
-                                             << ", event " << _event.id().event()
-                                             << ", isRealData " << _event.isRealData()
-                                             << ", lumiBlock " << _event.luminosityBlock();
+  fillElectrons(_event, _eventSetup);
 
-    fillLumiSummary(_event, _eventSetup);
+  fillMuons(_event, _eventSetup);
 
-    fillBeamSpot(_event, _eventSetup);
+  fillCaloJets(_event, _eventSetup);
 
-    fillRhos(_event, _eventSetup);
+  fillPFJets(_event, _eventSetup);
 
-    fillTriggerMaps(_event, _eventSetup);
+  //  fillJPTJets(_event, _eventSetup);
 
-    fillGeneralTracks(_event, _eventSetup);
+  fillPFParticles(_event, _eventSetup);
 
-    fillMetFilters(_event, _eventSetup);
+  fillVertices(_event, _eventSetup);
 
-    fillPFParticles(_event, _eventSetup);
+  fillGenInfo(_event, _eventSetup);
 
-    fillMet(_event, _eventSetup);
+  fillGenParticles(_event, _eventSetup);
 
-    fillPhotons(_event, _eventSetup);
-
-    fillElectrons(_event, _eventSetup);
-
-    fillMuons(_event, _eventSetup);
-
-    fillCaloJets(_event, _eventSetup);
-
-    fillPFJets(_event, _eventSetup);
-
-    //  fillJPTJets(_event, _eventSetup);
-
-    fillVertices(_event, _eventSetup);
-
-    fillGenInfo(_event, _eventSetup);
-
-    fillGenParticles(_event, _eventSetup);
-
-    fillTriggerEvent(_event, _eventSetup);
-
-  }
-  catch(...){
-    delete propagator_;
-    finalize();
-    throw;
-  }
-
-  delete propagator_;
-  propagator_ = 0;
+  fillTriggerEvent(_event, _eventSetup);
 
   if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze: fill tree at last";
 
@@ -715,7 +795,7 @@ SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& 
     // Get and cache L1 menu
     l1GtUtils_->getL1GtRunCache(_event, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
 
-    int err;
+    int err(0);
     L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
     if(err != 0)
       throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
@@ -755,31 +835,35 @@ SusyNtuplizer::fillTriggerMaps(edm::Event const& _event, edm::EventSetup const& 
         continue;
       }
 
-      susyEvent_->l1Map[algoName] = std::pair<Int_t, UChar_t>(prescale, UChar_t(decisionBeforeMask));
+      susyEvent_->l1Map.set(algoName, prescale, decisionBeforeMask);
     }
 
   } // L1 only if data or fullsim
 
-  if(!storeHLTInfo_) return;
+  if(storeHLTInfo_){
 
-  if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps: HLT map";
+    if(debugLevel_ > 0) edm::LogInfo(name()) << "fillTriggerMaps: HLT map";
 
-  edm::Handle<edm::TriggerResults> hltH;
-  _event.getByLabel(edm::InputTag("TriggerResults", "", "HLT"), hltH);
+    edm::Handle<edm::TriggerResults> hltH;
+    _event.getByLabel(edm::InputTag("TriggerResults", "", "HLT"), hltH);
 
-  unsigned nHlt(hltH->size());
+    unsigned nHlt(hltH->size());
 
-  edm::TriggerNames const& hltTriggerNames(_event.triggerNames(*hltH));
-  if(nHlt != hltTriggerNames.size())
-    throw cms::Exception("RuntimeError") << "TriggerPathName size mismatches !!!";
+    edm::TriggerNames const& hltTriggerNames(_event.triggerNames(*hltH));
+    if(nHlt != hltTriggerNames.size())
+      throw cms::Exception("RuntimeError") << "TriggerPathName size mismatches !!!";
 
-  // loop over hlt paths
-  for(unsigned i(0); i < nHlt; ++i){
-    int prescale(hltConfig_->prescaleValue(_event, _eventSetup, hltTriggerNames.triggerName(i)));
+    // loop over hlt paths
+    for(unsigned i(0); i != nHlt; ++i){
+      std::string const& path(hltTriggerNames.triggerName(i));
 
-    susyEvent_->hltMap[hltTriggerNames.triggerName(i)] = std::pair<Int_t, UChar_t>(prescale, UChar_t(hltH->accept(i)));
+      int prescale(hltConfig_->prescaleValue(_event, _eventSetup, path));
 
-    if(debugLevel_ > 2) edm::LogInfo(name()) << hltTriggerNames.triggerName(i) << " : " << hltH->accept(i);
+      susyEvent_->hltMap.set(path, prescale, hltH->accept(i));
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << path << " : " << hltH->accept(i);
+    }
+
   }
 }
 
@@ -794,15 +878,18 @@ SusyNtuplizer::fillVertices(edm::Event const& _event, edm::EventSetup const&)
   _event.getByLabel(edm::InputTag(vtxCollectionTag_), vtxH);
   reco::VertexCollection const& vertices(*vtxH);
 
+  VertexHigherPtSquared sumPt2Calculator;
+
   susyEvent_->vertices.resize(vertices.size());
 
   for(unsigned iV(0); iV != vertices.size(); ++iV){
     reco::Vertex const& recoVtx(vertices[iV]);
     susy::Vertex& susyVtx(susyEvent_->vertices[iV]);
 
+    susyVtx.tracksSize = recoVtx.tracksSize();
+    susyVtx.sumPt2     = sumPt2Calculator.sumPtSquared(recoVtx);
     susyVtx.chi2       = recoVtx.chi2();
     susyVtx.ndof       = recoVtx.ndof();
-    susyVtx.tracksSize = recoVtx.tracksSize();
     susyVtx.position.SetXYZ(recoVtx.x(), recoVtx.y(), recoVtx.z());
 
     if(debugLevel_ > 2) edm::LogInfo(name()) << "vtx" << iV << " : " << recoVtx.x() << ", " << recoVtx.y() << ", " << recoVtx.z();
@@ -839,24 +926,22 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMetFilters";
 
-  // names must be in the exact same order as enum susy::MetFilters
-  std::string filterNames[] = {
-    "BeamHaloSummary",
-    "HBHENoiseFilterResultProducer:HBHENoiseFilterResult",
-    "EcalDeadCellTriggerPrimitiveFilter",
-    "EcalDeadCellBoundaryEnergyFilter",
-    "hcalLaserEventFilter",
-    "trackingFailureFilter",
-    "eeBadScFilter",
-    "", // HcalLaser1012 is taken from an external list
-    "ecalLaserCorrFilter",
-    "manystripclus53X",
-    "toomanystripclus53X",
-    "logErrorTooManyClusters",
-    "eeNoiseFilter",
-    "inconsistentMuonPFCandidateFilter",
-    "greedyMuonPFCandidateFilter"
-  };
+  std::string filterNames[susy::nMetFilters];
+  filterNames[susy::kCSCBeamHalo] = "BeamHaloSummary";
+  filterNames[susy::kHcalNoise] = "HBHENoiseFilterResultProducer:HBHENoiseFilterResult";
+  filterNames[susy::kEcalDeadCellTP] = "EcalDeadCellTriggerPrimitiveFilter";
+  filterNames[susy::kEcalDeadCellBE] = "EcalDeadCellBoundaryEnergyFilter";
+  filterNames[susy::kHcalLaser] = "hcalLaserEventFilter";
+  filterNames[susy::kTrackingFailure] = "trackingFailureFilter";
+  filterNames[susy::kEEBadSC] = "eeBadScFilter";
+  filterNames[susy::kEcalLaserCorr] = "ecalLaserCorrFilter";
+  filterNames[susy::kManyStripClus53X] = "manystripclus53X";
+  filterNames[susy::kTooManyStripClus53X] = "toomanystripclus53X";
+  filterNames[susy::kLogErrorTooManyClusters] = "logErrorTooManyClusters";
+  filterNames[susy::kEERingOfFire] = "eeNoiseFilter";
+  filterNames[susy::kInconsistentMuon] = "inconsistentMuonPFCandidateFilter";
+  filterNames[susy::kGreedyMuon] = "greedyMuonPFCandidateFilter";
+  // HcalLaser1012 is taken from an external list
 
   std::set<unsigned> notForFastSim;
   notForFastSim.insert(susy::kHcalNoise);
@@ -909,16 +994,27 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
   edm::Handle<reco::PFCandidateCollection> pfH;
   _event.getByLabel(edm::InputTag(pfCandidateCollectionTag_), pfH);
 
+  edm::Handle<reco::PFCandidateCollection> pfPUH;
+  _event.getByLabel(edm::InputTag(pfPUCandidatesTag_), pfPUH);
+
   if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFParticles: size of PFCandidateCollection = " << pfH->size();
 
-  unsigned iPart(0);
+  unsigned long iPart(0);
   for(reco::PFCandidateCollection::const_iterator pItr(pfH->begin()); pItr != pfH->end(); ++pItr, ++iPart){
     if(pItr->pt() < pfParticleThreshold_) continue;
     fillPFParticle(reco::PFCandidatePtr(pfH, iPart));
 
     if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << pItr->energy() << ", "
                                              << pItr->px() << ", " << pItr->py() << ", " << pItr->pz();
-  } // for
+  }
+
+  std::set<unsigned long> puKeys;
+
+  for(reco::PFCandidateCollection::const_iterator puItr(pfPUH->begin()); puItr != pfPUH->end(); ++puItr)
+    puKeys.insert(puItr->sourceCandidatePtr(0).key());
+
+  for(PFCandidateStore::iterator sItr(productStore_.pfCandidates.begin()); sItr != productStore_.pfCandidates.end(); ++sItr)
+    if(puKeys.find(sItr->first.key()) != puKeys.end()) susyEvent_->pfParticles[sItr->second].isPU = kTRUE;
 }
 
 void
@@ -928,10 +1024,16 @@ SusyNtuplizer::fillGenInfo(edm::Event const& _event, edm::EventSetup const&)
 
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGenInfo";
 
-  // event weighting variables, for example ptHat
+  /*
+    Filling gridParams. The user has to modify this part for any additional parameter,
+    and give its name in the VString of gridParams in the python configuration.
+   */
+  /*--------------*/
   edm::Handle<GenEventInfoProduct> GenEventInfoHandle;
   if(_event.getByLabel("generator", GenEventInfoHandle) && GenEventInfoHandle->binningValues().size() > 0)
     susyEvent_->gridParams["ptHat"] = GenEventInfoHandle->binningValues()[0];
+
+  /*--------------*/
 
   //get PU summary info
   edm::Handle<std::vector<PileupSummaryInfo> > pPUSummaryInfo;
@@ -1222,16 +1324,13 @@ SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
   for(unsigned iCol(0); iCol != metCollectionTags_.size(); ++iCol){
     std::string& colName(metCollectionTags_[iCol]);
 
-    // skip genMet if real data
-    if(colName.find("gen") != std::string::npos && _event.isRealData()) continue;
-
     edm::Handle<edm::View<reco::MET> > metH;
     _event.getByLabel(edm::InputTag(colName), metH);
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMet: size of MET coll " << colName << " = " << metH->size();
 
     reco::MET const& recoMet(*(metH->begin()));
-    susy::MET& susyMet(susyEvent_->metMap[colName]);
+    susy::MET& susyMet(susyEvent_->metMap.find(TString(colName).ReplaceAll(":", "_"))->second);
 
     susyMet.mEt.Set(recoMet.p4().px(),recoMet.p4().py());
     susyMet.sumEt = recoMet.sumEt();
@@ -1240,22 +1339,6 @@ SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
     if(debugLevel_ > 2) edm::LogInfo(name()) << "met, metX, metY, sumEt, significance : "
                                              << susyMet.mEt.Mod() << ", " << susyMet.mEt.X() << ", " << susyMet.mEt.Y() << ", "
                                              << susyMet.sumEt << ", " << susyMet.significance;
-
-    unsigned nCorr(recoMet.mEtCorr().size());
-    susyMet.mEtCorr.resize(nCorr);
-
-    for(unsigned i(0); i < nCorr; ++i){
-      susy::CorrMETData& corr(susyMet.mEtCorr[i]);
-
-      corr.dmEx          = recoMet.dmEx()[i];
-      corr.dmEy          = recoMet.dmEy()[i];
-      corr.dsumEt        = recoMet.dsumEt()[i];
-      corr.dSignificance = recoMet.dSignificance()[i];
-
-      if(debugLevel_ > 2) edm::LogInfo(name()) << "dmEx, dmEy, dsumEt, dSignificance : "
-                                               << corr.dmEx << ", " << corr.dmEy << ", "
-                                               << corr.dsumEt << ", " << corr.dSignificance;
-    }//for
   }
 }
 
@@ -1287,7 +1370,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
   _event.getByLabel("gsfElectrons", hVetoElectrons);
 
   edm::Handle<reco::PFCandidateCollection> pfH;
-  _event.getByLabel("particleFlow", pfH);
+  _event.getByLabel(pfCandidateCollectionTag_, pfH);
 
   edm::Handle<reco::VertexCollection> vtxH;
   _event.getByLabel(edm::InputTag(vtxCollectionTag_), vtxH);
@@ -1313,16 +1396,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
     _event.getByLabel(edm::InputTag(collectionTag), photonH);
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPhotons: size of PhotonCollection " << collectionTag << " = " << photonH->size();
 
-    std::vector<std::string>& idCollectionTags(photonIdCollectionTags_[collectionTag]);
-    unsigned nPhoIdC(idCollectionTags.size());
-    std::vector<edm::ValueMap<bool> const*> phoIds;
-    for(unsigned j(0); j != nPhoIdC; ++j){
-      edm::Handle<edm::ValueMap<bool> > phoIdCH;
-      _event.getByLabel(edm::InputTag(idCollectionTags[j]), phoIdCH);
-      phoIds.push_back(phoIdCH.product());
-    }
-
-    std::vector<std::string>& isoDepTags(photonIsoDepTags_[collectionTag]);
+    VString& isoDepTags(photonIsoDepTags_[collectionTag]);
     edm::ValueMap<double> const* chIsoMap(0);
     edm::ValueMap<double> const* nhIsoMap(0);
     edm::ValueMap<double> const* phIsoMap(0);
@@ -1331,16 +1405,16 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       edm::Handle<edm::ValueMap<double> > nhIsoH;
       edm::Handle<edm::ValueMap<double> > phIsoH;
 
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kChargedHadron]), chIsoH);
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kNeutralHadron]), nhIsoH);
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kPhoton]), phIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[0]), chIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[1]), nhIsoH);
+      _event.getByLabel(edm::InputTag(isoDepTags[2]), phIsoH);
 
       chIsoMap = chIsoH.product();
       nhIsoMap = nhIsoH.product();
       phIsoMap = phIsoH.product();
     }
 
-    susy::PhotonCollection& susyCollection(susyEvent_->photons[collectionTag]);
+    susy::PhotonCollection& susyCollection(susyEvent_->photons.find(TString(collectionTag).ReplaceAll(":", "_"))->second);
 
     int ipho = 0;
     for(reco::PhotonCollection::const_iterator it = photonH->begin(); it != photonH->end(); ++it, ++ipho){
@@ -1493,21 +1567,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
 
       }
 
-      // Photon Id
-      for(unsigned k(0); k != nPhoIdC; ++k){
-        try{
-          pho.idPairs[idCollectionTags[k]] = (*phoIds[k])[phoRef];
-        }
-        catch(cms::Exception& e){
-          if(e.category() == "InvalidReference")
-            edm::LogWarning("InvalidReference") << "Photon Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << ipho;
-          else
-            throw;
-        }
-      }
-
       pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
-      pho.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
       pho.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
       // store seed timing information
@@ -1558,34 +1618,34 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillElectrons: size of ElectronCollection " << collectionTag << " = " << electronH->size();
 
-    std::vector<std::string>& idCollectionTags(electronIdCollectionTags_[collectionTag]);
-    unsigned nEleIdC(idCollectionTags.size());
-    std::vector<edm::ValueMap<float> const*> eleIds;
-    for(unsigned j(0); j != nEleIdC; ++j){
-      edm::Handle<edm::ValueMap<float> > eleIdCH;
-      _event.getByLabel(edm::InputTag(idCollectionTags[j]), eleIdCH);
-      eleIds.push_back(eleIdCH.product());
-    }
-
-    std::vector<std::string>& isoDepTags(electronIsoDepTags_[collectionTag]);
+    VString& isoDepTags(electronIsoDepTags_[collectionTag]);
     edm::ValueMap<double> const* chIsoMap(0);
     edm::ValueMap<double> const* nhIsoMap(0);
     edm::ValueMap<double> const* phIsoMap(0);
     if(isoDepTags.size() != 0){
-      edm::Handle<edm::ValueMap<double> > chIsoH;
-      edm::Handle<edm::ValueMap<double> > nhIsoH;
-      edm::Handle<edm::ValueMap<double> > phIsoH;
+      edm::Handle<edm::ValueMap<double> > vmH;
 
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kChargedHadron]), chIsoH);
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kNeutralHadron]), nhIsoH);
-      _event.getByLabel(edm::InputTag(isoDepTags[susy::kPhoton]), phIsoH);
-
-      chIsoMap = chIsoH.product();
-      nhIsoMap = nhIsoH.product();
-      phIsoMap = phIsoH.product();
+      _event.getByLabel(edm::InputTag(isoDepTags[0]), vmH);
+      chIsoMap = vmH.product();
+      _event.getByLabel(edm::InputTag(isoDepTags[1]), vmH);
+      nhIsoMap = vmH.product();
+      _event.getByLabel(edm::InputTag(isoDepTags[2]), vmH);
+      phIsoMap = vmH.product();
     }
 
-    susy::ElectronCollection& susyCollection(susyEvent_->electrons[collectionTag]);
+    edm::ValueMap<float> const* mvaTrigMap(0);
+    edm::ValueMap<float> const* mvaNonTrigMap(0);
+    if(electronMVAIdTags_.find(collectionTag) != electronMVAIdTags_.end()){
+      edm::Handle<edm::ValueMap<float> > vmH;
+      std::pair<std::string, std::string>& tags(electronMVAIdTags_[collectionTag]);
+
+      _event.getByLabel(edm::InputTag(tags.first), vmH);
+      mvaTrigMap = vmH.product();
+      _event.getByLabel(edm::InputTag(tags.second), vmH);
+      mvaNonTrigMap = vmH.product();
+    }
+
+    susy::ElectronCollection& susyCollection(susyEvent_->electrons.find(TString(collectionTag).ReplaceAll(":", "_"))->second);
 
     int iele = 0;
     for(reco::GsfElectronCollection::const_iterator it = electronH->begin(); it != electronH->end(); ++it, ++iele){
@@ -1633,18 +1693,18 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       ele.deltaPhiSeedClusterTrackAtCalo = it->deltaPhiSeedClusterTrackAtCalo();
       ele.deltaPhiEleClusterTrackAtCalo  = it->deltaPhiEleClusterTrackAtCalo();
 
-      ele.trackPositions["AtVtx"] = TVector3(it->trackPositionAtVtx().X(),it->trackPositionAtVtx().Y(),it->trackPositionAtVtx().Z());
-      ele.trackPositions["AtCalo"] = TVector3(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
-      ele.trackMomentums["AtVtx"] = TLorentzVector(it->trackMomentumAtVtx().X(),it->trackMomentumAtVtx().Y(),
-                                                   it->trackMomentumAtVtx().Z(),it->trackMomentumAtVtx().R());
-      ele.trackMomentums["AtCalo"] = TLorentzVector(it->trackMomentumAtCalo().X(),it->trackMomentumAtCalo().Y(),
-                                                    it->trackMomentumAtCalo().Z(),it->trackMomentumAtCalo().R());
-      ele.trackMomentums["Out"] = TLorentzVector(it->trackMomentumOut().X(),it->trackMomentumOut().Y(),
-                                                 it->trackMomentumOut().Z(),it->trackMomentumOut().R());
-      ele.trackMomentums["AtEleClus"] = TLorentzVector(it->trackMomentumAtEleClus().X(),it->trackMomentumAtEleClus().Y(),
-                                                       it->trackMomentumAtEleClus().Z(),it->trackMomentumAtEleClus().R());
-      ele.trackMomentums["AtVtxWithConstraint"] = TLorentzVector(it->trackMomentumAtVtxWithConstraint().X(),it->trackMomentumAtVtxWithConstraint().Y(),
-                                                                 it->trackMomentumAtVtxWithConstraint().Z(),it->trackMomentumAtVtxWithConstraint().R());
+      ele.trackPositionAtVtx.SetXYZ(it->trackPositionAtVtx().X(),it->trackPositionAtVtx().Y(),it->trackPositionAtVtx().Z());
+      ele.trackPositionAtCalo.SetXYZ(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
+      ele.trackMomentumAtVtx.SetXYZT(it->trackMomentumAtVtx().X(),it->trackMomentumAtVtx().Y(),
+                                     it->trackMomentumAtVtx().Z(),it->trackMomentumAtVtx().R());
+      ele.trackMomentumAtCalo.SetXYZT(it->trackMomentumAtCalo().X(),it->trackMomentumAtCalo().Y(),
+                                      it->trackMomentumAtCalo().Z(),it->trackMomentumAtCalo().R());
+      ele.trackMomentumOut.SetXYZT(it->trackMomentumOut().X(),it->trackMomentumOut().Y(),
+                                   it->trackMomentumOut().Z(),it->trackMomentumOut().R());
+      ele.trackMomentumAtEleClus.SetXYZT(it->trackMomentumAtEleClus().X(),it->trackMomentumAtEleClus().Y(),
+                                         it->trackMomentumAtEleClus().Z(),it->trackMomentumAtEleClus().R());
+      ele.trackMomentumAtVtxWithConstraint.SetXYZT(it->trackMomentumAtVtxWithConstraint().X(),it->trackMomentumAtVtxWithConstraint().Y(),
+                                                   it->trackMomentumAtVtxWithConstraint().Z(),it->trackMomentumAtVtxWithConstraint().R());
 
       ele.shFracInnerHits = it->shFracInnerHits();
 
@@ -1714,6 +1774,10 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
         ele.mva        = it->mvaOutput().mva;
       }
 
+      // InvalidReference implies a misconfiguration - throw
+      if(mvaTrigMap) ele.mvaTrig    = (*mvaTrigMap)[eleRef];
+      if(mvaNonTrigMap) ele.mvaNonTrig = (*mvaNonTrigMap)[eleRef];
+
       //enum Classification { UNKNOWN=-1, GOLDEN=0, BIGBREM=1, OLDNARROW=2, SHOWERING=3, GAP=4 } ;
       ele.bremClass                         = char(it->classification());
       ele.fbrem                             = it->fbrem();
@@ -1727,23 +1791,6 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
 
       ele.closestCtfTrackIndex = fillTrack(it->closestCtfTrackRef());
       ele.gsfTrackIndex        = fillGsfTrack(it->gsfTrack());
-
-      if(ele.gsfTrackIndex != -1){
-        susy::Track& track(susyEvent_->tracks[ele.gsfTrackIndex]);
-        track.extrapolatedPositions["ECALInnerWall"].SetXYZ(it->trackPositionAtCalo().X(),it->trackPositionAtCalo().Y(),it->trackPositionAtCalo().Z());
-      }
-
-      for(unsigned k(0); k != nEleIdC; ++k){
-        try{
-          ele.idPairs[idCollectionTags[k]] = (*eleIds[k])[eleRef];
-        }
-        catch(cms::Exception& e){
-          if(e.category() == "InvalidReference")
-            edm::LogWarning("InvalidReference") << "Electron Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << iele;
-          else
-            throw;
-        }
-      }
 
       susyCollection.push_back(ele);
 
@@ -1770,16 +1817,7 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMuons: size of MuonCollection " << collectionTag << " = " << muonH->size();
 
-    std::vector<std::string>& idCollectionTags(muonIdCollectionTags_[collectionTag]);
-    unsigned nMuIdC(idCollectionTags.size());
-    std::vector<edm::ValueMap<bool> const*> muIds;
-    for(unsigned i(0); i < nMuIdC; ++i){
-      edm::Handle<edm::ValueMap<bool> > muIdCH;
-      _event.getByLabel(edm::InputTag(idCollectionTags[i]), muIdCH);
-      muIds.push_back(muIdCH.product());
-    }
-
-    susy::MuonCollection& susyCollection(susyEvent_->muons[collectionTag]);
+    susy::MuonCollection& susyCollection(susyEvent_->muons.find(TString(collectionTag).ReplaceAll(":", "_"))->second);
 
     int imu = 0;
     for(reco::MuonCollection::const_iterator it = muonH->begin(); it != muonH->end(); ++it, ++imu){
@@ -1790,12 +1828,33 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
 
       susy::Muon mu;
 
+      Short_t* trackIndices[] = {
+        &mu.trackIndex, &mu.standAloneTrackIndex, &mu.combinedTrackIndex,
+        &mu.tpfmsTrackIndex, &mu.pickyTrackIndex, &mu.dytTrackIndex
+      };
+
+      reco::Muon::MuonTrackType trackTypes[] = {
+        reco::Muon::InnerTrack, reco::Muon::OuterTrack, reco::Muon::CombinedTrack,
+        reco::Muon::TPFMS, reco::Muon::Picky, reco::Muon::DYT
+      };
+
       mu.type                               = it->type();
       mu.bestTrackType                      = it->muonBestTrackType();
-      mu.caloCompatibility                  = it->caloCompatibility();
+      // SWGuideMuonId#HighPT_Muon
+      mu.highPtBestTrackType                = it->innerTrack().isNonnull() ? muon::tevOptimized(*it, 200., 17., 40., 0.25).second : 0;
+
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationLoose) ? (0x1 << 0) : 0;
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationTight) ? (0x1 << 1) : 0;
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMOneStationLoose) ? (0x1 << 2) : 0;
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMOneStationTight) ? (0x1 << 3) : 0;
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationOptimizedLowPtLoose) ? (0x1 << 4) : 0;
+      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationOptimizedLowPtTight) ? (0x1 << 5) : 0;
+
       mu.nMatches                           = it->numberOfMatches();
-      mu.nChambers                          = it->numberOfChambers();
+      mu.stationMask                        = it->stationMask();
       mu.nMatchedStations                   = it->numberOfMatchedStations();
+      mu.nChambers                          = it->numberOfChambers();
+
       if(it->combinedMuon().isNonnull()){
         reco::TrackRef combRef(it->combinedMuon());
         mu.nValidHits                         = combRef->hitPattern().numberOfValidHits();
@@ -1804,6 +1863,22 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
         mu.nPixelLayersWithMeasurement        = combRef->hitPattern().pixelLayersWithMeasurement();
         mu.nStripLayersWithMeasurement        = combRef->hitPattern().stripLayersWithMeasurement();
       }
+
+      if(it->isTimeValid()){
+        mu.timeNDof                         = it->time().nDof;
+        mu.timeDirection                    = Int_t(it->time().direction());
+        if(it->time().direction() == reco::MuonTime::OutsideIn){
+          mu.timeAtIp                       = it->time().timeAtIpOutIn;
+          mu.timeAtIpError                  = it->time().timeAtIpOutInErr;
+        }
+        else if(it->time().direction() == reco::MuonTime::InsideOut){
+          mu.timeAtIp                       = it->time().timeAtIpInOut;
+          mu.timeAtIpError                  = it->time().timeAtIpInOutErr;
+        }
+      }
+
+      mu.caloCompatibility                  = it->caloCompatibility();
+      mu.segmentCompatibility               = muon::segmentCompatibility(*it);
 
       reco::MuonEnergy muEnergy(it->calEnergy());
       mu.emEnergy                           = muEnergy.em;
@@ -1832,29 +1907,6 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
       mu.sumPhotonEtHighThreshold04         = it->pfIsolationR04().sumPhotonEtHighThreshold;
       mu.sumPUPt04                          = it->pfIsolationR04().sumPUPt;
 
-      if(it->isTimeValid()){
-        mu.timeNDof                         = it->time().nDof;
-        mu.timeDirection                    = Int_t(it->time().direction());
-        if(it->time().direction() == reco::MuonTime::OutsideIn){
-          mu.timeAtIp                       = it->time().timeAtIpOutIn;
-          mu.timeAtIpError                  = it->time().timeAtIpOutInErr;
-        }
-        else if(it->time().direction() == reco::MuonTime::InsideOut){
-          mu.timeAtIp                       = it->time().timeAtIpInOut;
-          mu.timeAtIpError                  = it->time().timeAtIpInOutErr;
-        }
-      }
-
-      Short_t* trackIndices[] = {
-        &mu.trackIndex, &mu.standAloneTrackIndex, &mu.combinedTrackIndex,
-        &mu.tpfmsTrackIndex, &mu.pickyTrackIndex, &mu.dytTrackIndex
-      };
-
-      reco::Muon::MuonTrackType trackTypes[] = {
-        reco::Muon::InnerTrack, reco::Muon::OuterTrack, reco::Muon::CombinedTrack,
-        reco::Muon::TPFMS, reco::Muon::Picky, reco::Muon::DYT
-      };
-
       for(unsigned iT(0); iT != sizeof(trackTypes) / sizeof(reco::Muon::MuonTrackType); ++iT){
         reco::Muon::MuonTrackType trackType(trackTypes[iT]);
 
@@ -1862,19 +1914,12 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
           *trackIndices[iT] = fillTrack(it->muonTrack(trackType));
       }
 
-      mu.momentum.SetXYZT(it->p4().px(),it->p4().py(),it->p4().pz(),it->p4().e());
-
-      for(unsigned k(0); k < nMuIdC; ++k){
-        try{
-          mu.idPairs[idCollectionTags[k]] = (*muIds[k])[muRef];
-        }
-        catch(cms::Exception& e){
-          if(e.category() == "InvalidReference")
-            edm::LogWarning("InvalidReference") << "Muon Id " << idCollectionTags[k] << " does not exist for collection " << collectionTag << " instance " << imu;
-          else
-            throw;
-        }
+      if(it->isPFMuon()){
+        reco::Candidate::LorentzVector pfP4(it->pfP4());
+        mu.momentum.SetXYZT(pfP4.px(), pfP4.py(), pfP4.pz(), pfP4.e());
       }
+      else
+        mu.momentum.SetXYZT(it->p4().px(), it->p4().py(), it->p4().pz(), it->p4().e());
 
       susyCollection.push_back(mu);
 
@@ -1909,25 +1954,34 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _ev
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillCaloJets: size of " << collectionTag << " JetCollection = " << jetH->size();
 
-    std::string key(collectionTag);
-    std::string toReplace("CaloJets");
-    key.replace(key.find(toReplace), toReplace.size(), "");
+    TString jetAlgo(collectionTag);
+    jetAlgo.ReplaceAll("CaloJets", "");
 
-    susy::CaloJetCollection& susyCollection(susyEvent_->caloJets[key]);
+    std::string jetIdTag((jetAlgo + "JetID").Data());
+    std::string jetCorrName((jetAlgo + "Calo").Data());
+    TString jetAlgoUC(jetAlgo);
+    jetAlgoUC.ToUpper();
+    std::string jecParamsName((jetAlgoUC + "Calo").Data());
 
     edm::Handle<edm::ValueMap<reco::JetID> > jetIdH;
-    _event.getByLabel(key + "JetID", jetIdH);
+    _event.getByLabel(edm::InputTag(jetIdTag), jetIdH);
 
     JetCorrector const* corrL2L3(0);
     JetCorrector const* corrL1L2L3(0);
     if(_event.isRealData()){
-      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3Residual", _eventSetup);
-      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3Residual", _eventSetup);
+      corrL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L2L3Residual", _eventSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector(jetCorrName + "L1L2L3Residual", _eventSetup);
     }
     else{
-      corrL2L3  = JetCorrector::getJetCorrector(key + "CaloL2L3", _eventSetup);
-      corrL1L2L3  = JetCorrector::getJetCorrector(key + "CaloL1L2L3", _eventSetup);
+      corrL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L2L3", _eventSetup);
+      corrL1L2L3  = JetCorrector::getJetCorrector(jetCorrName + "L1L2L3", _eventSetup);
     }
+
+    edm::ESHandle<JetCorrectorParametersCollection> jecParamsHndl;
+    _eventSetup.get<JetCorrectionsRecord>().get(jecParamsName, jecParamsHndl);
+    JetCorrectionUncertainty jecUncert((*jecParamsHndl)["Uncertainty"]);
+
+    susy::CaloJetCollection& susyCollection(susyEvent_->caloJets.find(jetAlgo)->second);
 
     int ijet(0);
     for(reco::CaloJetCollection::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
@@ -1983,6 +2037,10 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _ev
       jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
       jet.jecScaleFactors["L1L2L3"] = l1l2l3Scale;
 
+      jecUncert.setJetEta(corrP4.Eta());
+      jecUncert.setJetPt(corrP4.Pt());
+      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+
       // accessing Jet ID information
       // InvalidReference here would imply a fatal problem in AOD - throw
       reco::JetID const& jetId((*jetIdH)[jetRef]);
@@ -2024,32 +2082,7 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
   // ak5PFJetsL2L3
   // ak5PFJetsL1FastL2L3
 
-  // If we are to have multiple PFJetCollections in the event, the following three getter blocks
-  // should be defined for each jet collection independently a la JEC.
-  // i.e. we need to prepend/append the collection name to the object labels and put the blocks
-  // inside the loop over the collection tags.
-
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillPFJets";
-
-  // Get b-tag information
-  std::vector<edm::Handle<reco::JetFloatAssociation::Container> > jetDiscriminators;
-  jetDiscriminators.resize(bTagCollectionTags_.size());
-  for(size_t i = 0; i < bTagCollectionTags_.size(); i++){
-    _event.getByLabel(edm::InputTag(bTagCollectionTags_[i]), jetDiscriminators[i]);
-  }
-
-  // Flavour matching for MC
-  reco::JetFlavourMatchingCollection const* flavMatchAlg(0);
-  reco::JetFlavourMatchingCollection const* flavMatchPhy(0);
-  if(!_event.isRealData()){
-    edm::Handle<reco::JetFlavourMatchingCollection> flavMatchH;
-
-    _event.getByLabel("flavourAssociationAlg", flavMatchH);
-    flavMatchAlg = flavMatchH.product();
-
-    _event.getByLabel("flavourAssociationPhy", flavMatchH);
-    flavMatchPhy = flavMatchH.product();
-  }
 
   edm::Handle<edm::View<reco::PFJet> > jetH;
   for(unsigned iJetC=0; iJetC < pfJetCollectionTags_.size(); iJetC++) {
@@ -2059,31 +2092,76 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFJets: size of " << collectionTag << " JetCollection : " << jetH->size();
 
-    std::string key(collectionTag);
-    std::string toReplace("PFJets");
-    key.replace(key.find(toReplace), toReplace.size(), "");
+    TString jetAlgo(collectionTag);
+    jetAlgo.Remove(jetAlgo.Index("PF")); // e.g. "ak5"
+
+    std::string jetCorrName((jetAlgo + "PF").Data());
+    TString jetAlgoUC(jetAlgo);
+    jetAlgoUC.ToUpper();
+    std::string jecParamsName((jetAlgoUC + "PF").Data());
+    TString susyColName(jetAlgo);
+    if(collectionTag.find("chs") != std::string::npos){
+      jetCorrName += "chs";
+      jecParamsName += "chs";
+      susyColName += "chs";
+    }
 
     JetCorrector const* corrL2L3(0);
     JetCorrector const* corrL1FastL2L3(0);
     if(_event.isRealData()){
-      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3Residual", _eventSetup);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3Residual", _eventSetup);
+      corrL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L2L3Residual", _eventSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L1FastL2L3Residual", _eventSetup);
     }
     else{
-      corrL2L3  = JetCorrector::getJetCorrector(key + "PFL2L3", _eventSetup);
-      corrL1FastL2L3  = JetCorrector::getJetCorrector(key + "PFL1FastL2L3", _eventSetup);
+      corrL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L2L3", _eventSetup);
+      corrL1FastL2L3  = JetCorrector::getJetCorrector(jetCorrName + "L1FastL2L3", _eventSetup);
+    }
+
+    edm::ESHandle<JetCorrectorParametersCollection> jecParamsHndl;
+    _eventSetup.get<JetCorrectionsRecord>().get(jecParamsName, jecParamsHndl);
+    JetCorrectionUncertainty jecUncert((*jecParamsHndl)["Uncertainty"]);
+
+    // Get b-tag information
+    VString& bTagTags(bTagCollectionTags_[collectionTag]);
+    reco::JetFloatAssociation::Container const* jetDiscriminators[susy::nBTagDiscriminators];
+    if(bTagTags.size() != 0){
+      for(unsigned iT(0); iT != susy::nBTagDiscriminators; ++iT){
+        edm::Handle<reco::JetFloatAssociation::Container> hndl;
+        _event.getByLabel(edm::InputTag(bTagTags[iT]), hndl);
+        jetDiscriminators[iT] = hndl.product();
+      }
+    }
+
+    // Flavour matching for MC
+    reco::JetFlavourMatchingCollection const* flavMatchAlg(0);
+    reco::JetFlavourMatchingCollection const* flavMatchPhy(0);
+    if(!_event.isRealData() && jetFlavourMatchingTags_.find(collectionTag) != jetFlavourMatchingTags_.end()){
+      edm::Handle<reco::JetFlavourMatchingCollection> flavMatchH;
+      std::pair<std::string, std::string>& tagPair(jetFlavourMatchingTags_[collectionTag]);
+
+      _event.getByLabel(edm::InputTag(tagPair.first), flavMatchH);
+      flavMatchAlg = flavMatchH.product();
+      _event.getByLabel(edm::InputTag(tagPair.second), flavMatchH);
+      flavMatchPhy = flavMatchH.product();
     }
 
     // Get Pileup Jet ID information
-    std::vector<std::string>& puJetIdTags(puJetIdCollectionTags_[collectionTag]);
-    std::vector<edm::Handle<edm::ValueMap<float> > > puJetIdMVACollections(puJetIdTags.size());
-    std::vector<edm::Handle<edm::ValueMap<int> > > puJetIdFlagCollections(puJetIdTags.size());
-    for(size_t i = 0; i < puJetIdTags.size(); i++){
-      _event.getByLabel(edm::InputTag(puJetIdTags[i] + "Discriminant"), puJetIdMVACollections[i]);
-      _event.getByLabel(edm::InputTag(puJetIdTags[i] + "Id"), puJetIdFlagCollections[i]);
+    VString& puJetIdAlgoTags(puJetIdCollectionTags_[collectionTag]);
+    edm::ValueMap<float> const* puJetIdMVAValues[susy::nPUJetIdAlgorithms];
+    edm::ValueMap<int> const* puJetIdFlags[susy::nPUJetIdAlgorithms];
+    if(puJetIdAlgoTags.size() != 0){
+      for(unsigned iA(0); iA != susy::nPUJetIdAlgorithms; ++iA){
+        if(puJetIdAlgoTags[iA] == "") continue;
+        edm::Handle<edm::ValueMap<float> > discHndl;
+        edm::Handle<edm::ValueMap<int> > idHndl;
+        _event.getByLabel(edm::InputTag(puJetIdAlgoTags[iA] + "Discriminant"), discHndl);
+        _event.getByLabel(edm::InputTag(puJetIdAlgoTags[iA] + "Id"), idHndl);
+        puJetIdMVAValues[iA] = discHndl.product();
+        puJetIdFlags[iA] = idHndl.product();
+      }
     }
 
-    susy::PFJetCollection& susyCollection(susyEvent_->pfJets[key]);
+    susy::PFJetCollection& susyCollection(susyEvent_->pfJets.find(susyColName)->second);
 
     int ijet(0);
     for(edm::View<reco::PFJet>::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
@@ -2110,11 +2188,6 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       jet.nPasses         = it->nPasses();
       jet.nConstituents   = it->nConstituents();
 
-      // cf. RecoJets/JetProducers/plugins/VirtualJetProducer.cc (where the jets are actually produced)
-      // Vertex correction is an available option for only the CaloJets. For all other jet types, vertex is always 0
-      // See also the description above on CaloJet vertices
-      jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-
       jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
       jet.chargedHadronEnergy = it->chargedHadronEnergy();
@@ -2140,17 +2213,22 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       jet.jecScaleFactors["L2L3"] = corrL2L3->correction(it->p4());
       jet.jecScaleFactors["L1FastL2L3"] = l1fastl2l3Scale;
 
+      jecUncert.setJetEta(corrP4.Eta());
+      jecUncert.setJetPt(corrP4.Pt());
+      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+
       // add btag for this jet
-      for(size_t k = 0; k < jetDiscriminators.size(); k++){
-        try{
-          float value = (*(jetDiscriminators[k]))[jetRef];
-          jet.bTagDiscriminators.push_back(value);
-        }
-        catch(cms::Exception& e){
-          if(e.category() == "InvalidReference")
-            edm::LogWarning("InvalidReference") << "Btag discriminator " << bTagCollectionTags_[k] << " does not exist for collection " << collectionTag << " instance " << ijet;
-          else
-            throw;
+      if(bTagTags.size() != 0){
+        for(unsigned iT(0); iT != susy::nBTagDiscriminators; ++iT){
+          try{
+            jet.bTagDiscriminators[iT] = (*(jetDiscriminators[iT]))[jetRef];
+          }
+          catch(cms::Exception& e){
+            if(e.category() == "InvalidReference")
+              edm::LogWarning("InvalidReference") << "Btag discriminator " << bTagTags[iT] << " does not exist for collection " << collectionTag << " instance " << ijet;
+            else
+              throw;
+          }
         }
       }
 
@@ -2164,7 +2242,7 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
         jet.pfParticleList.push_back(fillPFParticle(constituents[iC]));
 
       // if MC, add parton flavor id matches
-      if(!susyEvent_->isRealData){
+      if(!susyEvent_->isRealData && flavMatchAlg && flavMatchPhy){
         try{
           jet.algDefFlavour = (*flavMatchAlg)[jetRef].getFlavour();
           jet.phyDefFlavour = (*flavMatchPhy)[jetRef].getFlavour();
@@ -2178,18 +2256,19 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       }
 
       // add puJetId variables
-      for(size_t k = 0; k < puJetIdTags.size(); k++){
-        try{
-          float mva = (*puJetIdMVACollections[k])[jetRef];
-          int idFlag = (*puJetIdFlagCollections[k])[jetRef];
-          jet.puJetIdDiscriminants.push_back(mva);
-          jet.puJetIdFlags.push_back(idFlag);
-        }
-        catch(cms::Exception& e){
-          if(e.category() == "InvalidReference")
-            edm::LogWarning("InvalidReference") << "PU jet Id does not exist for collection " << collectionTag << " instance " << ijet;
-          else
-            throw;
+      if(puJetIdAlgoTags.size() != 0){
+        for(unsigned iA(0); iA != susy::nPUJetIdAlgorithms; ++iA){
+          if(puJetIdAlgoTags[iA] == "") continue;
+          try{
+            jet.puJetIdDiscriminants[iA] = (*puJetIdMVAValues[iA])[jetRef];
+            jet.puJetIdFlags[iA] = (*puJetIdFlags[iA])[jetRef];
+          }
+          catch(cms::Exception& e){
+            if(e.category() == "InvalidReference")
+              edm::LogWarning("InvalidReference") << "PU jet Id does not exist for collection " << collectionTag << " instance " << ijet;
+            else
+              throw;
+          }
         }
       }
 
@@ -2228,9 +2307,7 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillJPTJets: size of " << collectionTag << " JetCollection : " << jetH->size();
 
-    std::string key(collectionTag);
-
-    susy::JPTJetCollection& susyCollection(susyEvent_->jptJets[key]);
+    TString jetAlgo(collectionTag);
 
     // "Residual" corrections were commented out and no splitting was made wrt isRealData
     // Modifying assuming the usage follows the other jet collections (2013.3.29 Y.I.)
@@ -2245,6 +2322,12 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
       corrL2L3 = JetCorrector::getJetCorrector("ak5JPTL2L3", _eventSetup);
       corrL1L2L3  = JetCorrector::getJetCorrector("ak5JPTL1L2L3", _eventSetup);
     }
+
+    edm::ESHandle<JetCorrectorParametersCollection> jecParamsHndl;
+    _eventSetup.get<JetCorrectionsRecord>().get("AK5JPT", jecParamsHndl);
+    JetCorrectionUncertainty jecUncert((*jecParamsHndl)["Uncertainty"]);
+
+    susy::JPTJetCollection& susyCollection(susyEvent_->jptJets.find(jetAlgo)->second);
 
     int ijet = 0;
     for(reco::JPTJetCollection::const_iterator it = jetH->begin(); it != jetH->end(); ++it, ++ijet){
@@ -2272,11 +2355,6 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
       jet.nPasses         = it->nPasses();
       jet.nConstituents   = it->nConstituents();
 
-      // cf. RecoJets/JetProducers/plugins/VirtualJetProducer.cc (where the jets are actually produced)
-      // Vertex correction is an available option for only the CaloJets. For all other jet types, vertex is always 0
-      // See also the description above on CaloJet vertices
-      jet.vertex.SetXYZ(it->vx(),it->vy(),it->vz());
-
       jet.momentum.SetXYZT(it->px(),it->py(),it->pz(),it->energy());
 
       jet.chargedHadronEnergy = it->chargedHadronEnergy();
@@ -2290,6 +2368,10 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
 
       jet.jecScaleFactors["L2L3"] = l2l3Scale;
       jet.jecScaleFactors["L1L2L3"] = corrL1L2L3->correction(*it, reco::JetBaseRef(jetRef), _event, _eventSetup);
+
+      jecUncert.setJetEta(corrP4.Eta());
+      jecUncert.setJetPt(corrP4.Pt());
+      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
 
       susyCollection.push_back(jet);
 
@@ -2314,6 +2396,7 @@ SusyNtuplizer::fillTrack(reco::TrackRef const& _trkRef)
 
     track.charge = _trkRef->charge();
     for(int i=0; i<reco::Track::dimension; i++) track.error[i] = _trkRef->error(i);
+    track.ptError = _trkRef->ptError();
     track.momentum.SetXYZT(_trkRef->px(),_trkRef->py(),_trkRef->pz(),_trkRef->p());
   }
 
@@ -2335,6 +2418,7 @@ SusyNtuplizer::fillGsfTrack(reco::GsfTrackRef const& _trkRef)
 
     track.charge = _trkRef->chargeMode();
     for(int i=0; i<reco::GsfTrack::dimensionMode; i++) track.error[i] = _trkRef->errorMode(i);
+    track.ptError = _trkRef->ptModeError();
     track.momentum.SetXYZT(_trkRef->pxMode(),_trkRef->pyMode(),_trkRef->pzMode(),_trkRef->pMode());
   }
 
@@ -2406,10 +2490,7 @@ SusyNtuplizer::fillPFParticle(reco::PFCandidatePtr const& _partPtr)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillPFParticle";
 
-  // temporary measure (I believe pfParticles should be just a vector instead of map<TString, vector>)
-  susy::PFParticleCollection& col(susyEvent_->pfParticles[pfCandidateCollectionTag_]);
-
-  if(col.size() != productStore_.pfCandidates.size())
+  if(susyEvent_->pfParticles.size() != productStore_.pfCandidates.size())
     throw cms::Exception("RuntimeError") << "Number of buffered PFCandidates does not match the number of pfParticles in the susyEvent";
 
   if(_partPtr.isNull()) return -1;
@@ -2423,19 +2504,14 @@ SusyNtuplizer::fillPFParticle(reco::PFCandidatePtr const& _partPtr)
     pf.pdgId         = _partPtr->translateTypeToPdgId(_partPtr->particleId());
     pf.charge        = _partPtr->charge();
     pf.ecalEnergy    = _partPtr->ecalEnergy();
-    pf.rawEcalEnergy = _partPtr->rawEcalEnergy();
     pf.hcalEnergy    = _partPtr->hcalEnergy();
-    pf.rawHcalEnergy = _partPtr->rawHcalEnergy();
-    pf.pS1Energy     = _partPtr->pS1Energy();
-    pf.pS2Energy     = _partPtr->pS2Energy();
 
     pf.vertex.SetXYZ(_partPtr->vx(),_partPtr->vy(),_partPtr->vz());
-    pf.positionAtECALEntrance.SetXYZ(_partPtr->positionAtECALEntrance().x(),_partPtr->positionAtECALEntrance().y(),_partPtr->positionAtECALEntrance().z());
     pf.momentum.SetXYZT(_partPtr->px(),_partPtr->py(),_partPtr->pz(),_partPtr->energy());
 
-    col.push_back(pf);
+    susyEvent_->pfParticles.push_back(pf);
 
-    return col.size() - 1;
+    return susyEvent_->pfParticles.size() - 1;
   }
 }
 
@@ -2467,44 +2543,6 @@ SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _exis
     track.numberOfValidPixelHits   = _trkPtr->hitPattern().numberOfValidPixelHits();
     track.numberOfValidStripHits   = _trkPtr->hitPattern().numberOfValidStripHits();
     track.vertex.SetXYZ(_trkPtr->vx(),_trkPtr->vy(),_trkPtr->vz());
-
-    if(recoMode_){
-      reco::TransientTrack ttk(transientTrackBuilder_->build(*_trkPtr));
-      TrajectoryStateOnSurface const tsos(ttk.innermostMeasurementState());
-      if(tsos.isValid()){
-        float eta(tsos.globalPosition().eta());
-        std::map<TString, Surface const*> surfaces;
-
-        if(std::abs(eta) < susy::etaGap){
-          surfaces["ECALInnerWall"] = &PFGeometry::barrelBound(PFGeometry::ECALInnerWall);
-          surfaces["HCALInnerWall"] = &PFGeometry::barrelBound(PFGeometry::HCALInnerWall);
-        }
-        else if(eta > susy::etaGap && eta < susy::etaMax){
-          surfaces["ECALInnerWall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::ECALInnerWall);
-          surfaces["HCALInnerWall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::HCALInnerWall);
-          surfaces["PS1Wall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::PS1Wall);
-          surfaces["PS2Wall"] = &PFGeometry::positiveEndcapDisk(PFGeometry::PS2Wall);
-        }
-        else if(eta < -susy::etaGap && eta > -susy::etaMax){
-          surfaces["ECALInnerWall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::ECALInnerWall);
-          surfaces["HCALInnerWall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::HCALInnerWall);
-          surfaces["PS1Wall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::PS1Wall);
-          surfaces["PS2Wall"] = &PFGeometry::negativeEndcapDisk(PFGeometry::PS2Wall);
-        }
-
-        TrajectoryStateOnSurface state;
-        for(std::map<TString, Surface const*>::iterator sItr(surfaces.begin()); sItr != surfaces.end(); ++sItr){
-          Plane const* plane(dynamic_cast<Plane const*>(sItr->second));
-          if(plane)
-            state = propagator_->propagate(tsos, *plane);
-          else
-            state = propagator_->propagate(tsos, *dynamic_cast<Cylinder const*>(sItr->second));
-
-          TVector3& position(track.extrapolatedPositions[sItr->first]);
-          if(state.isValid()) position.SetXYZ(state.globalPosition().x(), state.globalPosition().y(), state.globalPosition().z());
-        }
-      }
-    }
 
     susyEvent_->tracks.push_back(track);
 
@@ -2548,6 +2586,9 @@ SusyNtuplizer::finalize()
   delete triggerEvent_;
   triggerEvent_ = 0;
 
+  delete susyEvent_;
+  susyEvent_ = 0;
+
   if(susyTree_){
     TFile* outF(susyTree_->GetCurrentFile());
 
@@ -2557,8 +2598,6 @@ SusyNtuplizer::finalize()
     susyTree_ = 0;
   }
 
-  delete susyEvent_;
-  susyEvent_ = 0;
 }
 
 //define this as a plug-in
