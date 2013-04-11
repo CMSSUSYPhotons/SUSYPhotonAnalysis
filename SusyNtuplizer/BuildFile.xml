@@ -9,37 +9,21 @@
 <use name="DataFormats/L1GlobalTrigger"/>
 <use name="DataFormats/CaloRecHit"/>
 <use name="DataFormats/METReco"/>
+<use name="DataFormats/EcalRecHit"/>
 <use name="DataFormats/EgammaReco"/>
 <use name="DataFormats/EgammaCandidates"/>
 <use name="DataFormats/GsfTrackReco"/>
 <use name="DataFormats/JetReco"/>
-
 <use name="RecoParticleFlow/PFProducer"/>
-
-<use name="MagneticField/Records"/>
-<use name="DataFormats/TrajectorySeed"/>
-<use name="DataFormats/GeometrySurface"/>
-<use name="TrackingTools/Records"/>
-<use name="TrackingTools/TrajectoryState"/>
-<use name="TrackingTools/MaterialEffects"/>
-<use name="TrackingTools/TransientTrack"/>
-
+<use name="RecoVertex/PrimaryVertexProducer"/>
+<use name="RecoEcal/EgammaCoreTools"/>
 <use name="RecoEgamma/EgammaTools"/>
-<use name="DataFormats/EcalDetId"/>
-<use name="DataFormats/EcalRecHit"/>
 <use name="Geometry/CaloGeometry"/>
 <use name="Geometry/CaloTopology"/>
 <use name="Calibration/IsolatedParticles"/>
-<use name="RecoLocalCalo/EcalRecAlgos"/>
-<use name="RecoEcal/EgammaCoreTools"/>
-<use name="RecoParticleFlow/PFTracking"/>
-
-<use name="JetMETCorrections/Objects"/>
-
-<use name="SimDataFormats/Vertex"/>
-<use name="HLTrigger/HLTcore"/>
 <use name="EGamma/EGammaAnalysisTools"/>
-
+<use name="JetMETCorrections/Objects"/>
+<use name="CondFormats/JetMETObjects"/>
+<use name="HLTrigger/HLTcore"/>
 <use name="root"/>
-
 <flags EDM_PLUGIN="1"/>
