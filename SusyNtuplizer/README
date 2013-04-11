@@ -4,6 +4,7 @@
 
 1.1 Setup ---------------------------------------------------------------------------------------
 
+a. Create a release workspace and checkout the required packages
 setenv SCRAM_ARCH slc5_amd64_gcc462
 cmsrel CMSSW_5_3_8_patch3
 cd CMSSW_5_3_8_patch3/src
@@ -23,8 +24,18 @@ cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/inter
 cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/src/JetSpecific.cc
 cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugins/CATopJetProducer.h
 cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugins/CATopJetProducer.cc
+cvs co -r V05-00-16                                  DataFormats/JetReco
 cvs co -r regressionMay18a                           RecoEgamma/EgammaTools
-scramv1 b -j 4
+cvs co -r V00-02-14                                  DataFormats/StdDictionaries
+
+b. Edit files that cause too many printouts
+
+RecoEgamma/EgammaTools/src/EGEnergyCorrector.cc Line 562-565: delete
+EGamma/EGammaAnalysisTools/plugins/ElectronIdMVAProducer.cc Line 72: insert "TMVA::MsgLogger::InhibitOutput();"
+
+c. Compile
+
+scram b -j8
 
 1.2 Running the ntuplizer -----------------------------------------------------------------------
 
@@ -35,29 +46,27 @@ The list of possible dataset names is given right below the blocks.
 1.3 NoPU / MVA MET ------------------------------------------------------------------------------
 
 Two new MET algorithms were developed by the JetMET group in late 2012. These are not yet part
-of CMSSW, and requires a rather large number of additional packages to run. By default, the new
-METs are dropped from the standard ntuplizer configuration. Follow the instructions below to
-run the new algorithms.
+of CMSSW, and requires several additional packages to run. By default, the new METs are not included
+in the standard ntuplizer configuration. Follow the instructions below to run the new algorithms.
 
 a. Check out the following packages
 
 cvs co -r b5_3_X_cvMEtCorr_2013Feb22  DataFormats/METReco
+# The package below depends on DataFormats/METReco, and requires a recompile
+cvs co -r CMSSW_5_3_8_patch3          CommonTools/RecoAlgos
 cvs co -r V03-04-07                   RecoMET/METAlgorithms
 cvs co -r METPU_5_3_X_v4              JetMETCorrections/METPUSubtraction
-cvs co -r V05-00-16                   DataFormats/JetReco
 cvs co -r METPU_5_3_X_v4              RecoJets/JetProducers/data/TMVAClassificationCategory_JetID_MET_53X_Dec2012.weights.xml
 cvs co -r V00-03-34                   PhysicsTools/SelectorUtils
-# The package below depends on DataFormats/METReco & DataForamts/JetReco, and requires a recompile
-cvs co -r CMSSW_5_3_8_patch3          CommonTools/RecoAlgos
 cvs co -r HEAD -d pharrisTmp          UserCode/pharris/MVAMet/data
 cp  -d pharrisTmp/*Dec2012*.root JetMETCorrections/METPUSubtraction/data/
 rm -rf pharrisTmp
 
-b. Then, before compiling, modify the file JetMETCorrections/METPUSubtraction/plugin/NoPileUpPFMEtDataProducer.cc
+b. Then, before compiling, edit the file JetMETCorrections/METPUSubtraction/plugin/NoPileUpPFMEtDataProducer.cc
 
-Remove line 17:
+Replace line 17
 #include "RecoMET/METAlgorithms/interface/SigInputObj.h"    //PH: preserve 5_3_x dependence
-Add:
+with
 #include "DataFormats/METReco/interface/SigInputObj.h"
 
 c. Compile the workspace.
