@@ -12,18 +12,20 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.38 2013/03/30 13:24:12 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.39 2013/04/03 22:04:53 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
 #define SusyEvent_h
 
 #include <vector>
+#include <string>
 #include <map>
 #include <math.h>
 
 #include <TLorentzVector.h>
 
+class TTree;
 
 namespace susy {
 
@@ -31,29 +33,6 @@ namespace susy {
   const float etaGapEnd = 1.566;
   const float etaGap = 1.499;
   const float etaMax = 2.5;
-
-  // b-tagging vector positions -- same as susyNtuplizer_cfi.py order
-  const unsigned int kTCHE = 0;
-  const unsigned int kTCHP = 1;
-  const unsigned int kJP = 2;
-  const unsigned int kJBP = 3;
-  const unsigned int kSSV = 4;
-  const unsigned int kCSV = 5;
-  const unsigned int kCSVMVA = 6;
-  const unsigned int kSE = 7;
-  const unsigned int kSM = 8;
-
-  // pileup jet id vector positions -- same as susyNtuplizer_cfi.py order
-  const unsigned int kFull = 0;
-  const unsigned int kCutBased = 1;
-  const unsigned int kSimple = 2;
-
-  enum PFIsoTypes {
-    kChargedHadron,
-    kNeutralHadron,
-    kPhoton,
-    nPFIsoTypes
-  };
 
   enum MetFilters {
     kCSCBeamHalo,
@@ -74,6 +53,29 @@ namespace susy {
     nMetFilters
   };
 
+  // b-tagging vector positions
+  enum BTagDiscriminators {
+    kTCHE,   // TrackCountingHighEff
+    kTCHP,   // TrackCountingHighPur
+    kJP,     // JetProbability
+    kJBP,    // JetBProbability
+    kSSV,    // SimpleSecondaryVertex
+    kCSV,    // CombinedSecondaryVertex
+    kCSVMVA, // CombinedSecondaryVertexMVA
+    kSE,     // SoftElectron
+    kSM,     // SoftMuon
+    nBTagDiscriminators
+  };
+
+  enum PUJetIdAlgorithms {
+    kPUJetIdFull,
+    kPUJetIdCutBased,
+    kPUJetIdSimple,
+    nPUJetIdAlgorithms
+  };
+
+  class Event; // forward declaration for fillRefs methods
+
   class PUSummaryInfo { /*each PUSummaryInfo object holds information for one BX (early, in time,
                           or late)*/
 
@@ -86,24 +88,26 @@ namespace susy {
     //all info below from https://twiki.cern.ch/twiki/bin/view/CMS/PileupInformation
     /*low_cut = 0.1 GeV, high_cut = 0.5 GeV, tracks summed/counted are TrackingParticles from
       simulation truth info*/
-    int numInteractions; //the number of pileup interactions that have been added to the event
-    std::vector<float> zPositions; /*the true primary vertex position along the z axis for each
+
+    Char_t BX; //to which bunch crossing does this interaction belong?
+    UChar_t numInteractions; //the number of pileup interactions that have been added to the event
+    Float_t trueNumInteractions;
+
+    std::vector<Float_t> zPositions; /*the true primary vertex position along the z axis for each
                                      added interaction*/
-    std::vector<float> sumPTLowPT; /*the sum of the transverse momentum of the tracks originating
+    std::vector<Float_t> sumPTLowPT; /*the sum of the transverse momentum of the tracks originating
                                      from each interaction, where track pT > low_cut*/
-    std::vector<float> sumPTHighPT; /*the sum of the transverse momentum of the tracks originating
+    std::vector<Float_t> sumPTHighPT; /*the sum of the transverse momentum of the tracks originating
                                       from each interaction, where track pT > high_cut*/
-    std::vector<int> numTracksLowPT; /*the number of tracks originating from each interaction,
+    std::vector<UShort_t> numTracksLowPT; /*the number of tracks originating from each interaction,
                                        where track pT > low_cut*/
-    std::vector<int> numTracksHighPT; /*the number of tracks originating from each interaction,
+    std::vector<UShort_t> numTracksHighPT; /*the number of tracks originating from each interaction,
                                         where track pT > high_cut*/
-    std::vector<float> instLumi; //for PU from DataMixer
-    std::vector<unsigned int> dataMixerRun;
-    std::vector<unsigned int> dataMixerEvt;
-    std::vector<unsigned int> dataMixerLumiSection;
-    int BX; /*to which bunch crossing does this interaction belong?  New in 3_11_3 and 4_1_3 or
-              later*/
-    float trueNumInteractions;
+    std::vector<Float_t> instLumi; //for PU from DataMixer
+
+    std::vector<UInt_t> dataMixerRun;
+    std::vector<UInt_t> dataMixerEvt;
+    std::vector<UInt_t> dataMixerLumiSection;
 
   };
 
@@ -115,32 +119,39 @@ namespace susy {
     Particle()  { Init(); }
     ~Particle() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     UChar_t status;
     Char_t  charge;
-    Short_t   motherIndex;
+    Short_t motherIndex;
     Int_t   pdgId;
+
+    TVector3 vertex;
+    TLorentzVector momentum;
+
+    Particle const* mother;  //!
+
+  };
+
+  class PFParticle {
+
+  public:
+
+    PFParticle() { Init(); }
+    ~PFParticle() { Init(); }
+    void Init();
+
+    Char_t  charge;
+    Bool_t  isPU;
+    Short_t pdgId;
+
+    Float_t ecalEnergy;
+    Float_t hcalEnergy;
+
     TVector3 vertex;
     TLorentzVector momentum;
 
   };
-
-
-  class CorrMETData {
-
-  public:
-    CorrMETData() { Init(); }
-    ~CorrMETData() { Init(); }
-
-    void Init();
-
-    Float_t  dmEx;             // for uncorrection, correctedEx - dmEx
-    Float_t  dmEy;             // for uncorrection, correctedEy - dmEy
-    Float_t  dsumEt;           // for uncorrection, correctedSumEt - dsumEt
-    Float_t  dSignificance;    // for uncorrection, correctedSig - dSignificance
-
-  };
-
 
   class MET {
 
@@ -157,8 +168,6 @@ namespace susy {
     Float_t  sumEt;
     Float_t  significance;
     TVector2 mEt;
-    TVector3 vertex;
-    std::vector<susy::CorrMETData>  mEtCorr;
 
   };
 
@@ -171,11 +180,12 @@ namespace susy {
     Vertex()  { Init(); }
     ~Vertex() { Init(); }
     void Init();
-    bool isFake() { return (chi2 == 0 && ndof == 0 && tracksSize == 0); }
+    Bool_t isFake() const { return (chi2 == 0 && ndof == 0 && tracksSize == 0); }
 
+    UShort_t tracksSize;
+    Float_t  sumPt2;
     Float_t  chi2;
     Float_t  ndof;
-    UShort_t  tracksSize;
     TVector3 position;
 
   };
@@ -203,8 +213,9 @@ namespace susy {
     SuperCluster()  { Init(); }
     ~SuperCluster() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
-    Short_t  seedClusterIndex; // index in vector<Cluster> below
+    Short_t  seedClusterIndex;                       // index in vector<Cluster> below
     Float_t  energy;
     Float_t  preshowerEnergy;
     Float_t  phiWidth;
@@ -212,6 +223,8 @@ namespace susy {
     TVector3 position;
     std::vector<UShort_t> basicClusterIndices;
 
+    const Cluster* seedCluster;                 //!
+    std::vector<const Cluster*> basicClusters;  //!
   };
 
 
@@ -222,6 +235,7 @@ namespace susy {
     Track()  { Init(); }
     ~Track() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // derived quantities
     Float_t normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
@@ -245,15 +259,18 @@ namespace susy {
     UChar_t        numberOfValidMuonHits;
     UChar_t        numberOfValidPixelHits;
     UChar_t        numberOfValidStripHits;
+
     Short_t        vertexIndex;
+
     Float_t        chi2;
     Float_t        ndof;
     Float_t        charge;
-    Float_t        error[5]; // qoverp, lambda, phi, dxy, dsz
-    TVector3       vertex;
+    Float_t        error[5]; // (qoverp, lambda, phi, dxy, dsz) for general tracks, (qoverp, lambda, phi) for GSF tracks.
+    Float_t        ptError;
+    TVector3       vertex;   // position of the point of reference for momentum calculation (not the assigned PV)
     TLorentzVector momentum;
-    std::map<TString,TVector3>  extrapolatedPositions;
 
+    const Vertex*  assignedVertex; //!
   };
 
 
@@ -264,25 +281,26 @@ namespace susy {
     Photon()  { Init(); }
     ~Photon() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // fiducial bits
-    bool isEB()           { return (fidBit & (0x1 << 0)); }
-    bool isEE()           { return (fidBit & (0x1 << 1)); }
-    bool isEBEtaGap()     { return (fidBit & (0x1 << 2)); }
-    bool isEBPhiGap()     { return (fidBit & (0x1 << 3)); }
-    bool isEERingGap()    { return (fidBit & (0x1 << 4)); }
-    bool isEEDeeGap()     { return (fidBit & (0x1 << 5)); }
-    bool isEBEEGap()      { return (fidBit & (0x1 << 6)); }
-    bool isPF()           { return (fidBit & (0x1 << 7)); }
+    Bool_t isEB() const        { return (fidBit & (0x1 << 0)); }
+    Bool_t isEE() const        { return (fidBit & (0x1 << 1)); }
+    Bool_t isEBEtaGap() const  { return (fidBit & (0x1 << 2)); }
+    Bool_t isEBPhiGap() const  { return (fidBit & (0x1 << 3)); }
+    Bool_t isEERingGap() const { return (fidBit & (0x1 << 4)); }
+    Bool_t isEEDeeGap() const  { return (fidBit & (0x1 << 5)); }
+    Bool_t isEBEEGap() const   { return (fidBit & (0x1 << 6)); }
+    Bool_t isPF() const        { return (fidBit & (0x1 << 7)); }
 
-    Float_t hcalTowerSumEtConeDR04() { return (hcalDepth1TowerSumEtConeDR04+hcalDepth2TowerSumEtConeDR04); }
-    Float_t hcalTowerSumEtConeDR03() { return (hcalDepth1TowerSumEtConeDR03+hcalDepth2TowerSumEtConeDR03); }
-    Float_t r1x5() { return ((e5x5 > 0) ? e1x5/e5x5 : 0); }
-    Float_t r2x5() { return ((e5x5 > 0) ? e2x5/e5x5 : 0); }
+    Float_t hcalTowerSumEtConeDR04() const { return (hcalDepth1TowerSumEtConeDR04+hcalDepth2TowerSumEtConeDR04); }
+    Float_t hcalTowerSumEtConeDR03() const { return (hcalDepth1TowerSumEtConeDR03+hcalDepth2TowerSumEtConeDR03); }
+    Float_t r1x5() const { return ((e5x5 > 0) ? e1x5/e5x5 : 0); }
+    Float_t r2x5() const { return ((e5x5 > 0) ? e2x5/e5x5 : 0); }
 
     Int_t          fidBit;
     Int_t          nPixelSeeds;
-    bool           passelectronveto;
+    Bool_t         passelectronveto;
     Float_t        hadronicOverEm;
     Float_t        hadTowOverEm; //2012 hOverE
     Float_t        hadronicDepth1OverEm;
@@ -335,7 +353,7 @@ namespace susy {
     Float_t        mipSlope;
     Float_t        mipIntercept;
     Int_t          mipNhitCone;
-    bool           mipIsHalo;
+    Bool_t         mipIsHalo;
 
     // Conversion info
     Bool_t         convInfo;
@@ -371,12 +389,12 @@ namespace susy {
     Float_t        superClusterEtaWidth;
     TVector3       caloPosition;
 
-    std::pair<double,double> MVAregEnergyAndErr;
+    std::pair<Double_t, Double_t> MVAregEnergyAndErr;
     TLorentzVector MVAcorrMomentum;
 
-    TVector3 vertex; // photon vertex when reconstructed.
     TLorentzVector momentum;
-    std::map<TString,UChar_t> idPairs;
+
+    const SuperCluster* superCluster; //!
 
   };
 
@@ -388,37 +406,38 @@ namespace susy {
     Electron()  { Init(); }
     ~Electron() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // fiducial bits
-    Bool_t isEB() {        return (fidBit & (0x1 << 0)); }
-    Bool_t isEE() {        return (fidBit & (0x1 << 1)); }
-    Bool_t isEBEEGap() {   return (fidBit & (0x1 << 2)); }
-    Bool_t isEBEtaGap() {  return (fidBit & (0x1 << 3)); }
-    Bool_t isEBPhiGap() {  return (fidBit & (0x1 << 4)); }
-    Bool_t isEEDeeGap() {  return (fidBit & (0x1 << 5)); }
-    Bool_t isEERingGap() { return (fidBit & (0x1 << 6)); }
-    Bool_t isEBGap() {     return (isEBEtaGap() || isEBPhiGap()); }
-    Bool_t isEEGap() {     return (isEEDeeGap() || isEERingGap()); }
-    Bool_t isGap() {       return (isEBGap() || isEEGap() || isEBEEGap()); }
+    Bool_t isEB() const        { return (fidBit & (0x1 << 0)); }
+    Bool_t isEE() const        { return (fidBit & (0x1 << 1)); }
+    Bool_t isEBEEGap() const   { return (fidBit & (0x1 << 2)); }
+    Bool_t isEBEtaGap() const  { return (fidBit & (0x1 << 3)); }
+    Bool_t isEBPhiGap() const  { return (fidBit & (0x1 << 4)); }
+    Bool_t isEEDeeGap() const  { return (fidBit & (0x1 << 5)); }
+    Bool_t isEERingGap() const { return (fidBit & (0x1 << 6)); }
+    Bool_t isEBGap() const     { return (isEBEtaGap() || isEBPhiGap()); }
+    Bool_t isEEGap() const     { return (isEEDeeGap() || isEERingGap()); }
+    Bool_t isGap() const       { return (isEBGap() || isEEGap() || isEBEEGap()); }
 
     // boolean variables packed in boolPack
-    Bool_t isGsfCtfScPixChargeConsistent() { return (boolPack & (0x1 << 0)); }
-    Bool_t isGsfScPixChargeConsistent() {    return (boolPack & (0x1 << 1)); }
-    Bool_t isGsfCtfChargeConsistent() {      return (boolPack & (0x1 << 2)); }
-    Bool_t ecalDrivenSeed() {                return (boolPack & (0x1 << 3)); }
-    Bool_t trackerDrivenSeed() {             return (boolPack & (0x1 << 4)); }
-    Bool_t passingCutBasedPreselection() {   return (boolPack & (0x1 << 5)); }
-    Bool_t passingMvaPreselection() {        return (boolPack & (0x1 << 6)); }
-    Bool_t ambiguous() {                     return (boolPack & (0x1 << 7)); }
-    Bool_t isEcalEnergyCorrected() {         return (boolPack & (0x1 << 8)); }
-    Bool_t isEnergyScaleCorrected() {        return (boolPack & (0x1 << 9)); }
-    Bool_t convFlags() {                     return (boolPack & (0x1 << 10)); }
-    Bool_t isPF() {                          return (boolPack & (0x1 << 11)); }
-    Bool_t ecalDriven() {                    return (ecalDrivenSeed() && passingCutBasedPreselection()); }
+    Bool_t isGsfCtfScPixChargeConsistent() const { return (boolPack & (0x1 << 0)); }
+    Bool_t isGsfScPixChargeConsistent() const    { return (boolPack & (0x1 << 1)); }
+    Bool_t isGsfCtfChargeConsistent() const      { return (boolPack & (0x1 << 2)); }
+    Bool_t ecalDrivenSeed() const                { return (boolPack & (0x1 << 3)); }
+    Bool_t trackerDrivenSeed() const             { return (boolPack & (0x1 << 4)); }
+    Bool_t passingCutBasedPreselection() const   { return (boolPack & (0x1 << 5)); }
+    Bool_t passingMvaPreselection() const        { return (boolPack & (0x1 << 6)); }
+    Bool_t ambiguous() const                     { return (boolPack & (0x1 << 7)); }
+    Bool_t isEcalEnergyCorrected() const         { return (boolPack & (0x1 << 8)); }
+    Bool_t isEnergyScaleCorrected() const        { return (boolPack & (0x1 << 9)); }
+    Bool_t convFlags() const                     { return (boolPack & (0x1 << 10)); }
+    Bool_t isPF() const                          { return (boolPack & (0x1 << 11)); }
+    Bool_t ecalDriven() const                    { return (ecalDrivenSeed() && passingCutBasedPreselection()); }
 
-    Float_t hcalOverEcal() { return (hcalDepth1OverEcal + hcalDepth2OverEcal); }
-    Float_t dr03HcalTowerSumEt() { return (dr03HcalDepth1TowerSumEt + dr03HcalDepth2TowerSumEt); }
-    Float_t dr04HcalTowerSumEt() { return (dr04HcalDepth1TowerSumEt + dr04HcalDepth2TowerSumEt); }
+    Float_t hcalOverEcal() const { return (hcalDepth1OverEcal + hcalDepth2OverEcal); }
+    Float_t dr03HcalTowerSumEt() const { return (dr03HcalDepth1TowerSumEt + dr03HcalDepth2TowerSumEt); }
+    Float_t dr04HcalTowerSumEt() const { return (dr04HcalDepth1TowerSumEt + dr04HcalDepth2TowerSumEt); }
 
     UChar_t        fidBit;
     UShort_t       boolPack;
@@ -470,8 +489,14 @@ namespace susy {
     Float_t        chargedHadronIso;
     Float_t        neutralHadronIso;
     Float_t        photonIso;
+
+    // MVA ID calculated within PF sequence at reconstruction
     Int_t          mvaStatus;
     Float_t        mva;
+
+    // MVA ID calculated using EGammaAnalysisTools
+    Float_t        mvaTrig;
+    Float_t        mvaNonTrig;
 
     Char_t         bremClass;
     Float_t        fbrem;
@@ -488,15 +513,22 @@ namespace susy {
     Int_t          nMissingHits;
     Bool_t         passConversionVeto;
 
-    // AtVtx, AtCalo
-    std::map<TString,TVector3> trackPositions;
-    // AtVtx, AtCalo, Out, AtEleClus, AtVtxWithConstraint
-    std::map<TString,TLorentzVector> trackMomentums;
+
+    TVector3       trackPositionAtVtx;
+    TVector3       trackPositionAtCalo;
+    TLorentzVector trackMomentumAtVtx;
+    TLorentzVector trackMomentumAtCalo;
+    TLorentzVector trackMomentumOut;
+    TLorentzVector trackMomentumAtEleClus;
+    TLorentzVector trackMomentumAtVtxWithConstraint;
 
     TVector3       vertex;
     TLorentzVector momentum;
-    std::map<TString,Float_t> idPairs;
 
+    const Track*        gsfTrack;        //!
+    const Track*        closestCtfTrack; //!
+    const Cluster*      electronCluster; //!
+    const SuperCluster* superCluster;    //!
   };
 
 
@@ -508,36 +540,63 @@ namespace susy {
     Muon()  { Init(); }
     ~Muon() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // muon type
-    Bool_t isGlobalMuon() {     return (type & (0x1 << 1)); }
-    Bool_t isTrackerMuon() {    return (type & (0x1 << 2)); }
-    Bool_t isStandAloneMuon() { return (type & (0x1 << 3)); }
-    Bool_t isCaloMuon() {       return (type & (0x1 << 4)); }
-    Bool_t isPFMuon() {         return (type & (0x1 << 5)); }
-    Short_t bestTrackIndex() { switch(bestTrackType){
+    Bool_t isGlobalMuon() const     { return (type & (0x1 << 1)); }
+    Bool_t isTrackerMuon() const    { return (type & (0x1 << 2)); }
+    Bool_t isStandAloneMuon() const { return (type & (0x1 << 3)); }
+    Bool_t isCaloMuon() const       { return (type & (0x1 << 4)); }
+    Bool_t isPFMuon() const         { return (type & (0x1 << 5)); }
+    Bool_t tmLastStationLoose() const      { return (qualityFlags & (0x1 << 0)); }
+    Bool_t tmLastStationTight() const      { return (qualityFlags & (0x1 << 1)); }
+    Bool_t tmOneStationLoose()  const      { return (qualityFlags & (0x1 << 2)); }
+    Bool_t tmOneStationTight()  const      { return (qualityFlags & (0x1 << 3)); }
+    Bool_t tmLastStationLowPtLoose() const { return (qualityFlags & (0x1 << 4)); }
+    Bool_t tmLastStationLowPtTight() const { return (qualityFlags & (0x1 << 5)); }
+    Short_t bestTrackIndex() const {
+      switch(bestTrackType){
       case 1: return trackIndex; case 2: return standAloneTrackIndex;
       case 3: return combinedTrackIndex; case 4: return tpfmsTrackIndex;
       case 5: return pickyTrackIndex; case 6: return dytTrackIndex;
       default: return -1;
-      } }
+      }
+    }
+    Short_t highPtBestTrackIndex() const {
+      switch(highPtBestTrackType){
+      case 1: return trackIndex; case 2: return standAloneTrackIndex;
+      case 3: return combinedTrackIndex; case 4: return tpfmsTrackIndex;
+      case 5: return pickyTrackIndex; case 6: return dytTrackIndex;
+      default: return -1;
+      }
+    }
+    UInt_t nTrackerLayersWithMeasurement() const {
+      return nPixelLayersWithMeasurement + nStripLayersWithMeasurement;
+    }
 
-    // arbitration type is default
     UChar_t        type;
     UChar_t        bestTrackType;
+    UChar_t        highPtBestTrackType;    // best high-Pt track type from muon::tevOptimized
+
+    UChar_t        qualityFlags;           // results of various muon::isGoodMuon calls
+
+    // Using SegmentAndTrackArbitration for all
+    UChar_t        nChambers;              // number of muon chambers the track traversed through (regardless of segment existence)
     UChar_t        nMatches;               // number of muon chambers with matched segments (<= nChambers)
-    UChar_t        nValidHits;             // *
+    UChar_t        stationMask;            // bits 0-3 -> DT stations 1-4, bits 4-7 -> CSC stations 1-4. Number of non-zero bits = nMatchedStations
+    UChar_t        nMatchedStations;       // number of muon stations with matched segments (<= nMatches)
+    UChar_t        nValidHits;             // values from combinedMuon (= globalTrack)
     UChar_t        nValidTrackerHits;      // *
     UChar_t        nValidMuonHits;         // *
     UChar_t        nPixelLayersWithMeasurement; // *
-    UChar_t        nStripLayersWithMeasurement; // * values from combinedMuon (= globalTrack)
-    UChar_t        nChambers;              // number of muon chambers the track traversed through (regardless of segment existence)
-    UChar_t        nMatchedStations;       // number of muon stations with matched segments (<= nMatches)
+    UChar_t        nStripLayersWithMeasurement; // *
+
     UChar_t        timeNDof;         // null value implies timing measurement is invalid
     Char_t         timeDirection;
     Float_t        timeAtIp;
     Float_t        timeAtIpError;
     Float_t        caloCompatibility;
+    Float_t        segmentCompatibility;
     Float_t        emEnergy;
     Float_t        hadEnergy;
     Float_t        trackIsoR03;
@@ -571,8 +630,14 @@ namespace susy {
     Short_t        dytTrackIndex;
     TLorentzVector momentum;
 
-    std::map<TString, UChar_t> idPairs;
-
+    const Track* innerTrack;       //!
+    const Track* outerTrack;       //!
+    const Track* globalTrack;      //!
+    const Track* tpfmsTrack;       //!
+    const Track* pickyTrack;       //!
+    const Track* dytTrack;         //!
+    const Track* bestTrack;        //!
+    const Track* highPtBestTrack;  //!
   };
 
 
@@ -583,6 +648,7 @@ namespace susy {
     CaloJet()  { Init(); }
     ~CaloJet() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -637,6 +703,7 @@ namespace susy {
     TLorentzVector detectorP4;
 
     std::map<TString, Float_t> jecScaleFactors;
+    Float_t        jecUncertainty;
   };
 
 
@@ -647,6 +714,11 @@ namespace susy {
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
+    void fillRefs(Event const*);
+
+    Bool_t passPuJetIdLoose(unsigned algo)  const { return algo < nPUJetIdAlgorithms ? ( puJetIdFlags[algo] & (1 << 2) ) != 0 : kFALSE; }
+    Bool_t passPuJetIdMedium(unsigned algo) const { return algo < nPUJetIdAlgorithms ? ( puJetIdFlags[algo] & (1 << 1) ) != 0 : kFALSE; }
+    Bool_t passPuJetIdTight(unsigned algo)  const { return algo < nPUJetIdAlgorithms ? ( puJetIdFlags[algo] & (1 << 0) ) != 0 : kFALSE; }
 
     // Basic Jet Info
     Int_t          phyDefFlavour;
@@ -691,22 +763,18 @@ namespace susy {
     std::vector<UShort_t> pfParticleList;
 
     // Pileup Jet Id info
-    std::vector<Float_t> puJetIdDiscriminants;
-    std::vector<Int_t> puJetIdFlags;
+    Float_t        puJetIdDiscriminants[nPUJetIdAlgorithms];
+    Int_t          puJetIdFlags[nPUJetIdAlgorithms];
 
-    Bool_t passPuJetIdLoose(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 2) ) != 0 : false ; }
-    Bool_t passPuJetIdMedium(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 1) ) != 0 : false ; }
-    Bool_t passPuJetIdTight(unsigned int type) const { return type < puJetIdFlags.size() ? ( puJetIdFlags[type] & (1 << 0) ) != 0 : false ; }
+    Float_t        bTagDiscriminators[nBTagDiscriminators];
 
-    // IMPORTANT: This vector of float stores btag-discriminator variables from various collections
-    // which defined in susyNtuplizer_cfi.py file. The order of variables are strongly
-    // dependent on the order of collections in python file.
-    std::vector<Float_t> bTagDiscriminators;
-
-    TVector3       vertex;
     TLorentzVector momentum; // uncorrected momentum
 
     std::map<TString, Float_t> jecScaleFactors;
+    Float_t        jecUncertainty;
+
+    std::vector<const Track*> tracks;           //!
+    std::vector<const PFParticle*> pfParticles; //!
   };
 
 
@@ -717,6 +785,7 @@ namespace susy {
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
+    void fillRefs(Event const*);
 
     // Basic Jet Info
     Float_t        partonFlavour;
@@ -741,129 +810,171 @@ namespace susy {
     UChar_t        elecMultiplicity;
     Float_t        getZSPCor;
 
-    TVector3       vertex;
     TLorentzVector momentum; // uncorrected momentum
 
     std::map<TString, Float_t> jecScaleFactors;
+    Float_t        jecUncertainty;
   };
 
 
-  class PFParticle {
+  // Class TriggerMap used to be just a typedef of std::map<TString, std::pair<Int_t, UChar_t> >.
+  // Interface of the class is thus defined to be the least disruptive to the existing analysis code,
+  // i.e. to resemble that of the std::map.
 
+  class TriggerMap {
   public:
-    PFParticle() { Init(); }
-    ~PFParticle() { Init(); }
+
+    class const_iterator {
+      friend class TriggerMap;
+    public:
+      typedef std::pair<TString, std::pair<UInt_t, Bool_t> > value_type;
+
+      const_iterator();
+      const_iterator& operator++();
+      const_iterator operator++(int);
+      value_type const* operator->() const { return &pair_; }
+      value_type const& operator*() const { return pair_; }
+      bool operator==(const_iterator const&) const;
+      bool operator!=(const_iterator const& _rhs) const { return !operator==(_rhs); }
+    protected:
+      size_t maxPos_;
+      TString const* paths_;
+      UInt_t const* prescales_;
+      UChar_t const* decisions_;
+      UInt_t pos_;
+      value_type pair_;
+      const_iterator(TriggerMap const&, unsigned);
+      void setPair();
+    };
+
+    // No non-const iterator functionalities are needed for our purpose
+    typedef const_iterator iterator;
+
+    TriggerMap();
+    ~TriggerMap() { clear(); }
+
     void Init();
 
-    Int_t pdgId;
-    Char_t  charge;
-    Float_t ecalEnergy;
-    Float_t rawEcalEnergy;
-    Float_t hcalEnergy;
-    Float_t rawHcalEnergy;
-    Float_t pS1Energy;
-    Float_t pS2Energy;
+    std::pair<UInt_t, Bool_t> operator[](TString const&) const;
+    Bool_t pass(TString const&) const;
+    UInt_t prescale(TString const&) const;
 
-    TVector3 vertex;
-    TVector3 positionAtECALEntrance;
-    TLorentzVector momentum;
+    Bool_t menuExists(TString const&) const;
+    void addMenu(TString const&, std::vector<TString> const&);
+    void set(TString const&, UInt_t, Bool_t);
+    void clear();
+    size_t size() const;
 
+    UInt_t* prescales(TString const& _config) const;
+    UChar_t* decisions(TString const& _config) const;
+
+    TString currentConfig;
+
+    const_iterator begin() const;
+    const_iterator end() const;
+    iterator begin();
+    iterator end();
+    const_iterator find(TString const&) const;
+    iterator find(TString const&);
+    const_iterator lower_bound(TString const&) const;
+    iterator lower_bound(TString const&);
+    const_iterator upper_bound(TString const&) const;
+    iterator upper_bound(TString const&);
+
+  private:
+    void setCache_() const;
+    std::map<TString, size_t> size_;
+    std::map<TString, TString*> paths_;
+    std::map<TString, UInt_t*> prescales_;
+    std::map<TString, UChar_t*> decisions_;
+    mutable TString cachedConfigName_;
+    mutable size_t cachedSize_;
+    mutable TString const* cachedPaths_;
+    mutable UInt_t* cachedPrescales_;
+    mutable UChar_t* cachedDecisions_;
   };
 
-
-
-  typedef std::vector<susy::Electron> ElectronCollection;
-  typedef std::vector<susy::Photon> PhotonCollection;
-  typedef std::vector<susy::CaloJet> CaloJetCollection;
-  typedef std::vector<susy::PFJet> PFJetCollection;
-  typedef std::vector<susy::JPTJet> JPTJetCollection;
-  typedef std::vector<susy::PFParticle> PFParticleCollection;
-  typedef std::vector<susy::PUSummaryInfo> PUSummaryInfoCollection;
-  typedef std::vector<susy::Muon> MuonCollection;
-  typedef std::map<TString, std::pair<Int_t, UChar_t> > TriggerMap;
-
-
+  typedef std::vector<PUSummaryInfo> PUSummaryInfoCollection;
+  typedef std::vector<Vertex> VertexCollection;
+  typedef std::vector<Track> TrackCollection;
+  typedef std::vector<SuperCluster> SuperClusterCollection;
+  typedef std::vector<Cluster> ClusterCollection;
+  typedef std::vector<Particle> ParticleCollection;
+  typedef std::vector<Muon> MuonCollection;
+  typedef std::vector<Electron> ElectronCollection;
+  typedef std::vector<Photon> PhotonCollection;
+  typedef std::vector<CaloJet> CaloJetCollection;
+  typedef std::vector<PFJet> PFJetCollection;
+  typedef std::vector<JPTJet> JPTJetCollection;
+  typedef std::vector<PFParticle> PFParticleCollection;
 
   class Event {
 
   public:
 
-    Event()  { Init(); }
-    ~Event() { Init(); }
+    Event();
+    ~Event();
 
     // Initialize members
     void Init();
+    void fillRefs();
 
-    bool passCSCBeamHalo()     const { return metFilterBit & (0x1 << 0); }
-    bool passHcalNoise()       const { return metFilterBit & (0x1 << 1); }
-    bool passEcalDeadCellTP()  const { return metFilterBit & (0x1 << 2); }
-    bool passEcalDeadCellBE()  const { return metFilterBit & (0x1 << 3); }
-    bool passHcalLaser()       const { return metFilterBit & (0x1 << 4); }
-    bool passTrackingFailure() const { return metFilterBit & (0x1 << 5); }
-    bool passEEBadSC()         const { return metFilterBit & (0x1 << 6); }
+    // Set up the data members according to the Tree content
+    // In case of TChain, files need to be added first
+    // Set the second argument to kTRUE (default) for read access
+    void bindTree(TTree&, Bool_t = kTRUE);
+    void releaseTree(TTree&);
+    void setTriggerTable(TString const&, std::vector<std::string> const&, Bool_t = kTRUE);
 
-    bool passEERingOfFire()     const { return metFilterBit_2 & (0x1 << 0); }
-    bool passInconsistentMuon() const { return metFilterBit_2 & (0x1 << 1); }
-    bool passGreedyMuon()       const { return metFilterBit_2 & (0x1 << 2); }
-    bool passHcalLaser2012()    const { return metFilterBit_2 & (0x1 << 3); }
-    bool passEcalLaserCorr()    const { return metFilterBit_2 & (0x1 << 4); }
-    bool passManyStripClus()    const { return metFilterBit_2 & (0x1 << 5); }
-    bool passTooManyStripClus() const { return metFilterBit_2 & (0x1 << 6); }
-    bool passLogErrorTooManyClusters() const { return metFilterBit_2 & (0x1 << 7); }
-
-    bool passTrkPOGFilters() const { return passManyStripClus() && passTooManyStripClus() && passLogErrorTooManyClusters(); }
-
+    Bool_t passMetFilter(UInt_t filterIndex) const { return metFilterBit & (0x1 << filterIndex); }
     // JetMET recommended met filters
-    bool passMetFilters() const { return passCSCBeamHalo() && passHcalNoise() &&
-    passEcalDeadCellTP() && passHcalLaser() && passTrackingFailure() && passEEBadSC(); }
+    Bool_t passMetFilters() const {
+      return passMetFilter(kCSCBeamHalo) && passMetFilter(kHcalNoise) && passMetFilter(kEcalDeadCellTP) &&
+        passMetFilter(kHcalLaser) && passMetFilter(kTrackingFailure) && passMetFilter(kEEBadSC);
+    }
 
-    // Members are made as public intentionally for easy access
+    UChar_t                                        isRealData;
+    UChar_t                                        cosmicFlag;             // empty for now
+    UInt_t                                         runNumber;
+    UInt_t                                         eventNumber;
+    UInt_t                                         luminosityBlockNumber;
+    UShort_t                                       bunchCrossing;
+    Int_t                                          metFilterBit;
 
-    UChar_t                                     isRealData;
-    Int_t                                       runNumber;
-    ULong_t                                     eventNumber;
-    Int_t                                       luminosityBlockNumber;
-    Int_t                                       bunchCrossing;
-    Float_t                                     avgInsRecLumi;
-    Float_t                                     intgRecLumi;
-    UChar_t                                     cosmicFlag; // empty for now
-    Float_t                                     rho; // from kt6PFJets
-    Float_t                                     rhoBarrel; // from kt6PFJetsRhoBarrelOnly
-    Float_t                                     rho25; // from kt6PFJetsRho25
-    Int_t                                       metFilterBit;
-    Int_t                                       metFilterBit_2;
+    Float_t                                        avgInsRecLumi;
+    Float_t                                        intgRecLumi;
+    Float_t                                        rho;                    // from kt6PFJets
+    Float_t                                        rhoBarrel;              // from kt6PFJetsRhoBarrelOnly
+    Float_t                                        rho25;                  // from kt6PFJetsRho25
+                                                   
+    TVector3                                       beamSpot;
+                                                   
+    TriggerMap                                     l1Map;
+    TriggerMap                                     hltMap;
+                                                   
+    VertexCollection                               vertices;
+    TrackCollection                                tracks;
+    SuperClusterCollection                         superClusters;          // only selected super clusters associated with photons and electrons
+    ClusterCollection                              clusters;               // only selected basic clusters associated with super clusters
+    PFParticleCollection                           pfParticles;            //
 
-    TVector3                                    beamSpot;
-
-    susy::TriggerMap                            l1Map;  // <name, <prescale, bit> >
-    susy::TriggerMap                            hltMap; // <name, <prescale, bit> >
-    std::map<TString,susy::MET>                 metMap;
-
-    std::vector<susy::Vertex>                   vertices;
-    std::vector<susy::Track>                    tracks;          // only selected tracks associated with objects directly and photons with dR<0.4
-    std::vector<susy::SuperCluster>             superClusters;   // only selected super clusters associated with objects
-    std::vector<susy::Cluster>                  clusters;        // only selected basic clusters associated with super clusters
-    std::map<TString,susy::MuonCollection>      muons;
-    std::map<TString,susy::ElectronCollection>  electrons;
-    std::map<TString,susy::PhotonCollection>    photons;
-    std::map<TString,susy::CaloJetCollection>   caloJets;
-    std::map<TString,susy::PFJetCollection>     pfJets;
-    std::map<TString,susy::JPTJetCollection>    jptJets;         // dropped for 2011B analysis
-    std::map<TString,susy::PFParticleCollection> pfParticles;
-
-    // optional collections
-    std::vector<susy::Track>                    generalTracks;   // not stored by default
+    std::map<TString, susy::MET>                   metMap;                 //
+    std::map<TString, susy::MuonCollection>        muons;                  //
+    std::map<TString, susy::ElectronCollection>    electrons;              //
+    std::map<TString, susy::PhotonCollection>      photons;                //
+    std::map<TString, susy::CaloJetCollection>     caloJets;               //
+    std::map<TString, susy::PFJetCollection>       pfJets;                 //
+    std::map<TString, susy::JPTJetCollection>      jptJets;                // not filled
 
     // generated information. Valid only for isRealData == 0, i.e. MC
-    susy::PUSummaryInfoCollection               pu; //PU summary info
-    std::vector<TVector3>                       simVertices; // Geant vertex, primary only, dropped for 2011B analysis
-    std::vector<susy::Particle>                 genParticles;
-    std::map<TString, Float_t>                  gridParams; // pairs of parameter name and value
+    PUSummaryInfoCollection                        pu;                     // PU summary info
+    ParticleCollection                             genParticles;
+    std::map<TString, Float_t>                     gridParams;             // pairs of parameter name and value
 
+  private:
+    // keep a pointer to each tree that is bound to this object. Bool is true for read-only trees
+    std::vector<std::pair<TTree*, Bool_t> >        trees_;                 //
   };
-
-
-
 
 } // namespace susy
 
