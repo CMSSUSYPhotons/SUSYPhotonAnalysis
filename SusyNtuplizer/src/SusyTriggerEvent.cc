@@ -567,13 +567,10 @@ namespace susy {
     }
 
     if(!ordered_){
-      Int_t nBytes(0);
-      char* addr(susyTree_->GetBranch("susyEvent")->GetAddress());
-      if(addr){
-        susy::Event* susyEvent(*reinterpret_cast<susy::Event**>(addr));
-        if(susyEvent)
-          nBytes = eventTree_->GetEntryWithIndex(Int_t(susyEvent->runNumber), Int_t(susyEvent->eventNumber));
-      }
+      Long64_t treeEntry(susyTree_->LoadTree(susyTree_->GetReadEntry()));
+      UInt_t runNumber(susyTree_->GetBranch("runNumber")->GetLeaf("runNumber")->GetValue(treeEntry));
+      UInt_t eventNumber(susyTree_->GetBranch("eventNumber")->GetLeaf("eventNumber")->GetValue(treeEntry));
+      Int_t nBytes(eventTree_->GetEntryWithIndex(runNumber, eventNumber));
 
       if(nBytes == 0){
         if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::getFilterObjects: No event data found in nonsynchronized mode" << std::endl;

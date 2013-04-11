@@ -9,8 +9,6 @@
 #include "TString.h"
 #include "TTree.h"
 
-#include "SusyEvent.h"
-
 namespace susy {
 
   struct TriggerObject {
