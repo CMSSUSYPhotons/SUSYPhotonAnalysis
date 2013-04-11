@@ -83,6 +83,7 @@ Sample analysis macro exists in the macro directory. When using with CMSSW (have
 steps in 1.1), this should work out-of-the-box by
 
 cd macro
+(copy susyEvents.root over to the directory)
 root -b -q ana.C
 
 If instead one wishes to work without the CMSSW framework, the library has to be compiled before

@@ -1,5 +1,5 @@
 // Original Author:  Dongwook Jang
-// $Id: ana.C,v 1.8 2011/11/01 22:14:51 dwjang Exp $
+// $Id: ana.C,v 1.9 2013/04/11 16:38:03 yiiyama Exp $
 
 void ana(TString outputName="analysis"){
 
@@ -15,6 +15,11 @@ void ana(TString outputName="analysis"){
   TChain chain("susyTree");
   chain.Add("susyEvents.root");
   //chain->Add("dcap:///pnfs/cms/WAX/resilient/lpcpjm/SusyNtuples/cms423v2_v1/Run2011A-May10ReReco-v1/Photon/susyEvent_1_1_dLs.root");
+
+  if(chain.LoadTree(0) != 0){
+    cerr << "Error with input chain. Do the files exist?" << endl;
+    return;
+  }
 
   SusyEventAnalyzer sea(chain);
 
