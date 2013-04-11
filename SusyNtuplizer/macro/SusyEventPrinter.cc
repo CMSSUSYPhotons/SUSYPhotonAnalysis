@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <vector>
 #include <map>
 #include <algorithm>
@@ -39,18 +40,11 @@ void Print(const susy::TriggerMap& t) {
 }
 
 
-void Print(const susy::CorrMETData& cm) {
-  std::cout << "\t\tdmEx:" << cm.dmEx << ", dmEy:" << cm.dmEy << ", dsumEt:" << cm.dsumEt << ", dSignificance:" << cm.dSignificance << std::endl;
-}
-
-
 void Print(const susy::MET& met) {
   std::cout << "\tsumEt : " << met.sumEt << std::endl;
   std::cout << "\tsignificance : " << met.significance << std::endl;
   std::cout << "\tmEt : "; Print(met.mEt);
-  std::cout << "\tvertex : "; Print(met.vertex);
   std::cout << "\tmEtCorr ===>" << std::endl;
-  for(std::vector<susy::CorrMETData>::const_iterator it = met.mEtCorr.begin(); it != met.mEtCorr.end(); it++) Print(*it);
   std::cout << std::endl;
 }
 
@@ -111,12 +105,7 @@ void Print(const susy::Photon& p) {
   std::cout << "\tsuperClusterPhiWidth : " << p.superClusterPhiWidth << std::endl;
   std::cout << "\tsuperClusterEtaWidth : " << p.superClusterEtaWidth << std::endl;
   std::cout << "\tcaloPosition : "; Print(p.caloPosition);
-  std::cout << "\tvertex : "; Print(p.vertex);
   std::cout << "\tmomentum : "; Print(p.momentum);
-  std::cout << "\tidPairs : ";
-  for(std::map<TString,UChar_t>::const_iterator it = p.idPairs.begin(); it != p.idPairs.end(); it++ ){
-    std::cout << "(" << it->first << ", " << int(it->second) << ") ";
-  }
   std::cout << std::endl;
 
 }
@@ -210,7 +199,6 @@ void Print(const susy::PFJet& j) {
   std::cout << "\tHFEMMultiplicity : " << (int)j.HFEMMultiplicity << std::endl;
   std::cout << "\tchargedMultiplicity : " << (int)j.chargedMultiplicity << std::endl;
   std::cout << "\tneutralMultiplicity : " << (int)j.neutralMultiplicity << std::endl;
-  std::cout << "\tvertex : "; Print(j.vertex);
   std::cout << "\tmomentum : "; Print(j.momentum);
   std::cout << "\tjecScaleFactors : ";
   for(std::map<TString, Float_t>::const_iterator it = j.jecScaleFactors.begin();
@@ -219,10 +207,9 @@ void Print(const susy::PFJet& j) {
   }
   std::cout << std::endl;
   std::cout << "\tbTagDiscriminators :";
-  for(std::vector<Float_t>::const_iterator it = j.bTagDiscriminators.begin();
-      it != j.bTagDiscriminators.end(); it++) {
-    std::cout << " " << *it;
-  }
+  for(unsigned iT(0); iT != susy::nBTagDiscriminators; ++iT)
+    std::cout << " " << j.bTagDiscriminators[iT];
+
   std::cout << std::endl;
 }
 
@@ -255,17 +242,6 @@ void Print(const susy::Track& t) {
   std::cout << ")" << std::endl;
   std::cout << "\tvertex : "; Print(t.vertex);
   std::cout << "\tmomentum : "; Print(t.momentum);
-  std::cout << "\textrapolatedPosition : ===> ";
-  if(t.extrapolatedPositions.size() == 0) {
-    std::cout << "(0)" << std::endl;
-  }
-  else {
-    std::cout << std::endl;
-    for(std::map<TString,TVector3>::const_iterator it = t.extrapolatedPositions.begin();
-	it != t.extrapolatedPositions.end(); it++) {
-      std::cout << "\t\t[ " << it->first << " : "; Print(it->second); std::cout << " ]" << std::endl;
-    }
-  }
 }
 
 
@@ -273,21 +249,16 @@ void Print(const susy::PFParticle& p) {
   std::cout << "\tpdgId : " << p.pdgId << std::endl;
   std::cout << "\tcharge : " << (int)p.charge << std::endl;
   std::cout << "\tecalEnergy : " << p.ecalEnergy << std::endl;
-  std::cout << "\trawEcalEnergy : " << p.rawEcalEnergy << std::endl;
   std::cout << "\thcalEnergy : " << p.hcalEnergy << std::endl;
-  std::cout << "\trawHcalEnergy : " << p.rawHcalEnergy << std::endl;
-  std::cout << "\tpS1Energy : " << p.pS1Energy << std::endl;
-  std::cout << "\tpS2Energy : " << p.pS2Energy << std::endl;
   std::cout << "\tvertex : "; Print(p.vertex);
-  std::cout << "\tpositionAtECALEntrance : "; Print(p.positionAtECALEntrance);
   std::cout << "\tmomentum : "; Print(p.momentum);
   std::cout << std::endl;
 }
 
 
 void Print(const susy::PUSummaryInfo& p) {
-  std::cout << "\tnumInteractions : " << p.numInteractions << std::endl;
-  std::cout << "\tBX : " << p.BX << std::endl;
+  std::cout << "\tnumInteractions : " << int(p.numInteractions) << std::endl;
+  std::cout << "\tBX : " << int(p.BX) << std::endl;
   std::cout << "\ttrueNumInteractions : " << p.trueNumInteractions << std::endl;
   std::cout << "\tzPositions :";
   for(std::vector<float>::const_iterator it = p.zPositions.begin(); it != p.zPositions.end(); it++) {
@@ -305,12 +276,12 @@ void Print(const susy::PUSummaryInfo& p) {
   }
   std::cout << std::endl;
   std::cout << "\tnumTracksLowPT :";
-  for(std::vector<int>::const_iterator it = p.numTracksLowPT.begin(); it != p.numTracksLowPT.end(); it++) {
+  for(std::vector<unsigned short>::const_iterator it = p.numTracksLowPT.begin(); it != p.numTracksLowPT.end(); it++) {
     std::cout << " " << *it; 
   }
   std::cout << std::endl;
   std::cout << "\tnumTracksHighPT :";
-  for(std::vector<int>::const_iterator it = p.numTracksHighPT.begin(); it != p.numTracksHighPT.end(); it++) {
+  for(std::vector<unsigned short>::const_iterator it = p.numTracksHighPT.begin(); it != p.numTracksHighPT.end(); it++) {
     std::cout << " " << *it; 
   }
   std::cout << std::endl;
@@ -349,14 +320,14 @@ void Print(const susy::Event& event) {
   std::cout << "cosmicFlag : " << int(event.cosmicFlag) << std::endl;
   std::cout << "rho : " << event.rho << std::endl;
   std::cout << "rhoBarrel : " << event.rhoBarrel << std::endl;
-  std::cout << "metFilterBit : " << event.metFilterBit << std::endl;
+  std::cout << "metFilterBit : " << std::hex << event.metFilterBit << std::dec << std::endl;
   std::cout << "metFilterBit break down ===> ";
-  std::cout << "passCSCBeamHalo(" << event.passCSCBeamHalo() << ") ";
-  std::cout << "passHcalNoise(" << event.passHcalNoise() << ") ";
-  std::cout << "passEcalDeadCellTP(" << event.passEcalDeadCellTP() << ") ";
-  std::cout << "passEcalDeadCellBE(" << event.passEcalDeadCellBE() << ") ";
-  std::cout << "passHcalLaser(" << event.passHcalLaser() << ") ";
-  std::cout << "passTrackingFailure(" << event.passTrackingFailure() << ") ";
+  std::cout << "CSCBeamHalo(" << event.passMetFilter(susy::kCSCBeamHalo) << ") ";
+  std::cout << "HcalNoise(" << event.passMetFilter(susy::kHcalNoise) << ") ";
+  std::cout << "EcalDeadCellTP(" << event.passMetFilter(susy::kEcalDeadCellTP) << ") ";
+  std::cout << "EcalDeadCellBE(" << event.passMetFilter(susy::kEcalDeadCellBE) << ") ";
+  std::cout << "HcalLaser(" << event.passMetFilter(susy::kHcalLaser) << ") ";
+  std::cout << "TrackingFailure(" << event.passMetFilter(susy::kTrackingFailure) << ") ";
   std::cout << "passMetFilters(" << event.passMetFilters() << ") ";
   std::cout << std::endl;
 
@@ -425,26 +396,15 @@ void Print(const susy::Event& event) {
   std::cout << "jptJets size(" << event.jptJets.size() << ") =========>" << std::endl;
 
   std::cout << "pfParticles size(" << event.pfParticles.size() << ") =========>" << std::endl;
-  for(std::map<TString, susy::PFParticleCollection>::const_iterator it = event.pfParticles.begin(); it != event.pfParticles.end(); it++) {
-    std::cout << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
-    for(std::vector<susy::PFParticle>::const_iterator it2 = it->second.begin(); it2 != it->second.end(); it2++) {
-      Print(*it2);
-    }
-  }
-  std::cout << std::endl;
+  for(susy::PFParticleCollection::const_iterator it = event.pfParticles.begin(); it != event.pfParticles.end(); it++)
+    Print(*it);
 
-  std::cout << "generalTracks size(" << event.generalTracks.size() << ") =========>" << std::endl;
+  std::cout << std::endl;
 
   if(!event.isRealData) {
     std::cout << "pu size(" << event.pu.size() << ") =========>" << std::endl;
     for(susy::PUSummaryInfoCollection::const_iterator it = event.pu.begin(); it != event.pu.end(); it++) {
       std::cout << "\tpu : "; Print(*it);
-    }
-    std::cout << std::endl;
-
-    std::cout << "simVertices size(" << event.simVertices.size() << ") =========>" << std::endl;
-    for(std::vector<TVector3>::const_iterator it = event.simVertices.begin(); it != event.simVertices.end(); it++) {
-      std::cout << "\tsimVertex : "; Print(*it);
     }
     std::cout << std::endl;
 

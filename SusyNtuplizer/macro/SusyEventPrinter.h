@@ -7,7 +7,6 @@ void Print(const TVector2& p);
 void Print(const TVector3& p);
 void Print(const TLorentzVector& p);
 void Print(const susy::TriggerMap& t);
-void Print(const susy::CorrMETData& cm);
 void Print(const susy::MET& met);
 void Print(const susy::Vertex& vtx);
 void Print(const susy::Photon& p);

@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.12 2012/05/03 19:58:51 dwjang Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.15 2012/08/31 11:33:53 bfrancis Exp $
 //
 
 #define SusyEventAnalyzer_cxx
@@ -21,104 +21,182 @@
 #include <TStyle.h>
 #include <TCanvas.h>
 #include <TH1F.h>
+#include <TPRegexp.h>
+#include <TFile.h>
 
 #include <map>
 #include <set>
 #include <cmath>
 #include <algorithm>
 #include <utility>
+#include <iostream>
+#include <fstream>
 
 #include "SusyEventAnalyzer.h"
 #include "SusyEventPrinter.h"
 
-#include "../jec/JetMETObjects/interface/JetCorrectorParameters.h"
-#include "../jec/JetMETObjects/interface/FactorizedJetCorrector.h"
-
-
-template<typename T> bool EtGreater(const T* p1, const T* p2) {
+template<typename T>
+bool
+EtGreater(const T* p1, const T* p2) {
   return (p1->momentum.Et() > p2->momentum.Et());
 }
 
-
-void SusyEventAnalyzer::InitializePerEvent() {
-
+template<typename T>
+bool
+PtGreater(const T* p1, const T* p2) {
+  return (p1->momentum.Pt() > p2->momentum.Pt());
 }
 
-
-bool SusyEventAnalyzer::isSameObject(TLorentzVector& p1, TLorentzVector& p2) {
-
-  float dEta = p1.Eta() - p2.Eta();
-  float dPhi = TVector2::Phi_mpi_pi(p1.Phi() - p2.Phi());
-  float dR = std::sqrt(dEta*dEta + dPhi*dPhi);
-  if(dR < 0.5) return true;
+template<typename T1, typename T2>
+bool
+isSameObject(const T1& p1, const T2& p2)
+{
+  float dEta = p1.momentum.Eta() - p2.momentum.Eta();
+  float dPhi = TVector2::Phi_mpi_pi(p1.momentum.Phi() - p2.momentum.Phi());
+  float dR2 = dEta*dEta + dPhi*dPhi;
+  if(dR2 < 0.25) return true;
   return false;
 }
 
-
-float SusyEventAnalyzer::d0correction(TVector3& beamSpot, susy::Track& track) const {
-
+float
+d0correction(TVector3& beamSpot, susy::Track& track)
+{
   float d0 = track.d0() - beamSpot.X()*std::sin(track.phi()) + beamSpot.Y()*std::cos(track.phi());
   return d0;
 }
 
 
-bool SusyEventAnalyzer::PassTrigger(TString path) {
-  bool pass = false;
-  for(susy::TriggerMap::iterator it = event->hltMap.begin(); it != event->hltMap.end(); it++) {
-    if(it->first.Contains(path) && (int(it->second.second)) ) {
-      pass = true;
-      break;
-    }
-  }
-  return pass;
+SusyEventAnalyzer::SusyEventAnalyzer(TTree& tree) :
+  fTree(&tree),
+  event(0),
+  outputName("analysis"),
+  printLevel(0),
+  printInterval(1000),
+  processNEvents(-1),
+  hltNames(),
+  copyEvents(false),
+  goodLumiList(),
+  currentLumi(0, 0),
+  currentLumiIsGood(true)
+{
+  event = new susy::Event;
+  event->bindTree(tree);
 }
 
-
-bool SusyEventAnalyzer::PassTriggers() {
-  bool pass = false;
-  for(std::vector<TString>::iterator it = hltNames.begin(); it != hltNames.end(); it++) {
-    if(PassTrigger(*it)) {
-      pass = true;
-      break;
-    }
-  }
-  return pass;
+SusyEventAnalyzer::~SusyEventAnalyzer()
+{
+  delete event;
 }
 
+void
+SusyEventAnalyzer::IncludeAJson(TString const& _fileName)
+{
+  if(_fileName == "") return;
 
+  std::ifstream inputFile(_fileName);
+  if(!inputFile.is_open()){
+    std::cerr << "Cannot open JSON file " << _fileName << std::endl;
+    return;
+  }
 
-void SusyEventAnalyzer::Loop() {
+  std::string line;
+  TString jsonText;
+  while(true){
+    std::getline(inputFile, line);
+    if(!inputFile.good()) break;
+    jsonText += line;
+  }
+  inputFile.close();
 
-  if (fChain == 0) return;
+  TPRegexp runBlockPat("\"([0-9]+)\":[ ]*\\[((?:\\[[0-9]+,[ ]*[0-9]+\\](?:,[ ]*|))+)\\]");
+  TPRegexp lumiBlockPat("\\[([0-9]+),[ ]*([0-9]+)\\]");
 
-  Long64_t nentries = fChain->GetEntries();
+  TArrayI positions(2);
+  positions[1] = 0;
+  while(runBlockPat.Match(jsonText, "g", positions[1], 10, &positions) == 3){
+    TString runBlock(jsonText(positions[0], positions[1] - positions[0]));
+    TString lumiPart(jsonText(positions[4], positions[5] - positions[4]));
 
-  std::cout << "total events in files  : " << nentries << std::endl;
+    unsigned run(TString(jsonText(positions[2], positions[3] - positions[2])).Atoi());
+    std::set<unsigned>& lumis(goodLumiList[run]);
 
-  if(processNEvents <= 0 || processNEvents > nentries) processNEvents = nentries;
+    TArrayI lumiPos(2);
+    lumiPos[1] = 0;
+    while(lumiBlockPat.Match(lumiPart, "g", lumiPos[1], 10, &lumiPos) == 3){
+      TString lumiBlock(lumiPart(lumiPos[0], lumiPos[1] - lumiPos[0]));
+      int begin(TString(lumiPart(lumiPos[2], lumiPos[3] - lumiPos[2])).Atoi());
+      int end(TString(lumiPart(lumiPos[4], lumiPos[5] - lumiPos[4])).Atoi());
+      for(int lumi(begin); lumi <= end; ++lumi)
+        lumis.insert(lumi);
+    }
+  }
+}
 
-  std::cout << "events to be processed : " << processNEvents << std::endl; 
+bool
+SusyEventAnalyzer::IsGoodLumi(UInt_t run, UInt_t lumi) const
+{
+  if(goodLumiList.size() == 0) return true;
+  if(run == currentLumi.first && lumi == currentLumi.second) return currentLumiIsGood;
+  currentLumi.first = run;
+  currentLumi.second = lumi;
+  currentLumiIsGood = false;
 
+  std::map<unsigned, std::set<unsigned> >::const_iterator rItr(goodLumiList.find(run));
+  if(rItr != goodLumiList.end()){
+    std::set<unsigned>::const_iterator lItr(rItr->second.find(lumi));
+    if(lItr != rItr->second.end()) currentLumiIsGood = true;
+  }
 
-  if(printLevel > 0) std::cout << "Initialize event counters." << std::endl;
+  return currentLumiIsGood;
+}
+
+bool
+SusyEventAnalyzer::PassTriggers() const
+{
+  unsigned nT(hltNames.size());
+  if(nT == 0) return true;
+
+  for(unsigned iT(0); iT != nT; ++iT)
+    if(event->hltMap.pass(hltNames[iT])) return true;
+
+  return false;
+}
+
+bool
+SusyEventAnalyzer::InitializePerEvent()
+{
+  return true;
+}
+
+void
+SusyEventAnalyzer::Run()
+{
   const int NCNT = 20;
   int nCnt[NCNT];
   for(int i=0; i<NCNT; i++) nCnt[i] = 0;
 
-  int nFiltered = 0;
-  TTree* filterTree = 0;
-
-  if(enableFilter) {
-    TFile* filterFile = new TFile(filtered_file_name,"RECREATE");
-    filterTree = (TTree*) fChain->GetTree()->CloneTree(0);
-    filterTree->SetAutoSave();
+  if(printLevel > 0) std::cout << "Open file for histograms" << std::endl;
+  TFile* fout = TFile::Open("hist_" + outputName + ".root", "RECREATE");
+  if(!fout || fout->IsZombie()){
+    std::cerr << "Cannot open output file hist_" << outputName << ".root" << std::endl;
+    return;
   }
 
+  TTree* copyTree = 0;
 
-  // open hist file and define histograms
+  if(copyEvents){
+    if(printLevel > 0) std::cout << "Open file for skim output" << std::endl;
+    TFile* filterFile = TFile::Open("susyEvents_" + outputName + ".root", "RECREATE");
+    if(!filterFile || filterFile->IsZombie())
+      std::cerr << "Cannot open output file susyEvents_" << outputName << ".root" << std::endl;
+    else{
+      event->bindTree(*copyTree, false);
+      copyTree->SetAutoSave(10000000);
+    }
+  }
 
-  TFile* fout = new TFile("hist_"+ds+".root","RECREATE");
-
+  if(printLevel > 0) std::cout << "Define histograms" << std::endl;
+    
   fout->cd();
 
   TH1F* h_vtxZ = new TH1F("vtxZ","Z position of the primary vertex;Z (cm);Events",100,-50.0,50.0);
@@ -126,53 +204,44 @@ void SusyEventAnalyzer::Loop() {
   TH1F* h_met = new TH1F("met","missing transverse energy;#slash{E}_{T} (GeV);Events",200,0.0,1000.0);
   TH1F* h_sumEt = new TH1F("sumEt","Scalar sum of all calorimeter energy;#sigmaE_{T} (GeV);Events",200,0.0,2000.0);
 
+  if(printLevel > 0) std::cout << "Start event loop" << std::endl;
 
+  long iEntry(0);
+  while(iEntry != processNEvents && fTree->GetEntry(iEntry++) != 0){
 
-  // to check duplicated events
-  std::map<int, std::set<int> > allEvents;
+    if(printLevel > 0 || iEntry % printInterval == 0)
+      std::cout << iEntry - 1 << " events processed with run=" << event->runNumber << ", event=" << event->eventNumber << std::endl;
 
-  // start event looping
+    if(printLevel > 0) std::cout << "Initialize any global variables to be reset per event->" << std::endl;
 
-  Long64_t nbytes = 0, nb = 0;
-  for (Long64_t jentry=0; jentry < processNEvents; jentry++) {
+    // remove events that fail initialization
+    if(!InitializePerEvent()) continue;
 
-    if(printLevel > 0) std::cout << "Get the tree contents." << std::endl;
-
-    Long64_t ientry = LoadTree(jentry);
-    if (ientry < 0) break;
-    nb = fChain->GetEntry(jentry);   nbytes += nb;
-
-
-    if(printLevel > 0 || (printInterval > 0 && (jentry >= printInterval && jentry%printInterval == 0)) ) {
-      std::cout << int(jentry) << " events processed with run="
-		<< event->runNumber << ", event=" << event->eventNumber << std::endl;
-    }
-
-
-    if(printLevel > 0) std::cout << "Initialize any global variables to be reset per event." << std::endl;
-
-    InitializePerEvent();
-
+    if(printLevel > 1) Print(*event);
 
     if(printLevel > 0) std::cout << "Apply good run list." << std::endl;
 
-    
-    // uncomment this to use the Json file to flag good data (or bad depending on your outlook)    
-    // if(!isInJson(event->runNumber,event->luminosityBlockNumber)) continue;
+    // remove events not in good lumi list
+    if(!IsGoodLumi(event->runNumber, event->luminosityBlockNumber)) continue;
 
-    // uncomment this to print all ntuple variables
-    Print(*event);
-
-    if(printLevel > 0) std::cout << "Check duplicated events for data only." << std::endl;
-
-    bool duplicateEvent = ! (allEvents[event->runNumber].insert(event->eventNumber)).second;
-    if(event->isRealData && duplicateEvent) continue;
- 
+    if(printLevel > 0) std::cout << "Apply MET filter." << std::endl;
 
     // remove events filtered by optional met filters
-    if(!event->passMetFilters()) continue;
+    if(event->isRealData && !event->passMetFilters()) continue;
 
-    if(printLevel > 0) std::cout << "Setup object vectors." << std::endl;
+    nCnt[0]++; // total number of events
+
+    if(printLevel > 0) std::cout << "Apply HLT cut." << std::endl;
+
+    if(!PassTriggers()) continue;
+
+    if(printLevel > 0) std::cout << "Event passes presele." << std::endl;
+
+    nCnt[1]++; // total number of events
+
+    if(printLevel > 0) std::cout << "Set object references in Event" << std::endl;
+
+    event->fillRefs();
 
     // classify photon objects
 
@@ -191,7 +260,7 @@ void SusyEventAnalyzer::Loop() {
     std::vector<susy::CaloJet*>  caloJets;
     std::vector<susy::PFJet*>    pfJets;
 
-    if(printLevel > 0) std::cout << "Find primary vertex in the event." << std::endl;
+    if(printLevel > 0) std::cout << "Find primary vertex in the event->" << std::endl;
 
     TVector3* primVtx = 0;
     if(event->vertices.size() > 0) primVtx = &(event->vertices[0].position);
@@ -199,15 +268,16 @@ void SusyEventAnalyzer::Loop() {
     if(primVtx) h_vtxZ->Fill(primVtx->Z());
     h_bsZ->Fill(event->beamSpot.Z());
 
+    if(printLevel > 0) std::cout << "Find loose and tight photons in the event->" << std::endl;
 
-    if(printLevel > 0) std::cout << "Find loose and tight photons in the event." << std::endl;
-
-    std::map<TString, std::vector<susy::Photon> >::iterator phoMap = event->photons.find("photons");
+    std::map<TString, susy::PhotonCollection>::iterator phoMap = event->photons.find("photons");
 
     if(phoMap != event->photons.end()) {
 
-      for(std::vector<susy::Photon>::iterator it = phoMap->second.begin();
-	  it != phoMap->second.end(); it++) {
+      susy::PhotonCollection& phoColl = phoMap->second;
+
+      for(susy::PhotonCollection::iterator it = phoColl.begin();
+	  it != phoColl.end(); it++) {
 
 	// fiducial cuts. Look for only barrel now
 	if(!it->isEB()) continue;
@@ -264,7 +334,7 @@ void SusyEventAnalyzer::Loop() {
     std::sort(fake_photons.begin(),fake_photons.end(),EtGreater<susy::Photon>);
 
 
-    if(printLevel > 0) std::cout << "Find caloJets in the event." << std::endl;
+    if(printLevel > 0) std::cout << "Find caloJets in the event->" << std::endl;
       
     std::map<TString,susy::CaloJetCollection>::iterator caloJets_it = event->caloJets.find("ak5");
 
@@ -292,7 +362,7 @@ void SusyEventAnalyzer::Loop() {
 
 	for(std::vector<susy::Photon*>::iterator m_it = tight_photons.begin();
 	    m_it != tight_photons.end(); m_it++){
-	  if(isSameObject(corrP4,(*m_it)->momentum)){
+	  if(isSameObject(*it, **m_it)){
 	    same = true;
 	    break;
 	  }
@@ -309,7 +379,7 @@ void SusyEventAnalyzer::Loop() {
     std::sort(caloJets.begin(),caloJets.end(),EtGreater<susy::CaloJet>);
 
 
-    if(printLevel > 0) std::cout << "Find pfJets in the event." << std::endl;
+    if(printLevel > 0) std::cout << "Find pfJets in the event->" << std::endl;
       
     std::map<TString,susy::PFJetCollection>::iterator pfJets_it = event->pfJets.find("ak5");
     if(pfJets_it == event->pfJets.end()){
@@ -339,7 +409,7 @@ void SusyEventAnalyzer::Loop() {
 
 	for(std::vector<susy::Photon*>::iterator m_it = tight_photons.begin();
 	    m_it != tight_photons.end(); m_it++){
-	  if(isSameObject(corrP4,(*m_it)->momentum)){
+	  if(isSameObject(*it, **m_it)){
 	    same = true;
 	    break;
 	  }
@@ -356,18 +426,14 @@ void SusyEventAnalyzer::Loop() {
     std::sort(pfJets.begin(),pfJets.end(),EtGreater<susy::PFJet>);
 
 
-    if(printLevel > 0) std::cout << "Apply trigger selection in the event." << std::endl;
+    if(printLevel > 0) std::cout << "Select which met will be used in the event->" << std::endl;
 
-    bool passHLT = (useTrigger ? PassTriggers() : true);
-
-    if(printLevel > 0) std::cout << "Select which met will be used in the event." << std::endl;
-
-    std::map<TString, susy::MET>::iterator met_it = event->metMap.find("pfMet");
+    std::map<TString, susy::MET>::iterator met_it = event->metMap.find("pfType01SysShiftCorrectedMet");
     if(met_it == event->metMap.end()) {
-      std::cout << "MET map is not available!!!" << std::endl;
+      std::cout << "MET is not available!!!" << std::endl;
       continue;
     }
-    susy::MET* met = &(met_it->second);
+    susy::MET& met = met_it->second;
 
     if(printLevel > 0) {
       std::cout << "------------------------------------------" << std::endl;
@@ -380,39 +446,25 @@ void SusyEventAnalyzer::Loop() {
       std::cout << "caloJets          : " << caloJets.size() << std::endl;
       std::cout << "pfJets            : " << pfJets.size() << std::endl;
       std::cout << "------------------------------------------" << std::endl;
-      std::cout << "met               : " << met->met() << std::endl;
+      std::cout << "met               : " << met.met() << std::endl;
     } 
+
 
 
     if(printLevel > 0) std::cout << "Apply event level cuts from now on..." << std::endl;
 
-
-    // filter conditions
-
-    if(enableFilter) {
-      bool filterThis = (loose_photons.size() > 0);
-      if(filterThis) {
-	nFiltered++;
-	filterTree->Fill();
-      }
-    }// if(enableFilter)
-
-
-    // event counter
-
-    nCnt[0]++; // total number of events
-
-    if(!passHLT) continue;
-
-    nCnt[1]++;
+    // Event level cuts
 
     if(loose_photons.size() == 0) continue;
 
+    // End event level cuts
+
+    if(copyEvents) copyTree->Fill();
+
     nCnt[2]++;
 
-    h_met->Fill(met->met());
-    h_sumEt->Fill(met->sumEt);
-
+    h_met->Fill(met.met());
+    h_sumEt->Fill(met.sumEt);
 
     // two photons
     if(tight_photons.size() >= 2) {
@@ -439,12 +491,11 @@ void SusyEventAnalyzer::Loop() {
       nCnt[7]++;
     }
 
-
-    if(met->met() < 50.0) continue;
+    if(met.met() < 50.0) continue;
 
     nCnt[8]++;
 
-  } // for jentry
+  } // for iEntry
 
 
   // end of event loop and print summary
@@ -460,9 +511,9 @@ void SusyEventAnalyzer::Loop() {
   std::cout << " ff events               : " << nCnt[7] << " (" << nCnt[7]/float(nCnt[1]) << ")" << std::endl;
   std::cout << " met > 50 GeV            : " << nCnt[8] << " (" << nCnt[8]/float(nCnt[1]) << ")" << std::endl;
 
-  if(enableFilter) {
+  if(copyEvents){
     std::cout << " --------------- Filtered events --------------- " << std::endl;
-    std::cout << " filtered events         : " << nFiltered << " (" << nFiltered/float(nCnt[0]) << ")" << std::endl;
+    std::cout << " filtered events         : " << copyTree->GetEntries() << " (" << copyTree->GetEntries()/float(nCnt[0]) << ")" << std::endl;
   }
   std::cout << " ----------------------------------------------- " << std::endl;
 
@@ -470,12 +521,14 @@ void SusyEventAnalyzer::Loop() {
 
   fout->cd();
   fout->Write();
-  fout->Close();
+  delete fout;
 
-  if(enableFilter) {
-    filterTree->GetCurrentFile()->cd();
-    filterTree->GetCurrentFile()->Write();
-    filterTree->GetCurrentFile()->Close();
+  if(copyEvents){
+    TFile* copyFile(copyTree->GetCurrentFile());
+    copyFile->cd();
+    copyFile->Write();
+    event->releaseTree(*copyTree);
+    delete copyFile;
   }
 
 }
