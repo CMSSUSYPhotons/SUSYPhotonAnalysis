@@ -1,5 +1,5 @@
 # Original Author:  Dongwook Jang
-# $Id: Makefile,v 1.3 2011/06/06 19:30:41 dwjang Exp $
+# $Id: Makefile,v 1.4 2013/04/01 09:53:24 yiiyama Exp $
 
 #--------------------------------------------------
 # Change file names for your need
@@ -13,7 +13,6 @@ OBJDIR  = ../src
 skip_files = $(OBJDIR)/SusyNtuplizer.cc $(OBJDIR)/SusyTriggerNtuplizer.cc
 OBJECTS    = $(filter-out $(skip_files), $(wildcard $(OBJDIR)/*.cc))
 DICTS   = Event_dict
-JECDIR = ../jec/JetMETObjects
 
 #---------------------------------------------------
 # compiler dependent flags
@@ -110,8 +109,6 @@ $(TARGET): $(DICTS)
 	@@echo "Making $(TARGET) ..."
 	@@$(CXX) $(CXXFLAGS) $(SOFLAGS) -o $(TARGET) $(INC) $(LIBS) $(OBJECTS) $(DICTS).cc
 	@@/bin/rm -f $(DICTS).*
-	@@echo "Chaning directory to $(JECDIR) and compiling jec package ..."
-	make -C $(JECDIR)
 
 clean:
 	@@/bin/rm -f $(TARGET) $(DICTS).* *_cc.d *_cc.so *~
