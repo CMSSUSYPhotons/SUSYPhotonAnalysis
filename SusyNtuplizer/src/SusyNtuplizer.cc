@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.50 2013/04/03 22:04:53 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.51 2013/04/11 16:36:19 yiiyama Exp $
 //
 //
 
@@ -216,6 +216,7 @@ private:
   std::map<std::string, VString> photonIsoDepTags_;
   std::map<std::string, VString> electronIsoDepTags_;
   std::map<std::string, VString> bTagCollectionTags_;
+  std::map<std::string, VString> muonIdTags_;
   std::map<std::string, std::pair<std::string, std::string> > electronMVAIdTags_;
   std::map<std::string, std::pair<std::string, std::string> > jetFlavourMatchingTags_;
   std::map<std::string, VString> puJetIdCollectionTags_;
@@ -304,6 +305,7 @@ private:
   TTree*       susyTree_;
 
   susy::TriggerEvent* triggerEvent_;
+
 };
 
 
@@ -326,6 +328,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   photonIsoDepTags_(),
   electronIsoDepTags_(),
   bTagCollectionTags_(),
+  muonIdTags_(),
   electronMVAIdTags_(),
   jetFlavourMatchingTags_(),
   puJetIdCollectionTags_(),
@@ -403,6 +406,28 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     tags[0] = tagsPSet.getParameter<std::string>("chargedHadron");
     tags[1] = tagsPSet.getParameter<std::string>("neutralHadron");
     tags[2] = tagsPSet.getParameter<std::string>("photon");
+  }
+
+  /*
+    Get tags for muon ID.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> vector tags].
+  */
+  edm::ParameterSet const& muonIdTags(iConfig.getParameterSet("muonIdTags"));
+  for(VString::iterator tItr(muonCollectionTags_.begin()); tItr != muonCollectionTags_.end(); ++tItr){
+    if(!muonIdTags.existsAs<edm::ParameterSet>(*tItr)) continue;
+    edm::ParameterSet const& tagsPSet(muonIdTags.getParameterSet(*tItr));
+
+    VString& tags(muonIdTags_[*tItr]);
+    tags.resize(6);
+
+    tags[0] = tagsPSet.getParameter<std::string>("TMLastStationLoose");
+    tags[1] = tagsPSet.getParameter<std::string>("TMLastStationTight");
+    tags[2] = tagsPSet.getParameter<std::string>("TMOneStationLoose");
+    tags[3] = tagsPSet.getParameter<std::string>("TMOneStationTight");
+    tags[4] = tagsPSet.getParameter<std::string>("TMLastStationLowPtLoose");
+    tags[5] = tagsPSet.getParameter<std::string>("TMLastStationLowPtTight");
   }
 
   /*
@@ -1525,46 +1550,51 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
 
       pho.superClusterIndex = fillSuperCluster(scRef);
 
-      pho.nPixelSeeds                       = it->electronPixelSeeds().size();
+      pho.nPixelSeeds = it->electronPixelSeeds().size();
       pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, beamSpot);
 
       // conversion Id
-      if(it->conversions().size() > 0
-         && it->conversions()[0]->nTracks() == 2
-         && it->conversions()[0]->conversionVertex().isValid()
-         && !it->conversions()[0]->conversionVertex().isFake()) {
+      reco::ConversionRefVector conversions(it->conversions());
+      if(conversions.size() != 0){
+        reco::Conversion const& conversion(*conversions[0]);
 
-        pho.convInfo   = kTRUE;
-        pho.convDist   = it->conversions()[0]->distOfMinimumApproach();
-        pho.convDcot   = it->conversions()[0]->pairCotThetaSeparation();
-        pho.convVtxChi2 = it->conversions()[0]->conversionVertex().chi2();
-        pho.convVtxNdof = it->conversions()[0]->conversionVertex().ndof();
-        pho.convVertex.SetXYZ(it->conversions()[0]->conversionVertex().x(),
-                              it->conversions()[0]->conversionVertex().y(),
-                              it->conversions()[0]->conversionVertex().z());
-        pho.convDxy = it->conversions()[0]->dxy(beamSpot);
-        pho.convDz  = it->conversions()[0]->dz(beamSpot);
-        pho.convLxy = it->conversions()[0]->lxy(beamSpot);
-        pho.convLz  = it->conversions()[0]->lz(beamSpot);
-        pho.convZofPVFromTracks = it->conversions()[0]->zOfPrimaryVertexFromTracks(beamSpot);
-        pho.convTrackChargeProd = (it->conversions()[0]->tracks())[0]->charge() * (it->conversions()[0]->tracks())[1]->charge();
-        pho.convTrack1nHit = (it->conversions()[0]->tracks())[0]->found();
-        pho.convTrack2nHit = (it->conversions()[0]->tracks())[1]->found();
-        pho.convTrack1chi2 = (it->conversions()[0]->tracks())[0]->chi2();
-        pho.convTrack1pT = (it->conversions()[0]->tracks())[0]->pt();
-        pho.convTrack2chi2 = (it->conversions()[0]->tracks())[1]->chi2();
-        pho.convTrack2pT = (it->conversions()[0]->tracks())[1]->pt();
-        std::vector<math::XYZPointF> InnerPos = it->conversions()[0]->tracksInnerPosition();
-        pho.convTrack1InnerZ = InnerPos[0].z();
-        pho.convTrack2InnerZ = InnerPos[1].z();
-        pho.convTrack1InnerX = InnerPos[0].x();
-        pho.convTrack2InnerX = InnerPos[1].x();
-        pho.convTrack1InnerY = InnerPos[0].y();
-        pho.convTrack2InnerY = InnerPos[1].y();
-        std::vector<double> signedd0 = it->conversions()[0]->tracksSigned_d0();
-        pho.convTrack1Signedd0 = signedd0[0];
-        pho.convTrack2Signedd0 = signedd0[1];
+        if(conversion.nTracks() == 2
+           && conversion.conversionVertex().isValid()
+           && !conversion.conversionVertex().isFake()) {
+          reco::Track const& track0(*conversion.tracks().at(0));
+          reco::Track const& track1(*conversion.tracks().at(1));
 
+          pho.convInfo   = kTRUE;
+          pho.convDist   = conversion.distOfMinimumApproach();
+          pho.convDcot   = conversion.pairCotThetaSeparation();
+          pho.convVtxChi2 = conversion.conversionVertex().chi2();
+          pho.convVtxNdof = conversion.conversionVertex().ndof();
+          pho.convVertex.SetXYZ(conversion.conversionVertex().x(),
+                                conversion.conversionVertex().y(),
+                                conversion.conversionVertex().z());
+          pho.convDxy = conversion.dxy(beamSpot);
+          pho.convDz  = conversion.dz(beamSpot);
+          pho.convLxy = conversion.lxy(beamSpot);
+          pho.convLz  = conversion.lz(beamSpot);
+          pho.convZofPVFromTracks = conversion.zOfPrimaryVertexFromTracks(beamSpot);
+          pho.convTrackChargeProd = track0.charge() * track1.charge();
+          pho.convTrack1nHit = track0.found();
+          pho.convTrack2nHit = track1.found();
+          pho.convTrack1chi2 = track0.chi2();
+          pho.convTrack1pT = track0.pt();
+          pho.convTrack2chi2 = track1.chi2();
+          pho.convTrack2pT = track1.pt();
+          std::vector<math::XYZPointF> InnerPos = conversion.tracksInnerPosition();
+          pho.convTrack1InnerZ = InnerPos[0].z();
+          pho.convTrack2InnerZ = InnerPos[1].z();
+          pho.convTrack1InnerX = InnerPos[0].x();
+          pho.convTrack2InnerX = InnerPos[1].x();
+          pho.convTrack1InnerY = InnerPos[0].y();
+          pho.convTrack2InnerY = InnerPos[1].y();
+          std::vector<double> signedd0 = conversion.tracksSigned_d0();
+          pho.convTrack1Signedd0 = signedd0[0];
+          pho.convTrack2Signedd0 = signedd0[1];
+        }
       }
 
       pho.caloPosition.SetXYZ(it->caloPosition().x(),it->caloPosition().y(),it->caloPosition().z());
@@ -1667,8 +1697,6 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       ele.fidBit |= it->isEEDeeGap()  << 5;
       ele.fidBit |= it->isEERingGap() << 6;
 
-      ele.scPixCharge = it->scPixCharge();
-
       ele.boolPack |= it->isGsfCtfScPixChargeConsistent() << 0;
       ele.boolPack |= it->isGsfScPixChargeConsistent()    << 1;
       ele.boolPack |= it->isGsfCtfChargeConsistent()      << 2;
@@ -1679,8 +1707,11 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       ele.boolPack |= it->ambiguous()                     << 7;
       ele.boolPack |= it->isEcalEnergyCorrected()         << 8;
       ele.boolPack |= it->isEnergyScaleCorrected()        << 9;
-      ele.boolPack |= it->convFlags()                     << 10;
-      ele.boolPack |= isPF                                << 11;
+      ele.boolPack |= isPF                                << 10;
+
+      ele.scPixCharge = it->scPixCharge();
+
+      ele.convFlag = it->convFlags();
 
       ele.eSuperClusterOverP             = it->eSuperClusterOverP();
       ele.eSeedClusterOverP              = it->eSeedClusterOverP();
@@ -1817,6 +1848,17 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMuons: size of MuonCollection " << collectionTag << " = " << muonH->size();
 
+    VString& idTags(muonIdTags_[collectionTag]);
+    std::vector<edm::ValueMap<bool> const*> idMaps(6, NULL);
+    if(idTags.size() != 0){
+      edm::Handle<edm::ValueMap<bool> > vmH;
+
+      for(unsigned iId(0); iId != 6; ++iId){
+        _event.getByLabel(edm::InputTag(idTags[iId]), vmH);
+        idMaps[iId] = vmH.product();
+      }
+    }
+
     susy::MuonCollection& susyCollection(susyEvent_->muons.find(TString(collectionTag).ReplaceAll(":", "_"))->second);
 
     int imu = 0;
@@ -1843,12 +1885,8 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
       // SWGuideMuonId#HighPT_Muon
       mu.highPtBestTrackType                = it->innerTrack().isNonnull() ? muon::tevOptimized(*it, 200., 17., 40., 0.25).second : 0;
 
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationLoose) ? (0x1 << 0) : 0;
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationTight) ? (0x1 << 1) : 0;
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMOneStationLoose) ? (0x1 << 2) : 0;
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMOneStationTight) ? (0x1 << 3) : 0;
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationOptimizedLowPtLoose) ? (0x1 << 4) : 0;
-      mu.qualityFlags |= muon::isGoodMuon(*it, muon::TMLastStationOptimizedLowPtTight) ? (0x1 << 5) : 0;
+      for(unsigned iId(0); iId != 6; ++iId)
+        if(idMaps[iId] && (*idMaps[iId])[muRef]) mu.qualityFlags |= (0x1 << iId);
 
       mu.nMatches                           = it->numberOfMatches();
       mu.stationMask                        = it->stationMask();

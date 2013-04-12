@@ -30,6 +30,16 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
             nonTriggering = cms.string("mvaNonTrigV0")
         )
     ),
+    muonIdTags = cms.PSet(
+        muons = cms.PSet(
+            TMLastStationLoose = cms.string("muons:muidTMLastStationLoose"),
+            TMLastStationTight = cms.string("muons:muidTMLastStationTight"),
+            TMOneStationLoose = cms.string("muons:muidTMOneStationLoose"),
+            TMOneStationTight = cms.string("muons:muidTMOneStationTight"),
+            TMLastStationLowPtLoose = cms.string("muons:muidTMLastStationOptimizedLowPtLoose"),
+            TMLastStationLowPtTight = cms.string("muons:muidTMLastStationOptimizedLowPtTight")
+        )
+    ),
     photonIsoDepTags = cms.PSet(
         photons = cms.PSet(
             chargedHadron = cms.string('photonPFIsoValueCharged03'),

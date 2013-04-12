@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.39 2013/04/03 22:04:53 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.40 2013/04/11 16:31:26 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -431,8 +431,7 @@ namespace susy {
     Bool_t ambiguous() const                     { return (boolPack & (0x1 << 7)); }
     Bool_t isEcalEnergyCorrected() const         { return (boolPack & (0x1 << 8)); }
     Bool_t isEnergyScaleCorrected() const        { return (boolPack & (0x1 << 9)); }
-    Bool_t convFlags() const                     { return (boolPack & (0x1 << 10)); }
-    Bool_t isPF() const                          { return (boolPack & (0x1 << 11)); }
+    Bool_t isPF() const                          { return (boolPack & (0x1 << 10)); }
     Bool_t ecalDriven() const                    { return (ecalDrivenSeed() && passingCutBasedPreselection()); }
 
     Float_t hcalOverEcal() const { return (hcalDepth1OverEcal + hcalDepth2OverEcal); }
@@ -440,8 +439,9 @@ namespace susy {
     Float_t dr04HcalTowerSumEt() const { return (dr04HcalDepth1TowerSumEt + dr04HcalDepth2TowerSumEt); }
 
     UChar_t        fidBit;
-    UShort_t       boolPack;
     Char_t         scPixCharge;
+    UShort_t       boolPack;
+    Short_t        convFlag; // -9999: No partner track found; 0, 1: Partner in CTF collection; 2, 3: in GSF collection
 
     Float_t        eSuperClusterOverP;
     Float_t        eSeedClusterOverP;

@@ -10,7 +10,7 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.29 2013/04/03 22:04:53 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.30 2013/04/11 16:31:26 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -245,8 +245,9 @@ susy::Photon::fillRefs(Event const* _evt)
 
 void susy::Electron::Init() {
   fidBit                           = 0;
-  boolPack                         = 0;
   scPixCharge                      = 0;
+  boolPack                         = 0;
+  convFlag                         = -1;
 
   eSuperClusterOverP               = 0;
   eSeedClusterOverP                = 0;
