@@ -207,7 +207,10 @@ In all cases, the residual correction is included for jets in real data.
 If the user wishes to know what the individual correction factor/uncertainty is,the following
 steps has to be followed. The sample macro of 2.1 is used as an example.
 
-a. Modify jec/jec.py to use the correct global tag and run the job
+a. Modify jec/jec.py to use the correct global tag and run the job. From the output of the job,
+find the file named "XYZ_L2L3Residual_ABC.txt" in the directory and rename it to
+"XYZ_L2RelativeL3AbsoluteResidual_ABC.txt". This is the file containing residual corrections used
+for collision data.
 
 b. Add the following lines at the beggining of ana.C
 
@@ -221,16 +224,32 @@ c. In SusyEventAnalyzer.cc, include the necessary headers
 
 d. In Run(), instantiate the correction objects before the event loop
 
-TString fullPathBase("full_path_to_jec_directory");
-// For the scales
-FactorizedJetCorrector jec("L4EMF:L5Flavor", fullPathBase + "/name_of_L4_file:" + fullPathBase + "/name_of_L5_file");
+std::string jecDir("full_path_to_jec_directory");
+// For the scales (applying L123Residual correction to collision data)
+FactorizedJetCorrector jec("L1FastJet:L2Relative:L3Absolute:L2Relative",
+                           jecDir + "/XYZ_L1FastJet_ABC.txt:" +
+                           jecDir + "/XYZ_L2Relative_ABC.txt:" +
+                           jecDir + "/XYZ_L3Absolute_ABC.txt:" +
+                           jecDir + "/XYZ_L2RelativeL3AbsoluteResidual_ABC.txt");
+
 // For the uncertainties
 JetCorrectionUnceratinty jecUncert(fullPathBase + "/name_of_uncertainty_file");
+
+The first argument of the FactorizedJetCorrector constructor must be some colon-concatenation of the
+following strings: L1Offset, L1JPTOffset, L2Relative, L3Absolute, L4EMF, L5Flavor, L6SLB, L7Parton,
+L1FastJet. The second argument must give the colon-concatenated list of parameter files in the
+corresponding order.
+The last correction name in the example above is L2Relative, although the content of the correction
+is residual. This is a workaround hack needed because the module does not understand the correction
+name L2L3Residual. The way the L2 and the residual corrections are applied are identical, so the end
+result will be correct.
 
 e. In the jet loop, use the objects
 
 jec.setJetEta(jet.momentum.Eta());
 jec.setJetPt(jet.momentum.Pt());
+jec.setJetA(jet.jetArea); // when using L1FastJet
+jec.setRho(event->rho); // when using L1FastJet; choose your rho flavor
 float scale = jec.getCorrection();
 
 jecUncert.setJetEta(jet.momentum.Eta());
