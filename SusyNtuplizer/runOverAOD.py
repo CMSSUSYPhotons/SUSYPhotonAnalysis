@@ -446,52 +446,131 @@ process.load("RecoJets.JetAssociationProducers.ic5PFJetTracksAssociatorAtVertex_
 process.load("RecoBTag.Configuration.RecoBTag_cff")
 
 # create a new jets and tracks associaiton
-process.newJetTracksAssociatorAtVertex = process.ic5PFJetTracksAssociatorAtVertex.clone()
-process.newJetTracksAssociatorAtVertex.jets = cms.InputTag("ak5PFJets")
-process.newJetTracksAssociatorAtVertex.tracks = cms.InputTag("generalTracks")
+process.newJetTracksAssociatorAtVertex = process.ic5PFJetTracksAssociatorAtVertex.clone(
+    jets = cms.InputTag("ak5PFJets"),
+    tracks = cms.InputTag("generalTracks")
+    )
+process.chsJetTracksAssociatorAtVertex = process.ic5PFJetTracksAssociatorAtVertex.clone(
+    jets = cms.InputTag("ak5PFchsJets"),
+    tracks = cms.InputTag("generalTracks")
+    )
 
 # impact parameter b-tag
-process.newImpactParameterTagInfos = process.impactParameterTagInfos.clone()
-process.newImpactParameterTagInfos.jetTracks = "newJetTracksAssociatorAtVertex"
-process.newTrackCountingHighEffBJetTags = process.trackCountingHighEffBJetTags.clone()
-process.newTrackCountingHighEffBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
-process.newTrackCountingHighPurBJetTags = process.trackCountingHighPurBJetTags.clone()
-process.newTrackCountingHighPurBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
-process.newJetProbabilityBJetTags = process.jetProbabilityBJetTags.clone()
-process.newJetProbabilityBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
-process.newJetBProbabilityBJetTags = process.jetBProbabilityBJetTags.clone()
-process.newJetBProbabilityBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
+process.newImpactParameterTagInfos = process.impactParameterTagInfos.clone(
+    jetTracks = cms.InputTag("newJetTracksAssociatorAtVertex")
+    )
+process.chsImpactParameterTagInfos = process.impactParameterTagInfos.clone(
+    jetTracks = cms.InputTag("chsJetTracksAssociatorAtVertex")
+    )
+# TCHE
+process.newTrackCountingHighEffBJetTags = process.trackCountingHighEffBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
+    )
+process.chsTrackCountingHighEffBJetTags = process.trackCountingHighEffBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos") )
+    )
+# TCHP
+process.newTrackCountingHighPurBJetTags = process.trackCountingHighPurBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
+    )
+process.chsTrackCountingHighPurBJetTags = process.trackCountingHighPurBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos") )
+    )
+# JP
+process.newJetProbabilityBJetTags = process.jetProbabilityBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
+    )
+process.chsJetProbabilityBJetTags = process.jetProbabilityBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos") )
+    )
+# JBP
+process.newJetBProbabilityBJetTags = process.jetBProbabilityBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos") )
+    )
+process.chsJetBProbabilityBJetTags = process.jetBProbabilityBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos") )
+    )
 
 # secondary vertex b-tag
-process.newSecondaryVertexTagInfos = process.secondaryVertexTagInfos.clone()
-process.newSecondaryVertexTagInfos.trackIPTagInfos = "newImpactParameterTagInfos"
-process.newSimpleSecondaryVertexBJetTags = process.simpleSecondaryVertexBJetTags.clone()
-process.newSimpleSecondaryVertexBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSecondaryVertexTagInfos") )
-process.newCombinedSecondaryVertexBJetTags = process.combinedSecondaryVertexBJetTags.clone()
-process.newCombinedSecondaryVertexBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
-cms.InputTag("newSecondaryVertexTagInfos") )
-process.newCombinedSecondaryVertexMVABJetTags = process.combinedSecondaryVertexMVABJetTags.clone()
-process.newCombinedSecondaryVertexMVABJetTags.tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
-cms.InputTag("newSecondaryVertexTagInfos") )
-
+process.newSecondaryVertexTagInfos = process.secondaryVertexTagInfos.clone(
+    trackIPTagInfos = cms.InputTag("newImpactParameterTagInfos")
+    )
+process.chsSecondaryVertexTagInfos = process.secondaryVertexTagInfos.clone(
+    trackIPTagInfos = cms.InputTag("chsImpactParameterTagInfos")
+    )
+# SSV
+process.newSimpleSecondaryVertexBJetTags = process.simpleSecondaryVertexBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newSecondaryVertexTagInfos") )
+    )
+process.chsSimpleSecondaryVertexBJetTags = process.simpleSecondaryVertexBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsSecondaryVertexTagInfos") )
+    )
+# CSV
+process.newCombinedSecondaryVertexBJetTags = process.combinedSecondaryVertexBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
+                              cms.InputTag("newSecondaryVertexTagInfos")
+        )
+    )
+process.chsCombinedSecondaryVertexBJetTags = process.combinedSecondaryVertexBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos"),
+                              cms.InputTag("chsSecondaryVertexTagInfos")
+        )
+    )
+# CSVMVA
+process.newCombinedSecondaryVertexMVABJetTags = process.combinedSecondaryVertexMVABJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newImpactParameterTagInfos"),
+                              cms.InputTag("newSecondaryVertexTagInfos")
+        )
+    )
+process.chsCombinedSecondaryVertexMVABJetTags = process.combinedSecondaryVertexMVABJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsImpactParameterTagInfos"),
+                              cms.InputTag("chsSecondaryVertexTagInfos")
+        )
+    )
 # soft electron b-tag
-process.newSoftElectronTagInfos = process.softElectronTagInfos.clone()
-process.newSoftElectronTagInfos.jets = "ak5PFJets"
-process.newSoftElectronBJetTags = process.softElectronBJetTags.clone()
-process.newSoftElectronBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSoftElectronTagInfos") )
-
+process.newSoftElectronTagInfos = process.softElectronTagInfos.clone(
+    jets = "ak5PFJets"
+    )
+process.newSoftElectronBJetTags = process.softElectronBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newSoftElectronTagInfos") )
+    )
+process.chsSoftElectronTagInfos = process.softElectronTagInfos.clone(
+    jets = "ak5PFchsJets"
+    )
+process.chsSoftElectronBJetTags = process.softElectronBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsSoftElectronTagInfos") )
+    )
 # soft muon b-tag
-process.newSoftMuonTagInfos = process.softMuonTagInfos.clone()
-process.newSoftMuonTagInfos.jets = "ak5PFJets"
-process.newSoftMuonBJetTags = process.softMuonBJetTags.clone()
-process.newSoftMuonBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
-process.newSoftMuonByIP3dBJetTags = process.softMuonByIP3dBJetTags.clone()
-process.newSoftMuonByIP3dBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
-process.newSoftMuonByPtBJetTags = process.softMuonByPtBJetTags.clone()
-process.newSoftMuonByPtBJetTags.tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+process.newSoftMuonTagInfos = process.softMuonTagInfos.clone(
+    jets = "ak5PFJets"
+    )
+process.newSoftMuonBJetTags = process.softMuonBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    )
+process.newSoftMuonByIP3dBJetTags = process.softMuonByIP3dBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    )
+process.newSoftMuonByPtBJetTags = process.softMuonByPtBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    )
+process.chsSoftMuonTagInfos = process.softMuonTagInfos.clone(
+    jets = "ak5PFchsJets"
+    )
+process.chsSoftMuonBJetTags = process.softMuonBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    )
+process.chsSoftMuonByIP3dBJetTags = process.softMuonByIP3dBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    )
+process.chsSoftMuonByPtBJetTags = process.softMuonByPtBJetTags.clone(
+    tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    )
 
 process.newJetTracksAssociator = cms.Sequence(
     process.newJetTracksAssociatorAtVertex
+)
+process.chsJetTracksAssociator = cms.Sequence(
+    process.chsJetTracksAssociatorAtVertex
 )
 
 process.newJetBtaggingIP = cms.Sequence(
@@ -500,6 +579,14 @@ process.newJetBtaggingIP = cms.Sequence(
         process.newTrackCountingHighPurBJetTags +
         process.newJetProbabilityBJetTags +
         process.newJetBProbabilityBJetTags
+    )
+)
+process.chsJetBtaggingIP = cms.Sequence(
+    process.chsImpactParameterTagInfos * (
+        process.chsTrackCountingHighEffBJetTags +
+        process.chsTrackCountingHighPurBJetTags +
+        process.chsJetProbabilityBJetTags +
+        process.chsJetBProbabilityBJetTags
     )
 )
 
@@ -511,11 +598,24 @@ process.newJetBtaggingSV = cms.Sequence(
         process.newCombinedSecondaryVertexMVABJetTags
     )
 )
+process.chsJetBtaggingSV = cms.Sequence(
+    process.chsImpactParameterTagInfos *
+    process.chsSecondaryVertexTagInfos * (
+        process.chsSimpleSecondaryVertexBJetTags +
+        process.chsCombinedSecondaryVertexBJetTags +
+        process.chsCombinedSecondaryVertexMVABJetTags
+    )
+)
 
 process.newJetBtaggingEle = cms.Sequence(
     process.softElectronCands *
     process.newSoftElectronTagInfos *
     process.newSoftElectronBJetTags
+)
+process.chsJetBtaggingEle = cms.Sequence(
+    process.softElectronCands *
+    process.chsSoftElectronTagInfos *
+    process.chsSoftElectronBJetTags
 )
 
 process.newJetBtaggingMu = cms.Sequence(
@@ -525,12 +625,25 @@ process.newJetBtaggingMu = cms.Sequence(
         process.newSoftMuonByPtBJetTags
     )
 )
+process.chsJetBtaggingMu = cms.Sequence(
+    process.chsSoftMuonTagInfos * (
+        process.chsSoftMuonBJetTags +
+        process.chsSoftMuonByIP3dBJetTags +
+        process.chsSoftMuonByPtBJetTags
+    )
+)
 
 process.newJetBtagging = cms.Sequence(
     process.newJetBtaggingIP +
     process.newJetBtaggingSV +
     process.newJetBtaggingEle +
     process.newJetBtaggingMu
+)
+process.chsJetBtagging = cms.Sequence(
+    process.chsJetBtaggingIP +
+    process.chsJetBtaggingSV +
+    process.chsJetBtaggingEle +
+    process.chsJetBtaggingMu
 )
 
 # These are fixes for the JetProbability b-tagger calibrations as recommended by BTV.
@@ -709,7 +822,9 @@ process.p = cms.Path(
     process.recoPuJetIdSequence +
     process.JetFlavourMatchingSequence +
     process.newJetTracksAssociator +
+    process.chsJetTracksAssociator +
     process.newJetBtagging +
+    process.chsJetBtagging +
     process.metFiltersSequence +
     process.noPUMVAMetSequence +
     process.susyNtuplizer

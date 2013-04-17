@@ -82,6 +82,17 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
             CombinedSecondaryVertexMVA = cms.string("newCombinedSecondaryVertexMVABJetTags"),
             SoftElectron = cms.string("newSoftElectronBJetTags"),
             SoftMuon = cms.string("newSoftMuonBJetTags")
+        ),
+        ak5PFchsJets = cms.PSet(
+            TrackCountingHighEff = cms.string("chsTrackCountingHighEffBJetTags"),
+            TrackCountingHighPur = cms.string("chsTrackCountingHighPurBJetTags"),
+            JetProbability = cms.string("chsJetProbabilityBJetTags"),
+            JetBProbability = cms.string("chsJetBProbabilityBJetTags"),
+            SimpleSecondaryVertex = cms.string("chsSimpleSecondaryVertexBJetTags"),
+            CombinedSecondaryVertex = cms.string("chsCombinedSecondaryVertexBJetTags"),
+            CombinedSecondaryVertexMVA = cms.string("chsCombinedSecondaryVertexMVABJetTags"),
+            SoftElectron = cms.string("chsSoftElectronBJetTags"),
+            SoftMuon = cms.string("chsSoftMuonBJetTags")
         )
     ),
     jetFlavourMatchingTags = cms.PSet(
