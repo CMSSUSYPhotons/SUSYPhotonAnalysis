@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.51 2013/04/11 16:36:19 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.52 2013/04/12 09:53:27 yiiyama Exp $
 //
 //
 
@@ -1516,6 +1516,57 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       pho.chargedHadronIso                  = isolator03_->getIsolationCharged();
       pho.neutralHadronIso                  = isolator03_->getIsolationNeutral();
       pho.photonIso                         = isolator03_->getIsolationPhoton();
+
+      // Now minor gymnastics for grabbing the "worst isolation from any other
+      // vertex" -- excluding the PV since we already have that one...
+
+      // This is only relevant for the charged had iso -- the others don't
+      // care what vx they come from...
+
+      // Assign things at first to the PV -- this is the default if there is
+      // only one vx
+
+      pho.worstOtherVtxChargedHadronIso=pho.chargedHadronIso;
+      pho.worstOtherVtxChargedHadronIsoVtxIdx=0;
+
+
+      if (vtxH->size()>1) {
+
+        // dummy vars to hold the maxima as we loop...
+        Float_t dumchIso(0);
+        Int_t dumchIdx(0);
+
+        for (unsigned int ivx=1;ivx<vtxH->size();++ivx) {
+          reco::VertexRef tmpVxRef(vtxH,ivx);
+          // this is going to look very familiar -- some degree of laziness here...
+          if (isPF) {
+            // InvalidReference here would imply a fatal problem of AOD - throw
+            reco::PFCandidate const* pfPhoton((*pfTranslationH)[phoRef].get());
+            isolator03_->fGetIsolation(pfPhoton, pfH.product(), tmpVxRef, vtxH);
+          }  
+          else {
+            isolator03_->fGetIsolation(&*it, pfH.product(), tmpVxRef, vtxH);
+          }
+
+          Float_t thischIso=isolator03_->getIsolationCharged();
+
+
+          if (thischIso>dumchIso) {
+            dumchIso=thischIso;
+            dumchIdx=ivx;
+          }
+
+        } // vx for loop
+
+        // now we assign what we got...
+
+        pho.worstOtherVtxChargedHadronIso=dumchIso;
+        pho.worstOtherVtxChargedHadronIsoVtxIdx=dumchIdx;
+
+      } // vx size > 1
+
+      // done with other vx stuff...
+
 
       // for timing
       DetId seedId(0);

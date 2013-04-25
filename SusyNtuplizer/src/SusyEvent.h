@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.40 2013/04/11 16:31:26 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.41 2013/04/12 09:53:27 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -339,10 +339,19 @@ namespace susy {
     Float_t        neutralHadronIso;
     Float_t        photonIso;
 
+    // worst non primary vertex isolation 
+
+    Float_t        worstOtherVtxChargedHadronIso;
+    Int_t          worstOtherVtxChargedHadronIsoVtxIdx; // ntuple index for which vtx
+    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //!
+
     // read from IsoDeposit
     Float_t        chargedHadronIsoDeposit;
     Float_t        neutralHadronIsoDeposit;
     Float_t        photonIsoDeposit;
+
+
+
 
     Float_t        seedTime; // seed timing
 
