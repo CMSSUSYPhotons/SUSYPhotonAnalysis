@@ -133,6 +133,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     storeGeneralTracks = cms.bool(False),
     storePFJetPartonMatches = cms.bool(True),
     storeTriggerEvents = cms.bool(False),
+    storeLumiInfo = cms.bool(True),
     isFastSim = cms.bool(False),
     outputFileName = cms.string("susyEvents.root"),
     triggerFileName = cms.string("susyTriggers.root")

@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.52 2013/04/12 09:53:27 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.53 2013/04/25 15:49:02 dmason Exp $
 //
 //
 
@@ -270,6 +270,10 @@ private:
   // flag for recording TriggerEvent into a separate tree (susyTriggers)
   bool storeTriggerEvents_;
 
+  // flag for storing lumiSummary info -- simple fix for ReRecos missing this
+  // default : true (turned off for 24Aug2012 and 13Jul2012 datasets in runOverAOD.py)
+  bool storeLumiInfo_;
+
   // electronThreshold
   double electronThreshold_;
 
@@ -346,6 +350,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   storePFJetPartonMatches_(iConfig.getParameter<bool>("storePFJetPartonMatches")),
   isFastSim_(iConfig.getParameter<bool>("isFastSim")),
   storeTriggerEvents_(iConfig.getParameter<bool>("storeTriggerEvents")),
+  storeLumiInfo_(iConfig.getParameter<bool>("storeLumiInfo")),
   electronThreshold_(iConfig.getParameter<double>("electronThreshold")),
   muonThreshold_(iConfig.getParameter<double>("muonThreshold")),
   photonThreshold_(iConfig.getParameter<double>("photonThreshold")),
@@ -713,7 +718,7 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& _eventSe
                                            << ", isRealData " << _event.isRealData()
                                            << ", lumiBlock " << _event.luminosityBlock();
 
-  fillLumiSummary(_event, _eventSetup);
+  if(storeLumiInfo_) fillLumiSummary(_event, _eventSetup);
 
   fillBeamSpot(_event, _eventSetup);
 
