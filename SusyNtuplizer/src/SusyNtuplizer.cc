@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.54 2013/05/01 20:59:36 bfrancis Exp $
+// $Id: SusyNtuplizer.cc,v 1.55 2013/05/05 11:53:44 yiiyama Exp $
 //
 //
 
@@ -2200,7 +2200,18 @@ SusyNtuplizer::fillCaloJets(edm::Event const& _event, edm::EventSetup const& _ev
 
       jecUncert.setJetEta(corrP4.Eta());
       jecUncert.setJetPt(corrP4.Pt());
-      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      try{
+        jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      }
+      catch(cms::Exception& e){
+        // JetCorrectionUncertainty throws when the arguments are out-of-bounds (JetCorrector silently fails by returning unity)
+        if(e.category() == "SimpleJetCorrectionUncertainty"){
+          edm::LogWarning("SimpleJetCorrectionUncertainty") << "CaloJet Eta = " << corrP4.Eta() << " Pt = " << corrP4.Pt() << " is out of range for JEC uncertainty determination";
+          jet.jecUncertainty = -1.;
+        }
+        else
+          throw;
+      }
 
       // accessing Jet ID information
       // InvalidReference here would imply a fatal problem in AOD - throw
@@ -2389,7 +2400,18 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
 
       jecUncert.setJetEta(corrP4.Eta());
       jecUncert.setJetPt(corrP4.Pt());
-      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      try{
+        jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      }
+      catch(cms::Exception& e){
+        // JetCorrectionUncertainty throws when the arguments are out-of-bounds (JetCorrector silently fails by returning unity)
+        if(e.category() == "SimpleJetCorrectionUncertainty"){
+          edm::LogWarning("SimpleJetCorrectionUncertainty") << "PFJet Eta = " << corrP4.Eta() << " Pt = " << corrP4.Pt() << " is out of range for JEC uncertainty determination";
+          jet.jecUncertainty = -1.;
+        }
+        else
+          throw;
+      }
 
       // add btag for this jet
       if(bTagTags.size() != 0){
@@ -2560,7 +2582,18 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
 
       jecUncert.setJetEta(corrP4.Eta());
       jecUncert.setJetPt(corrP4.Pt());
-      jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      try{
+        jet.jecUncertainty = jecUncert.getUncertainty(true); // true => error high, false => error low. Only symmetric errors are provided so far
+      }
+      catch(cms::Exception& e){
+        // JetCorrectionUncertainty throws when the arguments are out-of-bounds (JetCorrector silently fails by returning unity)
+        if(e.category() == "SimpleJetCorrectionUncertainty"){
+          edm::LogWarning("SimpleJetCorrectionUncertainty") << "JPTJet Eta = " << corrP4.Eta() << " Pt = " << corrP4.Pt() << " is out of range for JEC uncertainty determination";
+          jet.jecUncertainty = -1.;
+        }
+        else
+          throw;
+      }
 
       susyCollection.push_back(jet);
 
