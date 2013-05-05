@@ -10,23 +10,42 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.30 2013/04/11 16:31:26 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.31 2013/04/12 09:53:27 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
 
 #include "TTree.h"
+#include "TChain.h"
 
 #include <limits>
 #include <stdexcept>
 #include <algorithm>
-
 #include <iostream>
+#include <cstdio>
 
 // Use for initialization of variables that can have a value 0 and are not always filled
 float const BIGVALUE(std::numeric_limits<float>::max());
 
-void susy::PUSummaryInfo::Init() {
+// Print utility functions
+std::ostream& indent(std::ostream& os)
+{ return os << "\t"; }
+template<class T> std::ostream& operator<<(std::ostream& os, std::vector<T> const& vect)
+{ for(unsigned i(0); i != vect.size(); ++i) os << vect[i] << ", "; return os; }
+template<class T> std::ostream& operator<<(std::ostream& os, std::map<TString, T> const& map)
+{ for(typename std::map<TString, T>::const_iterator itr(map.begin()); itr != map.end(); ++itr) os << "(\"" << itr->first << "\" => " << itr->second << "), "; return os; }
+std::ostream& operator<<(std::ostream& os, TVector2 const& v)
+{ os << "(x, y) = (" << v.X() << ", " << v.Y() << ") (rho, phi) = (" << v.Mod() << ", " << v.Phi() << ")"; return os; }
+std::ostream& operator<<(std::ostream& os, TVector3 const& v)
+{ os << "(x, y, z) = (" << v.X() << ", " << v.Y() << ", " << v.Z() << ") (rho, theta, phi) = (" << v.Mag() << ", " << v.Theta() << ", " << v.Phi() << ")"; return os; }
+std::ostream& operator<<(std::ostream& os, TLorentzVector const& v)
+{ os << "(x, y, z, t) = (" << v.X() << ", " << v.Y() << ", " << v.Z() << ", " << v.T() << ") (P, eta, phi, E) = (" << v.P() << ", " << v.Eta() << ", " << v.Phi() << ", " << v.E() << ")"; return os; }
+template<class T> TString bin(T bits)
+{ unsigned const len(sizeof(T) * 8); TString str; for(unsigned i(0); i != len; ++i) str.Append('0' + ((bits >> (len - i - 1)) & 1)); return str; }
+
+void
+susy::PUSummaryInfo::Init()
+{
   BX = 0;
   numInteractions = 0;
   trueNumInteractions = 0;
@@ -41,7 +60,26 @@ void susy::PUSummaryInfo::Init() {
   dataMixerLumiSection.clear();
 }
 
-void susy::Particle::Init() {
+void
+susy::PUSummaryInfo::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "BX: " << int(BX) << std::endl;
+  indent(os) << "numInteractions: " << int(numInteractions) << std::endl;
+  indent(os) << "trueNumInteractions: " << trueNumInteractions << std::endl;
+  indent(os) << "zPositions: " << zPositions << std::endl;
+  indent(os) << "sumPTLowPT: " << sumPTLowPT << std::endl;
+  indent(os) << "sumPTHighPT: " << sumPTHighPT << std::endl;
+  indent(os) << "numTracksLowPT: " << numTracksLowPT << std::endl;
+  indent(os) << "numTracksHighPT: " << numTracksHighPT << std::endl;
+  indent(os) << "instLumi: " << instLumi << std::endl;
+  indent(os) << "dataMixerRun: " << dataMixerRun << std::endl;
+  indent(os) << "dataMixerEvt: " << dataMixerEvt << std::endl;
+  indent(os) << "dataMixerLumiSection: " << dataMixerLumiSection << std::endl;
+}
+
+void
+susy::Particle::Init()
+{
   status         = 0;
   charge         = 0;
   motherIndex    = -1;
@@ -53,13 +91,25 @@ void susy::Particle::Init() {
 }
 
 void
-susy::Particle::fillRefs(Event const* _evt)
+susy::Particle::Print(std::ostream& os/* = std::cout*/) const
 {
-  if(motherIndex != -1)
-    mother = &_evt->genParticles[motherIndex];
+  indent(os) << "status: " << int(status) << std::endl;
+  indent(os) << "charge: " << int(charge) << std::endl;
+  indent(os) << "motherIndex: " << motherIndex << std::endl;
+  indent(os) << "pdgId: " << pdgId << std::endl;
+  indent(os) << "vertex: " << vertex << std::endl;
+  indent(os) << "momentum: " << momentum << std::endl;
 }
 
-void susy::PFParticle::Init() {
+void
+susy::Particle::fillRefs(Event const* _evt)
+{
+  mother = motherIndex != -1 ? &_evt->genParticles[motherIndex] : 0;
+}
+
+void
+susy::PFParticle::Init()
+{
   pdgId                       = 0;
   charge                      = 0;
   isPU                        = kFALSE;
@@ -70,13 +120,37 @@ void susy::PFParticle::Init() {
   momentum                   *= 0;
 }
 
-void susy::MET::Init() {
+void
+susy::PFParticle::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "pdgId: " << pdgId << std::endl;
+  indent(os) << "charge: " << int(charge) << std::endl;
+  indent(os) << "isPU: " << isPU << std::endl;
+  indent(os) << "ecalEnergy: " << ecalEnergy << std::endl;
+  indent(os) << "hcalEnergy: " << hcalEnergy << std::endl;
+  indent(os) << "vertex: " << vertex << std::endl;
+  indent(os) << "momentum: " << momentum << std::endl;
+}
+
+void
+susy::MET::Init()
+{
   sumEt        = 0;
   significance = 0;
   mEt         *= 0;
 }
 
-void susy::Vertex::Init() {
+void
+susy::MET::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "sumEt: " << sumEt << std::endl;
+  indent(os) << "significance: " << significance << std::endl;
+  indent(os) << "mEt: " << mEt << std::endl;
+}
+
+void
+susy::Vertex::Init()
+{
   tracksSize = 0;
   sumPt2     = 0;
   chi2       = 0;
@@ -84,13 +158,35 @@ void susy::Vertex::Init() {
   position  *= 0;
 }
 
-void susy::Cluster::Init() {
+void
+susy::Vertex::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "tracksSize: " << tracksSize << std::endl;
+  indent(os) << "sumPt2: " << sumPt2 << std::endl;
+  indent(os) << "chi2: " << chi2 << std::endl;
+  indent(os) << "ndof: " << ndof << std::endl;
+  indent(os) << "position: " << position << std::endl;
+}
+
+void
+susy::Cluster::Init()
+{
   nCrystals = 0;
   energy    = 0;
   position *= 0;
 }
 
-void susy::SuperCluster::Init() {
+void
+susy::Cluster::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "nCrystals: " << int(nCrystals) << std::endl;
+  indent(os) << "energy: " << energy << std::endl;
+  indent(os) << "position: " << position << std::endl;
+}
+
+void
+susy::SuperCluster::Init()
+{
   seedClusterIndex = -1;
   energy           = 0;
   preshowerEnergy  = 0;
@@ -104,17 +200,30 @@ void susy::SuperCluster::Init() {
 }
 
 void
+susy::SuperCluster::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "seedClusterIndex: " << seedClusterIndex << std::endl;
+  indent(os) << "energy: " << energy << std::endl;
+  indent(os) << "preshowerEnergy: " << preshowerEnergy << std::endl;
+  indent(os) << "phiWidth: " << phiWidth << std::endl;
+  indent(os) << "etaWidth: " << etaWidth << std::endl;
+  indent(os) << "position: " << position << std::endl;
+  indent(os) << "basicClusterIndices: " << basicClusterIndices << std::endl;
+}
+
+void
 susy::SuperCluster::fillRefs(Event const* _evt)
 {
-  if(seedClusterIndex != -1)
-    seedCluster = &_evt->clusters[seedClusterIndex];
+  seedCluster = seedClusterIndex != -1 ? &_evt->clusters[seedClusterIndex] : 0;
 
   basicClusters.assign(basicClusterIndices.size(), 0);
   for(unsigned iC(0); iC != basicClusterIndices.size(); ++iC)
     basicClusters[iC] = &_evt->clusters[basicClusterIndices[iC]];
 }
 
-void susy::Track::Init() {
+void
+susy::Track::Init()
+{
   algorithm                        = 0;
   quality                          = 0;
   numberOfValidHits                = 0;
@@ -135,13 +244,36 @@ void susy::Track::Init() {
 }
 
 void
-susy::Track::fillRefs(Event const* _evt)
+susy::Track::Print(std::ostream& os/* = std::cout*/) const
 {
-  if(vertexIndex != -1)
-    assignedVertex = &_evt->vertices[vertexIndex];
+  indent(os) << "algorithm: " << int(algorithm) << std::endl;
+  indent(os) << "quality: " << int(quality) << std::endl;
+  indent(os) << "numberOfValidHits: " << int(numberOfValidHits) << std::endl;
+  indent(os) << "numberOfValidTrackerHits: " << int(numberOfValidTrackerHits) << std::endl;
+  indent(os) << "numberOfValidMuonHits: " << int(numberOfValidMuonHits) << std::endl;
+  indent(os) << "numberOfValidPixelHits: " << int(numberOfValidPixelHits) << std::endl;
+  indent(os) << "numberOfValidStripHits: " << int(numberOfValidStripHits) << std::endl;
+  indent(os) << "vertexIndex: " << vertexIndex << std::endl;
+  indent(os) << "chi2: " << chi2 << std::endl;
+  indent(os) << "ndof: " << ndof << std::endl;
+  indent(os) << "charge: " << charge << std::endl;
+  indent(os) << "error: ";
+  for(unsigned i(0); i != 5; ++i) os << i << ". " << error[i] << " ";
+  os << std::endl;
+  indent(os) << "ptError: " << ptError << std::endl;
+  indent(os) << "vertex: " << vertex << std::endl;
+  indent(os) << "momentum: " << momentum << std::endl;
 }
 
-void susy::Photon::Init() {
+void
+susy::Track::fillRefs(Event const* _evt)
+{
+  assignedVertex = vertexIndex != -1 ? &_evt->vertices[vertexIndex] : 0;
+}
+
+void
+susy::Photon::Init()
+{
   fidBit                          = 0;
   nPixelSeeds                     = 0;
   passelectronveto                = 0;
@@ -181,6 +313,10 @@ void susy::Photon::Init() {
   chargedHadronIso                = 0;
   neutralHadronIso                = 0;
   photonIso                       = 0;
+
+  worstOtherVtxChargedHadronIso   = 0.;
+  worstOtherVtxChargedHadronIsoVtxIdx = -1;
+
   chargedHadronIsoDeposit         = BIGVALUE;
   neutralHadronIsoDeposit         = BIGVALUE;
   photonIsoDeposit                = BIGVALUE;
@@ -234,16 +370,118 @@ void susy::Photon::Init() {
   momentum                       *= 0;
 
   superCluster = 0;
+  worstOtherVtxChargedHadronIsoVtx = 0;
+}
+
+void
+susy::Photon::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "fidBit: " << bin(fidBit) << std::endl;
+  indent(os) << "nPixelSeeds: " << nPixelSeeds << std::endl;
+  indent(os) << "passelectronveto: " << passelectronveto << std::endl;
+  indent(os) << "hadronicOverEm: " << hadronicOverEm << std::endl;
+  indent(os) << "hadTowOverEm: " << hadTowOverEm << std::endl;
+  indent(os) << "hadronicDepth1OverEm: " << hadronicDepth1OverEm << std::endl;
+  indent(os) << "hadronicDepth2OverEm: " << hadronicDepth2OverEm << std::endl;
+  indent(os) << "e1x2: " << e1x2 << std::endl;
+  indent(os) << "e1x5: " << e1x5 << std::endl;
+  indent(os) << "e2x5: " << e2x5 << std::endl;
+  indent(os) << "e3x3: " << e3x3 << std::endl;
+  indent(os) << "e5x5: " << e5x5 << std::endl;
+  indent(os) << "maxEnergyXtal: " << maxEnergyXtal << std::endl;
+  indent(os) << "sigmaEtaEta: " << sigmaEtaEta << std::endl;
+  indent(os) << "sigmaIetaIeta: " << sigmaIetaIeta << std::endl;
+  indent(os) << "sigmaIphiIphi: " << sigmaIphiIphi << std::endl;
+  indent(os) << "r9: " << r9 << std::endl;
+  
+  indent(os) << "ecalRecHitSumEtConeDR04: " << ecalRecHitSumEtConeDR04 << std::endl;
+  indent(os) << "hcalDepth1TowerSumEtConeDR04: " << hcalDepth1TowerSumEtConeDR04 << std::endl;
+  indent(os) << "hcalDepth2TowerSumEtConeDR04: " << hcalDepth2TowerSumEtConeDR04 << std::endl;
+  indent(os) << "hcalIsoConeDR04_2012: " << hcalIsoConeDR04_2012 << std::endl;
+  indent(os) << "trkSumPtSolidConeDR04: " << trkSumPtSolidConeDR04 << std::endl;
+  indent(os) << "trkSumPtHollowConeDR04: " << trkSumPtHollowConeDR04 << std::endl;
+  indent(os) << "nTrkSolidConeDR04: " << int(nTrkSolidConeDR04) << std::endl;
+  indent(os) << "nTrkHollowConeDR04: " << int(nTrkHollowConeDR04) << std::endl;
+  
+  indent(os) << "ecalRecHitSumEtConeDR03: " << ecalRecHitSumEtConeDR03 << std::endl;
+  indent(os) << "hcalDepth1TowerSumEtConeDR03: " << hcalDepth1TowerSumEtConeDR03 << std::endl;
+  indent(os) << "hcalDepth2TowerSumEtConeDR03: " << hcalDepth2TowerSumEtConeDR03 << std::endl;
+  indent(os) << "hcalIsoConeDR03_2012: " << hcalIsoConeDR03_2012 << std::endl;
+  indent(os) << "trkSumPtSolidConeDR03: " << trkSumPtSolidConeDR03 << std::endl;
+  indent(os) << "trkSumPtHollowConeDR03: " << trkSumPtHollowConeDR03 << std::endl;
+  indent(os) << "nTrkSolidConeDR03: " << int(nTrkSolidConeDR03) << std::endl;
+  indent(os) << "nTrkHollowConeDR03: " << int(nTrkHollowConeDR03) << std::endl;
+  
+  indent(os) << "chargedHadronIso: " << chargedHadronIso << std::endl;
+  indent(os) << "neutralHadronIso: " << neutralHadronIso << std::endl;
+  indent(os) << "photonIso: " << photonIso << std::endl;
+  
+  indent(os) << "worstOtherVtxChargedHadronIso: " << worstOtherVtxChargedHadronIso << std::endl;
+  indent(os) << "worstOtherVtxChargedHadronIsoVtxIdx: " << worstOtherVtxChargedHadronIsoVtxIdx << std::endl;
+  
+  indent(os) << "chargedHadronIsoDeposit: " << chargedHadronIsoDeposit << std::endl;
+  indent(os) << "neutralHadronIsoDeposit: " << neutralHadronIsoDeposit << std::endl;
+  indent(os) << "photonIsoDeposit: " << photonIsoDeposit << std::endl;
+  
+  indent(os) << "seedTime: " << seedTime << std::endl;
+  
+  indent(os) << "mipChi2: " << mipChi2 << std::endl;
+  indent(os) << "mipTotEnergy: " << mipTotEnergy << std::endl;
+  indent(os) << "mipSlope: " << mipSlope << std::endl;
+  indent(os) << "mipIntercept: " << mipIntercept << std::endl;
+  indent(os) << "mipNhitCone: " << mipNhitCone << std::endl;
+  indent(os) << "mipIsHalo: " << mipIsHalo << std::endl;
+  
+  indent(os) << "convInfo: " << convInfo << std::endl;
+  indent(os) << "convDist: " << convDist << std::endl;
+  indent(os) << "convDcot: " << convDcot << std::endl;
+  indent(os) << "convVtxChi2: " << convVtxChi2 << std::endl;
+  indent(os) << "convVtxNdof: " << convVtxNdof << std::endl;
+  indent(os) << "convVertex: " << convVertex << std::endl;
+  indent(os) << "convDxy: " << convDxy << std::endl;
+  indent(os) << "convDz: " << convDz << std::endl;
+  indent(os) << "convLxy: " << convLxy << std::endl;
+  indent(os) << "convLz: " << convLz << std::endl;
+  indent(os) << "convZofPVFromTracks: " << convZofPVFromTracks << std::endl;
+  indent(os) << "convTrackChargeProd: " << convTrackChargeProd << std::endl;
+  indent(os) << "convTrack1nHit: " << convTrack1nHit << std::endl;
+  indent(os) << "convTrack2nHit: " << convTrack2nHit << std::endl;
+  indent(os) << "convTrack1chi2: " << convTrack1chi2 << std::endl;
+  indent(os) << "convTrack2chi2: " << convTrack2chi2 << std::endl;
+  indent(os) << "convTrack1pT: " << convTrack1pT << std::endl;
+  indent(os) << "convTrack2pT: " << convTrack2pT << std::endl;
+  indent(os) << "convTrack1InnerZ: " << convTrack1InnerZ << std::endl;
+  indent(os) << "convTrack2InnerZ: " << convTrack2InnerZ << std::endl;
+  indent(os) << "convTrack1InnerX: " << convTrack1InnerX << std::endl;
+  indent(os) << "convTrack2InnerX: " << convTrack2InnerX << std::endl;
+  indent(os) << "convTrack1InnerY: " << convTrack1InnerY << std::endl;
+  indent(os) << "convTrack2InnerY: " << convTrack2InnerY << std::endl;
+  indent(os) << "convTrack1Signedd0: " << convTrack1Signedd0 << std::endl;
+  indent(os) << "convTrack2Signedd0: " << convTrack2Signedd0 << std::endl;
+  
+  indent(os) << "superClusterIndex: " << superClusterIndex << std::endl;
+  indent(os) << "superClusterPreshowerEnergy: " << superClusterPreshowerEnergy << std::endl;
+  indent(os) << "superClusterPhiWidth: " << superClusterPhiWidth << std::endl;
+  indent(os) << "superClusterEtaWidth: " << superClusterEtaWidth << std::endl;
+  indent(os) << "caloPosition: " << caloPosition << std::endl;
+  
+  indent(os) << "MVAregEnergyAndErr: " << MVAregEnergyAndErr.first << ", " << MVAregEnergyAndErr.second << std::endl;
+  indent(os) << "MVAcorrMomentum: " << MVAcorrMomentum << std::endl;
+  
+  indent(os) << "momentum: " << momentum << std::endl;
 }
 
 void
 susy::Photon::fillRefs(Event const* _evt)
 {
-  if(superClusterIndex != -1)
-    superCluster = &_evt->superClusters[superClusterIndex];
+  superCluster = superClusterIndex != -1 ? &_evt->superClusters[superClusterIndex] : 0;
+
+  worstOtherVtxChargedHadronIsoVtx = worstOtherVtxChargedHadronIsoVtxIdx != -1 ? &_evt->vertices[worstOtherVtxChargedHadronIsoVtxIdx] : 0;
 }
 
-void susy::Electron::Init() {
+void
+susy::Electron::Init()
+{
   fidBit                           = 0;
   scPixCharge                      = 0;
   boolPack                         = 0;
@@ -334,19 +572,104 @@ void susy::Electron::Init() {
 }
 
 void
-susy::Electron::fillRefs(Event const* _evt)
+susy::Electron::Print(std::ostream& os/* = std::cout*/) const
 {
-  if(gsfTrackIndex != -1)
-    gsfTrack = &_evt->tracks[gsfTrackIndex];
-  if(closestCtfTrackIndex != -1)
-    closestCtfTrack = &_evt->tracks[closestCtfTrackIndex];
-  if(electronClusterIndex != -1)
-    electronCluster = &_evt->clusters[electronClusterIndex];
-  if(superClusterIndex != -1)
-    superCluster = &_evt->superClusters[superClusterIndex];
+  indent(os) << "fidBit: " << bin(fidBit) << std::endl;
+  indent(os) << "scPixCharge: " << int(scPixCharge) << std::endl;
+  indent(os) << "boolPack: " << bin(boolPack) << std::endl;
+  indent(os) << "convFlag: " << convFlag << std::endl;
+  
+  indent(os) << "eSuperClusterOverP: " << eSuperClusterOverP << std::endl;
+  indent(os) << "eSeedClusterOverP: " << eSeedClusterOverP << std::endl;
+  indent(os) << "eSeedClusterOverPout: " << eSeedClusterOverPout << std::endl;
+  indent(os) << "eEleClusterOverPout: " << eEleClusterOverPout << std::endl;
+  indent(os) << "deltaEtaSuperClusterTrackAtVtx: " << deltaEtaSuperClusterTrackAtVtx << std::endl;
+  indent(os) << "deltaEtaSeedClusterTrackAtCalo: " << deltaEtaSeedClusterTrackAtCalo << std::endl;
+  indent(os) << "deltaEtaEleClusterTrackAtCalo: " << deltaEtaEleClusterTrackAtCalo << std::endl;
+  indent(os) << "deltaPhiSuperClusterTrackAtVtx: " << deltaPhiSuperClusterTrackAtVtx << std::endl;
+  indent(os) << "deltaPhiSeedClusterTrackAtCalo: " << deltaPhiSeedClusterTrackAtCalo << std::endl;
+  indent(os) << "deltaPhiEleClusterTrackAtCalo: " << deltaPhiEleClusterTrackAtCalo << std::endl;
+  
+  indent(os) << "shFracInnerHits: " << shFracInnerHits << std::endl;
+  
+  indent(os) << "sigmaEtaEta: " << sigmaEtaEta << std::endl;
+  indent(os) << "sigmaIetaIeta: " << sigmaIetaIeta << std::endl;
+  indent(os) << "sigmaIphiIphi: " << sigmaIphiIphi << std::endl;
+  indent(os) << "e1x5: " << e1x5 << std::endl;
+  indent(os) << "e2x5Max: " << e2x5Max << std::endl;
+  indent(os) << "e5x5: " << e5x5 << std::endl;
+  indent(os) << "r9: " << r9 << std::endl;
+  indent(os) << "hcalDepth1OverEcal: " << hcalDepth1OverEcal << std::endl;
+  indent(os) << "hcalDepth2OverEcal: " << hcalDepth2OverEcal << std::endl;
+  indent(os) << "hcalOverEcalBc: " << hcalOverEcalBc << std::endl;
+  
+  indent(os) << "dr03TkSumPt: " << dr03TkSumPt << std::endl;
+  indent(os) << "dr03EcalRecHitSumEt: " << dr03EcalRecHitSumEt << std::endl;
+  indent(os) << "dr03HcalDepth1TowerSumEt: " << dr03HcalDepth1TowerSumEt << std::endl;
+  indent(os) << "dr03HcalDepth2TowerSumEt: " << dr03HcalDepth2TowerSumEt << std::endl;
+  indent(os) << "dr03HcalDepth1TowerSumEtBc: " << dr03HcalDepth1TowerSumEtBc << std::endl;
+  indent(os) << "dr03HcalDepth2TowerSumEtBc: " << dr03HcalDepth2TowerSumEtBc << std::endl;
+  
+  indent(os) << "dr04TkSumPt: " << dr04TkSumPt << std::endl;
+  indent(os) << "dr04EcalRecHitSumEt: " << dr04EcalRecHitSumEt << std::endl;
+  indent(os) << "dr04HcalDepth1TowerSumEt: " << dr04HcalDepth1TowerSumEt << std::endl;
+  indent(os) << "dr04HcalDepth2TowerSumEt: " << dr04HcalDepth2TowerSumEt << std::endl;
+  indent(os) << "dr04HcalDepth1TowerSumEtBc: " << dr04HcalDepth1TowerSumEtBc << std::endl;
+  indent(os) << "dr04HcalDepth2TowerSumEtBc: " << dr04HcalDepth2TowerSumEtBc << std::endl;
+  
+  indent(os) << "convDist: " << convDist << std::endl;
+  indent(os) << "convDcot: " << convDcot << std::endl;
+  indent(os) << "convRadius: " << convRadius << std::endl;
+  
+  indent(os) << "chargedHadronIso: " << chargedHadronIso << std::endl;
+  indent(os) << "neutralHadronIso: " << neutralHadronIso << std::endl;
+  indent(os) << "photonIso: " << photonIso << std::endl;
+  
+  indent(os) << "mvaStatus: " << mvaStatus << std::endl;
+  indent(os) << "mva: " << mva << std::endl;
+  
+  indent(os) << "mvaTrig: " << mvaTrig << std::endl;
+  indent(os) << "mvaNonTrig: " << mvaNonTrig << std::endl;
+  
+  indent(os) << "bremClass: " << int(bremClass) << std::endl;
+  indent(os) << "fbrem: " << fbrem << std::endl;
+  
+  indent(os) << "ecalEnergy: " << ecalEnergy << std::endl;
+  indent(os) << "ecalEnergyError: " << ecalEnergyError << std::endl;
+  indent(os) << "trackMomentumError: " << trackMomentumError << std::endl;
+  
+  indent(os) << "gsfTrackIndex: " << gsfTrackIndex << std::endl;
+  indent(os) << "closestCtfTrackIndex: " << closestCtfTrackIndex << std::endl;
+  indent(os) << "electronClusterIndex: " << electronClusterIndex << std::endl;
+  indent(os) << "superClusterIndex: " << superClusterIndex << std::endl;
+  
+  indent(os) << "nMissingHits: " << nMissingHits << std::endl;
+  indent(os) << "passConversionVeto: " << passConversionVeto << std::endl;
+  
+  indent(os) << "trackPositionAtVtx: " << trackPositionAtVtx << std::endl;
+  indent(os) << "trackPositionAtCalo: " << trackPositionAtCalo << std::endl;
+  indent(os) << "trackMomentumAtVtx: " << trackMomentumAtVtx << std::endl;
+  indent(os) << "trackMomentumAtCalo: " << trackMomentumAtCalo << std::endl;
+  indent(os) << "trackMomentumOut: " << trackMomentumOut << std::endl;
+  indent(os) << "trackMomentumAtEleClus: " << trackMomentumAtEleClus << std::endl;
+  indent(os) << "trackMomentumAtVtxWithConstraint: " << trackMomentumAtVtxWithConstraint << std::endl;
+  
+  indent(os) << "vertex: " << vertex << std::endl;
+  indent(os) << "momentum: " << momentum << std::endl;
 }
 
-void susy::Muon::Init() {
+void
+susy::Electron::fillRefs(Event const* _evt)
+{
+  gsfTrack = gsfTrackIndex != -1 ? &_evt->tracks[gsfTrackIndex] : 0;
+  closestCtfTrack = closestCtfTrackIndex != -1 ? &_evt->tracks[closestCtfTrackIndex] : 0;
+  electronCluster = electronClusterIndex != -1 ? &_evt->clusters[electronClusterIndex] : 0;
+  superCluster = superClusterIndex != -1 ? &_evt->superClusters[superClusterIndex] : 0;
+}
+
+void
+susy::Muon::Init()
+{
   type                    = 0;
   bestTrackType           = 0;
   highPtBestTrackType     = 0;
@@ -414,27 +737,81 @@ void susy::Muon::Init() {
 }
 
 void
-susy::Muon::fillRefs(Event const* _evt)
+susy::Muon::Print(std::ostream& os/* = std::cout*/) const
 {
-  if(trackIndex != -1)
-    innerTrack = &_evt->tracks[trackIndex];
-  if(standAloneTrackIndex != -1)
-    outerTrack = &_evt->tracks[standAloneTrackIndex];
-  if(combinedTrackIndex != -1)
-    globalTrack = &_evt->tracks[combinedTrackIndex];
-  if(tpfmsTrackIndex != -1)
-    tpfmsTrack = &_evt->tracks[tpfmsTrackIndex];
-  if(pickyTrackIndex != -1)
-    pickyTrack = &_evt->tracks[pickyTrackIndex];
-  if(dytTrackIndex != -1)
-    dytTrack = &_evt->tracks[dytTrackIndex];
-  if(bestTrackIndex() != -1)
-    bestTrack = &_evt->tracks[bestTrackIndex()];
-  if(highPtBestTrackIndex() != -1)
-    highPtBestTrack = &_evt->tracks[highPtBestTrackIndex()];
+  indent(os) << "type: " << int(type) << std::endl;
+  indent(os) << "bestTrackType: " << int(bestTrackType) << std::endl;
+  indent(os) << "highPtBestTrackType: " << int(highPtBestTrackType) << std::endl;
+  
+  indent(os) << "qualityFlags: " << bin(qualityFlags) << std::endl;
+  
+  indent(os) << "nChambers: " << int(nChambers) << std::endl;
+  indent(os) << "nMatches: " << int(nMatches) << std::endl;
+  indent(os) << "stationMask: " << int(stationMask) << std::endl;
+  indent(os) << "nMatchedStations: " << int(nMatchedStations) << std::endl;
+  indent(os) << "nValidHits: " << int(nValidHits) << std::endl;
+  indent(os) << "nValidTrackerHits: " << int(nValidTrackerHits) << std::endl;
+  indent(os) << "nValidMuonHits: " << int(nValidMuonHits) << std::endl;
+  indent(os) << "nPixelLayersWithMeasurement: " << int(nPixelLayersWithMeasurement) << std::endl;
+  indent(os) << "nStripLayersWithMeasurement: " << int(nStripLayersWithMeasurement) << std::endl;
+  
+  indent(os) << "timeNDof: " << int(timeNDof) << std::endl;
+  indent(os) << "timeDirection: " << int(timeDirection) << std::endl;
+  indent(os) << "timeAtIp: " << timeAtIp << std::endl;
+  indent(os) << "timeAtIpError: " << timeAtIpError << std::endl;
+  indent(os) << "caloCompatibility: " << caloCompatibility << std::endl;
+  indent(os) << "segmentCompatibility: " << segmentCompatibility << std::endl;
+  indent(os) << "emEnergy: " << emEnergy << std::endl;
+  indent(os) << "hadEnergy: " << hadEnergy << std::endl;
+  indent(os) << "trackIsoR03: " << trackIsoR03 << std::endl;
+  indent(os) << "ecalIsoR03: " << ecalIsoR03 << std::endl;
+  indent(os) << "hcalIsoR03: " << hcalIsoR03 << std::endl;
+  indent(os) << "trackIsoR05: " << trackIsoR05 << std::endl;
+  indent(os) << "ecalIsoR05: " << ecalIsoR05 << std::endl;
+  indent(os) << "hcalIsoR05: " << hcalIsoR05 << std::endl;
+  
+  indent(os) << "sumChargedHadronPt03: " << sumChargedHadronPt03 << std::endl;
+  indent(os) << "sumChargedParticlePt03: " << sumChargedParticlePt03 << std::endl;
+  indent(os) << "sumNeutralHadronEt03: " << sumNeutralHadronEt03 << std::endl;
+  indent(os) << "sumPhotonEt03: " << sumPhotonEt03 << std::endl;
+  indent(os) << "sumNeutralHadronEtHighThreshold03: " << sumNeutralHadronEtHighThreshold03 << std::endl;
+  indent(os) << "sumPhotonEtHighThreshold03: " << sumPhotonEtHighThreshold03 << std::endl;
+  indent(os) << "sumPUPt03: " << sumPUPt03 << std::endl;
+  
+  indent(os) << "sumChargedHadronPt04: " << sumChargedHadronPt04 << std::endl;
+  indent(os) << "sumChargedParticlePt04: " << sumChargedParticlePt04 << std::endl;
+  indent(os) << "sumNeutralHadronEt04: " << sumNeutralHadronEt04 << std::endl;
+  indent(os) << "sumPhotonEt04: " << sumPhotonEt04 << std::endl;
+  indent(os) << "sumNeutralHadronEtHighThreshold04: " << sumNeutralHadronEtHighThreshold04 << std::endl;
+  indent(os) << "sumPhotonEtHighThreshold04: " << sumPhotonEtHighThreshold04 << std::endl;
+  indent(os) << "sumPUPt04: " << sumPUPt04 << std::endl;
+  
+  indent(os) << "trackIndex: " << trackIndex << std::endl;
+  indent(os) << "standAloneTrackIndex: " << standAloneTrackIndex << std::endl;
+  indent(os) << "combinedTrackIndex: " << combinedTrackIndex << std::endl;
+  indent(os) << "tpfmsTrackIndex: " << tpfmsTrackIndex << std::endl;
+  indent(os) << "pickyTrackIndex: " << pickyTrackIndex << std::endl;
+  indent(os) << "dytTrackIndex: " << dytTrackIndex << std::endl;
+  
+  indent(os) << "momentum: " << momentum << std::endl;
 }
 
-void susy::CaloJet::Init() {
+void
+susy::Muon::fillRefs(Event const* _evt)
+{
+  innerTrack = trackIndex != -1 ? &_evt->tracks[trackIndex] : 0;
+  outerTrack = standAloneTrackIndex != -1 ? &_evt->tracks[standAloneTrackIndex] : 0;
+  globalTrack = combinedTrackIndex != -1 ? &_evt->tracks[combinedTrackIndex] : 0;
+  tpfmsTrack = tpfmsTrackIndex != -1 ? &_evt->tracks[tpfmsTrackIndex] : 0;
+  pickyTrack = pickyTrackIndex != -1 ? &_evt->tracks[pickyTrackIndex] : 0;
+  dytTrack = dytTrackIndex != -1 ? &_evt->tracks[dytTrackIndex] : 0;
+  bestTrack = bestTrackIndex() != -1 ? &_evt->tracks[bestTrackIndex()] : 0;
+  highPtBestTrack = highPtBestTrackIndex() != -1 ? &_evt->tracks[highPtBestTrackIndex()] : 0;
+}
+
+void
+susy::CaloJet::Init()
+{
   partonFlavour             = 0;
   jetCharge                 = 0;
   etaMean                   = 0;
@@ -489,11 +866,69 @@ void susy::CaloJet::Init() {
 }
 
 void
+susy::CaloJet::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "partonFlavour: " << partonFlavour << std::endl;
+  indent(os) << "jetCharge: " << jetCharge << std::endl;
+  indent(os) << "etaMean: " << etaMean << std::endl;
+  indent(os) << "phiMean: " << phiMean << std::endl;
+  indent(os) << "etaEtaMoment: " << etaEtaMoment << std::endl;
+  indent(os) << "etaPhiMoment: " << etaPhiMoment << std::endl;
+  indent(os) << "phiPhiMoment: " << phiPhiMoment << std::endl;
+  indent(os) << "maxDistance: " << maxDistance << std::endl;
+  indent(os) << "jetArea: " << jetArea << std::endl;
+  indent(os) << "pileup: " << pileup << std::endl;
+  indent(os) << "nPasses: " << int(nPasses) << std::endl;
+  indent(os) << "nConstituents: " << int(nConstituents) << std::endl;
+  
+  indent(os) << "maxEInEmTowers: " << maxEInEmTowers << std::endl;
+  indent(os) << "maxEInHadTowers: " << maxEInHadTowers << std::endl;
+  indent(os) << "energyFractionHadronic: " << energyFractionHadronic << std::endl;
+  indent(os) << "emEnergyFraction: " << emEnergyFraction << std::endl;
+  indent(os) << "hadEnergyInHB: " << hadEnergyInHB << std::endl;
+  indent(os) << "hadEnergyInHO: " << hadEnergyInHO << std::endl;
+  indent(os) << "hadEnergyInHE: " << hadEnergyInHE << std::endl;
+  indent(os) << "hadEnergyInHF: " << hadEnergyInHF << std::endl;
+  indent(os) << "emEnergyInEB: " << emEnergyInEB << std::endl;
+  indent(os) << "emEnergyInEE: " << emEnergyInEE << std::endl;
+  indent(os) << "emEnergyInHF: " << emEnergyInHF << std::endl;
+  indent(os) << "towersArea: " << towersArea << std::endl;
+  indent(os) << "n90: " << int(n90) << std::endl;
+  indent(os) << "n60: " << int(n60) << std::endl;
+  
+  indent(os) << "fHPD: " << fHPD << std::endl;
+  indent(os) << "fRBX: " << fRBX << std::endl;
+  indent(os) << "n90Hits: " << n90Hits << std::endl;
+  indent(os) << "fSubDetector1: " << fSubDetector1 << std::endl;
+  indent(os) << "fSubDetector2: " << fSubDetector2 << std::endl;
+  indent(os) << "fSubDetector3: " << fSubDetector3 << std::endl;
+  indent(os) << "fSubDetector4: " << fSubDetector4 << std::endl;
+  indent(os) << "restrictedEMF: " << restrictedEMF << std::endl;
+  indent(os) << "nHCALTowers: " << int(nHCALTowers) << std::endl;
+  indent(os) << "nECALTowers: " << int(nECALTowers) << std::endl;
+  indent(os) << "approximatefHPD: " << approximatefHPD << std::endl;
+  indent(os) << "approximatefRBX: " << approximatefRBX << std::endl;
+  indent(os) << "hitsInN90: " << int(hitsInN90) << std::endl;
+  indent(os) << "numberOfHits2RPC: " << int(numberOfHits2RPC) << std::endl;
+  indent(os) << "numberOfHits3RPC: " << int(numberOfHits3RPC) << std::endl;
+  indent(os) << "numberOfHitsRPC: " << int(numberOfHitsRPC) << std::endl;
+  
+  indent(os) << "vertex: " << vertex << std::endl;
+  indent(os) << "momentum: " << momentum << std::endl;
+  indent(os) << "detectorP4: " << detectorP4 << std::endl;
+
+  indent(os) << "jecScaleFactors: " << jecScaleFactors << std::endl;
+  indent(os) << "jecUncertainty: " << jecUncertainty << std::endl;
+}
+
+void
 susy::CaloJet::fillRefs(Event const*)
 {
 }
 
-void susy::PFJet::Init() {
+void
+susy::PFJet::Init()
+{
   phyDefFlavour             = 0;
   algDefFlavour             = 0;
   jetCharge                 = 0;
@@ -540,6 +975,9 @@ void susy::PFJet::Init() {
   for(unsigned i(0); i != nBTagDiscriminators; ++i)
     bTagDiscriminators[i] = 0.;
 
+  for(unsigned i(0); i != nQGDiscriminators; ++i)
+    qgDiscriminators[i] = -1.;
+
   momentum                 *= 0;
 
   jecScaleFactors.clear();
@@ -547,6 +985,67 @@ void susy::PFJet::Init() {
 
   tracks.clear();
   pfParticles.clear();
+}
+
+void
+susy::PFJet::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "phyDefFlavour: " << phyDefFlavour << std::endl;
+  indent(os) << "algDefFlavour: " << algDefFlavour << std::endl;
+  indent(os) << "jetCharge: " << jetCharge << std::endl;
+  indent(os) << "etaMean: " << etaMean << std::endl;
+  indent(os) << "phiMean: " << phiMean << std::endl;
+  indent(os) << "etaEtaMoment: " << etaEtaMoment << std::endl;
+  indent(os) << "etaPhiMoment: " << etaPhiMoment << std::endl;
+  indent(os) << "phiPhiMoment: " << phiPhiMoment << std::endl;
+  indent(os) << "maxDistance: " << maxDistance << std::endl;
+  indent(os) << "jetArea: " << jetArea << std::endl;
+  indent(os) << "pileup: " << pileup << std::endl;
+  indent(os) << "nPasses: " << int(nPasses) << std::endl;
+  indent(os) << "nConstituents: " << int(nConstituents) << std::endl;
+  
+  indent(os) << "chargedHadronEnergy: " << chargedHadronEnergy << std::endl;
+  indent(os) << "neutralHadronEnergy: " << neutralHadronEnergy << std::endl;
+  indent(os) << "photonEnergy: " << photonEnergy << std::endl;
+  indent(os) << "electronEnergy: " << electronEnergy << std::endl;
+  indent(os) << "muonEnergy: " << muonEnergy << std::endl;
+  indent(os) << "HFHadronEnergy: " << HFHadronEnergy << std::endl;
+  indent(os) << "HFEMEnergy: " << HFEMEnergy << std::endl;
+  indent(os) << "chargedEmEnergy: " << chargedEmEnergy << std::endl;
+  indent(os) << "chargedMuEnergy: " << chargedMuEnergy << std::endl;
+  indent(os) << "neutralEmEnergy: " << neutralEmEnergy << std::endl;
+  indent(os) << "chargedHadronMultiplicity: " << int(chargedHadronMultiplicity) << std::endl;
+  indent(os) << "neutralHadronMultiplicity: " << int(neutralHadronMultiplicity) << std::endl;
+  indent(os) << "photonMultiplicity: " << int(photonMultiplicity) << std::endl;
+  indent(os) << "electronMultiplicity: " << int(electronMultiplicity) << std::endl;
+  indent(os) << "muonMultiplicity: " << int(muonMultiplicity) << std::endl;
+  indent(os) << "HFHadronMultiplicity: " << int(HFHadronMultiplicity) << std::endl;
+  indent(os) << "HFEMMultiplicity: " << int(HFEMMultiplicity) << std::endl;
+  indent(os) << "chargedMultiplicity: " << int(chargedMultiplicity) << std::endl;
+  indent(os) << "neutralMultiplicity: " << int(neutralMultiplicity) << std::endl;
+  
+  indent(os) << "tracklist: " << tracklist << std::endl;
+  indent(os) << "pfParticleList: " << pfParticleList << std::endl;
+
+  indent(os) << "puJetIdDiscriminants: ";
+  for(unsigned i(0); i != nPUJetIdAlgorithms; ++i) os << i << ". " << puJetIdDiscriminants[i] << " ";
+  os << std::endl;
+  indent(os) << "puJetIdFlags: ";
+  for(unsigned i(0); i != nPUJetIdAlgorithms; ++i) os << i << ". " << puJetIdFlags[i] << " ";
+  os << std::endl;
+
+  indent(os) << "bTagDiscriminators: ";
+  for(unsigned i(0); i != nBTagDiscriminators; ++i) os << i << ". " << bTagDiscriminators[i] << " ";
+  os << std::endl;
+
+  indent(os) << "qgDiscriminators: ";
+  for(unsigned i(0); i != nQGDiscriminators; ++i) os << i << ". " << qgDiscriminators[i] << " ";
+  os << std::endl;
+  
+  indent(os) << "momentum: " << momentum << std::endl;
+  
+  indent(os) << "jecScaleFactors: " << jecScaleFactors << std::endl;
+  indent(os) << "jecUncertainty: " << jecUncertainty << std::endl;
 }
 
 void
@@ -561,7 +1060,9 @@ susy::PFJet::fillRefs(Event const* _evt)
     pfParticles[iP] = &_evt->pfParticles[pfParticleList[iP]];
 }
 
-void susy::JPTJet::Init() {
+void
+susy::JPTJet::Init()
+{
   partonFlavour             = 0;
   jetCharge                 = 0;
   etaMean                   = 0;
@@ -591,135 +1092,81 @@ void susy::JPTJet::Init() {
 }
 
 void
+susy::JPTJet::Print(std::ostream& os/* = std::cout*/) const
+{
+  indent(os) << "partonFlavour: " << partonFlavour << std::endl;
+  indent(os) << "jetCharge: " << jetCharge << std::endl;
+  indent(os) << "etaMean: " << etaMean << std::endl;
+  indent(os) << "phiMean: " << phiMean << std::endl;
+  indent(os) << "etaEtaMoment: " << etaEtaMoment << std::endl;
+  indent(os) << "etaPhiMoment: " << etaPhiMoment << std::endl;
+  indent(os) << "phiPhiMoment: " << phiPhiMoment << std::endl;
+  indent(os) << "maxDistance: " << maxDistance << std::endl;
+  indent(os) << "jetArea: " << jetArea << std::endl;
+  indent(os) << "pileup: " << pileup << std::endl;
+  indent(os) << "nPasses: " << int(nPasses) << std::endl;
+  indent(os) << "nConstituents: " << int(nConstituents) << std::endl;
+  
+  indent(os) << "chargedHadronEnergy: " << chargedHadronEnergy << std::endl;
+  indent(os) << "neutralHadronEnergy: " << neutralHadronEnergy << std::endl;
+  indent(os) << "chargedEmEnergy: " << chargedEmEnergy << std::endl;
+  indent(os) << "neutralEmEnergy: " << neutralEmEnergy << std::endl;
+  indent(os) << "chargedMultiplicity: " << int(chargedMultiplicity) << std::endl;
+  indent(os) << "muonMultiplicity: " << int(muonMultiplicity) << std::endl;
+  indent(os) << "elecMultiplicity: " << int(elecMultiplicity) << std::endl;
+  indent(os) << "getZSPCor: " << getZSPCor << std::endl;
+  
+  indent(os) << "momentum: " << momentum << std::endl;
+
+  indent(os) << "jecScaleFactors: " << jecScaleFactors << std::endl;
+  indent(os) << "jecUncertainty: " << jecUncertainty << std::endl;
+}
+
+void
 susy::JPTJet::fillRefs(Event const*)
 {
 }
 
-susy::TriggerMap::const_iterator::const_iterator() :
-  maxPos_(0),
-  paths_(0),
+susy::TriggerMap::TriggerMap(TString const& _type) :
+  trigType_(_type),
+  core_(),
   prescales_(0),
   decisions_(0),
-  pos_(0),
-  pair_("", std::pair<UInt_t, Bool_t>(0, kFALSE))
+  menuInEvent_(new TString),
+  currentMenu_(""),
+  treeNumber_(-1),
+  inputTree_(0),
+  outputTrees_()
 {
 }
 
-susy::TriggerMap::const_iterator::const_iterator(TriggerMap const& _map, unsigned _pos) :
-  maxPos_(_map.cachedSize_),
-  paths_(_map.cachedPaths_),
-  prescales_(_map.cachedPrescales_),
-  decisions_(_map.cachedDecisions_),
-  pos_(_pos)
+susy::TriggerMap::~TriggerMap()
 {
-  setPair();
-}
+  releaseTrees(kTRUE);
 
-susy::TriggerMap::const_iterator&
-susy::TriggerMap::const_iterator::operator++()
-{
-  ++pos_;
-  setPair();
-  return *this;
-}
+  clear_();
 
-susy::TriggerMap::const_iterator
-susy::TriggerMap::const_iterator::operator++(int)
-{
-  const_iterator itr(*this);
-  pos_++;
-  setPair();
-  return itr;
-}
-
-bool
-susy::TriggerMap::const_iterator::operator==(const_iterator const& _rhs) const
-{
-  return
-    paths_ == _rhs.paths_ &&
-    prescales_ == _rhs.prescales_ &&
-    decisions_ == _rhs.decisions_ &&
-    pos_ == _rhs.pos_;
+  delete menuInEvent_;
 }
 
 void
-susy::TriggerMap::const_iterator::setPair()
+susy::TriggerMap::Print(std::ostream& os/* = std::cout*/) const
 {
-  if(pos_ < maxPos_){
-    pair_.first = paths_[pos_];
-    pair_.second.first = prescales_[pos_];
-    pair_.second.second = decisions_[pos_] == 1;
-  }
-  else{
-    pos_ = maxPos_;
-    pair_.first = "";
-    pair_.second.first = 0;
-    pair_.second.second = kFALSE;
-  }
-}
-
-susy::TriggerMap::TriggerMap() :
-  currentConfig(),
-  size_(),
-  paths_(),
-  prescales_(),
-  decisions_(),
-  cachedConfigName_(""),
-  cachedSize_(0),
-  cachedPaths_(0),
-  cachedPrescales_(0),
-  cachedDecisions_(0)
-{
-}
-
-void
-susy::TriggerMap::Init()
-{
-  for(std::map<TString, size_t>::iterator sItr(size_.begin()); sItr != size_.end(); ++sItr){
-    size_t size(sItr->second);
-    UInt_t* prescales(prescales_.find(sItr->first)->second);
-    UChar_t* decisions(decisions_.find(sItr->first)->second);
-
-    std::fill_n(prescales, size, 0);
-    std::fill_n(decisions, size, 0);
-  }
-}
-
-std::pair<UInt_t, Bool_t>
-susy::TriggerMap::operator[](TString const& _path) const
-{
-  std::pair<UInt_t, Bool_t> value(0, kFALSE);
-
-  setCache_();
-
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_) return value;
-
-  TString const& found(*p);
-
-  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) ||
-     _path == found){
-
-    unsigned iP(p - cachedPaths_);
-    value.first = cachedPrescales_[iP];
-    value.second = cachedDecisions_[iP] == 1;
-  }
-  return value;
+  os << "Trigger Table: " << currentMenu_ << std::endl;
+  for(CoreConstIter itr(core_.begin()); itr != core_.end(); ++itr)
+    indent(os) << itr->first << "(prescale=" << *(itr->second.first) << ", fire=" << int(*(itr->second.second)) << ")" << std::endl;
 }
 
 Bool_t
 susy::TriggerMap::pass(TString const& _path) const
 {
-  setCache_();
+  CoreConstIter itr(core_.lower_bound(_path));
+  if(itr == core_.end()) return kFALSE;
 
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_) return kFALSE;
+  TString const& found(itr->first);
 
-  TString const& found(*p);
-
-  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) ||
-     _path == found)
-    return cachedDecisions_[p - cachedPaths_] == 1;
+  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) || _path == found)
+    return *itr->second.second != 0;
   else
     return kFALSE;
 }
@@ -727,225 +1174,304 @@ susy::TriggerMap::pass(TString const& _path) const
 UInt_t
 susy::TriggerMap::prescale(TString const& _path) const
 {
-  setCache_();
+  CoreConstIter itr(core_.lower_bound(_path));
+  if(itr == core_.end()) return kFALSE;
 
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_) return 0;
+  TString const& found(itr->first);
 
-  TString const& found(*p);
-
-  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) ||
-     _path == found)
-    return cachedPrescales_[p - cachedPaths_];
+  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) || _path == found)
+    return *itr->second.first;
   else
     return 0;
 }
 
-Bool_t
-susy::TriggerMap::menuExists(TString const& _menuName) const
+std::pair<UInt_t, Bool_t>
+susy::TriggerMap::operator[](TString const& _path) const
 {
-  return size_.find(_menuName) != size_.end();
+  std::pair<UInt_t, Bool_t> value(0, kFALSE);
+
+  CoreConstIter itr(core_.lower_bound(_path));
+  if(itr == core_.end()) return value;
+
+  TString const& found(itr->first);
+
+  if((_path.First('*') == _path.Length() - 1 && found.Index(_path.SubString(0, _path.Length() - 1)) == 0) || _path == found){
+    value.first = *itr->second.first;
+    value.second = *itr->second.second != 0;
+  }
+  return value;
 }
 
 void
-susy::TriggerMap::addMenu(TString const& _menuName, std::vector<TString> const& _sortedFilters)
+susy::TriggerMap::setInput(TTree& _input)
 {
-  if(menuExists(_menuName))
-    throw std::runtime_error((_menuName + " already exists in TriggerMap").Data());
+  if(inputTree_) releaseTree(*inputTree_, kTRUE);
 
-  size_t size(_sortedFilters.size());
-  TString* paths(new TString[size]);
-  UInt_t* prescales(new UInt_t[size]);
-  UChar_t* decisions(new UChar_t[size]);
+  inputTree_ = &_input;
 
-  std::copy(_sortedFilters.begin(), _sortedFilters.end(), paths);
-  std::fill_n(prescales, size, 0);
-  std::fill_n(decisions, size, 0);  
+  inputTree_->SetBranchAddress(trigType_ + "Config", &menuInEvent_);
 
-  size_.insert(std::pair<TString, size_t>(_menuName, size));
-  paths_.insert(std::pair<TString, TString*>(_menuName, paths));
-  prescales_.insert(std::pair<TString, UInt_t*>(_menuName, prescales));
-  decisions_.insert(std::pair<TString, UChar_t*>(_menuName, decisions));
+  currentMenu_ = "";
+  treeNumber_ = -1;
+}
+
+void
+susy::TriggerMap::addOutput(TTree& _output)
+{
+  outputTrees_.push_back(&_output);
+
+  TBranch* configBranch(_output.GetBranch(trigType_ + "Config"));
+  if(configBranch){
+    // output is a halfway-filled susyTree
+    _output.SetBranchAddress(trigType_ + "Config", &menuInEvent_);
+  }
+  else{
+    configBranch = _output.Branch(trigType_ + "Config", "TString", &menuInEvent_);
+    configBranch->SetFirstEntry(_output.GetEntries());
+  }
+
+  if(currentMenu_ == "") return;
+
+  // look for current trigger table
+  TBranch* bitBranch(0);
+  TBranch* psBranch(0);
+  if(configBranch){
+    bitBranch = _output.GetBranch(trigType_ + "Prescales_" + currentMenu_);
+    psBranch = _output.GetBranch(trigType_ + "Bits_" + currentMenu_);
+  }
+
+  if(bitBranch && psBranch){
+    _output.SetBranchAddress(trigType_ + "Bits_" + currentMenu_, decisions_);
+    _output.SetBranchAddress(trigType_ + "Prescales_" + currentMenu_, prescales_);
+  }
+  else{
+    TString bitLeaves(formLeafList_());
+    TString psLeaves(bitLeaves);
+    psLeaves.ReplaceAll("/b", "/i");
+
+    bitBranch = _output.Branch(trigType_ + "Bits_" + currentMenu_, decisions_, bitLeaves);
+    psBranch = _output.Branch(trigType_ + "Prescales_" + currentMenu_, prescales_, psLeaves);
+
+    bitBranch->SetFirstEntry(_output.GetEntries());
+    psBranch->SetFirstEntry(_output.GetEntries());
+  }
+}
+
+void
+susy::TriggerMap::checkInput()
+{
+  // Check for menu or tree transition and set the branch addresses when necessary. Note that
+  // when the input is a TChain, different constituent trees can have different trigger tables.
+  // As such, SetBranchAddress is not issued on the inputTree itself (otherwise users will see
+  // a lot of "SetBranchAddress: No branch XYZ found" messages) but only on the current tree.
+  // The check for tree transition is required for this reason.
+
+  if(!inputTree_) return;
+
+  if(*menuInEvent_ == currentMenu_ && treeNumber_ == inputTree_->GetTreeNumber()) return;
+
+  TBranch* bitBranch(inputTree_->GetBranch(trigType_ + "Bits_" + *menuInEvent_));
+  TBranch* psBranch(inputTree_->GetBranch(trigType_ + "Prescales_" + *menuInEvent_));
+
+  if(!bitBranch || !psBranch){
+    // Input tree is not properly formatted
+    releaseTree(*inputTree_, kTRUE);
+    return;
+  }
+
+  if(*menuInEvent_ != currentMenu_){
+    // New trigger table
+    TObjArray* leaves(bitBranch->GetListOfLeaves());
+
+    std::vector<std::string> paths;
+    for(int iL(0); iL != leaves->GetEntries(); ++iL)
+      paths.push_back(leaves->At(iL)->GetName());
+
+    setMenu(*menuInEvent_, paths); // currentMenu is set here
+  }
+
+  treeNumber_ = inputTree_->GetTreeNumber();
+
+  bitBranch->SetAddress(decisions_);
+  psBranch->SetAddress(prescales_);
+
+  inputTree_->GetEntry(inputTree_->GetReadEntry());
+}
+
+void
+susy::TriggerMap::setMenu(TString const& _menuName, std::vector<std::string> const& _paths)
+{
+  // Configure the object for a new trigger table. Called either by the ntuplizer or internally
+  // from checkInput() when the input configuration changes.
+
+  if(_menuName == currentMenu_) return;
+
+  releaseTrees(kFALSE);
+
+  clear_();
+
+  *menuInEvent_ = _menuName;
+  currentMenu_ = _menuName;
+
+  unsigned nP(_paths.size());
+  unsigned iP(0);
+  for(; iP != nP; ++iP)
+    core_.insert(typename MapCore::value_type(_paths[iP], std::pair<UInt_t*, UChar_t*>(0, 0)));
+
+  prescales_ = new UInt_t[nP];
+  decisions_ = new UChar_t[nP];
+
+  iP = 0;
+  for(CoreIter itr(core_.begin()); itr != core_.end(); ++itr, ++iP){
+    itr->second.first = prescales_ + iP;
+    itr->second.second = decisions_ + iP;
+  }
+
+  std::fill_n(prescales_, nP, 0);
+  std::fill_n(decisions_, nP, 0);
+
+  if(outputTrees_.size() == 0) return;
+
+  // If outputs exist, new branches must be created on each of them.
+
+  TString bitLeaves(formLeafList_());
+  TString psLeaves(bitLeaves);
+  psLeaves.ReplaceAll("/b", "/i");
+
+  for(unsigned iT(0); iT != outputTrees_.size(); ++iT){
+    TTree* tree(outputTrees_[iT]);
+
+    TBranch* bitBranch(tree->GetBranch(trigType_ + "Bits_" + currentMenu_));
+    TBranch* psBranch(tree->GetBranch(trigType_ + "Prescales_" + currentMenu_));
+
+    if(bitBranch)
+      tree->SetBranchAddress(trigType_ + "Bits_" + currentMenu_, decisions_);
+    else{
+      bitBranch = tree->Branch(trigType_ + "Bits_" + currentMenu_, decisions_, bitLeaves);
+      bitBranch->SetFirstEntry(tree->GetEntries());
+    }
+    if(psBranch)
+      tree->SetBranchAddress(trigType_ + "Prescales_" + currentMenu_, prescales_);
+    else{
+      psBranch = tree->Branch(trigType_ + "Prescales_" + currentMenu_, prescales_, psLeaves);
+      psBranch->SetFirstEntry(tree->GetEntries());
+    }
+  }
 }
 
 void
 susy::TriggerMap::set(TString const& _path, UInt_t _prescale, Bool_t _decision)
 {
-  setCache_();
+  // Set the result of one trigger path
 
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_ || *p != _path) return;
+  CoreIter itr(core_.find(_path));
+  if(itr == core_.end()) return;
 
-  UInt_t offset(p - cachedPaths_);
-
-  cachedPrescales_[offset] = _prescale;
-  cachedDecisions_[offset] = _decision ? 1 : 0;
+  *itr->second.first = _prescale;
+  *itr->second.second = _decision ? 1 : 0;
 }
 
 void
-susy::TriggerMap::clear()
+susy::TriggerMap::copy(TriggerMap const& _orig)
 {
-  currentConfig = "";
-  for(std::map<TString, size_t>::iterator itr(size_.begin()); itr != size_.end(); ++itr){
-    delete [] paths_[itr->first];
-    delete [] prescales_[itr->first];
-    delete [] decisions_[itr->first];
-  }  
-  size_.clear();
-  paths_.clear();
-  prescales_.clear();
-  decisions_.clear();
+  unsigned nO(_orig.size());
 
-  cachedConfigName_ = "";
-  cachedSize_ = 0;
-  cachedPaths_ = 0;
-  cachedPrescales_ = 0;
-  cachedDecisions_ = 0;
-}
+  if(currentMenu_ != _orig.currentMenu_){
+    std::vector<std::string> paths;
+    for(CoreConstIter itr(_orig.core_.begin()); itr != _orig.core_.end(); ++itr)
+      paths.push_back(itr->first.Data());
+    setMenu(_orig.currentMenu_, paths);
+    treeNumber_ = -1;
+  }
 
-size_t
-susy::TriggerMap::size() const
-{
-  setCache_();
-  return cachedSize_;
-}
-
-UInt_t*
-susy::TriggerMap::prescales(TString const& _config) const
-{
-  std::map<TString, UInt_t*>::const_iterator itr(prescales_.find(_config));
-  if(itr != prescales_.end()) return itr->second;
-  else return 0;
-}
-
-UChar_t*
-susy::TriggerMap::decisions(TString const& _config) const
-{
-  std::map<TString, UChar_t*>::const_iterator itr(decisions_.find(_config));
-  if(itr != decisions_.end()) return itr->second;
-  else return 0;
-}
-
-susy::TriggerMap::const_iterator
-susy::TriggerMap::begin() const
-{
-  setCache_();
-
-  return const_iterator(*this, 0);
-}
-
-susy::TriggerMap::iterator
-susy::TriggerMap::begin()
-{
-  setCache_();
-
-  return iterator(*this, 0);
-}
-
-susy::TriggerMap::const_iterator
-susy::TriggerMap::end() const
-{
-  setCache_();
-
-  return const_iterator(*this, cachedSize_);
-}
-
-susy::TriggerMap::iterator
-susy::TriggerMap::end()
-{
-  setCache_();
-
-  return iterator(*this, cachedSize_);
-}
-
-susy::TriggerMap::const_iterator
-susy::TriggerMap::find(TString const& _path) const
-{
-  setCache_();
-
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_ || *p != _path) return end();
-
-  return const_iterator(*this, p - cachedPaths_);
-}
-
-susy::TriggerMap::iterator
-susy::TriggerMap::find(TString const& _path)
-{
-  setCache_();
-
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-  if(p == cachedPaths_ + cachedSize_ || *p != _path) return end();
-
-  return iterator(*this, p - cachedPaths_);
-}
-
-susy::TriggerMap::const_iterator
-susy::TriggerMap::lower_bound(TString const& _path) const
-{
-  setCache_();
-
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-
-  return const_iterator(*this, p - cachedPaths_);
-}
-
-susy::TriggerMap::iterator
-susy::TriggerMap::lower_bound(TString const& _path)
-{
-  setCache_();
-
-  TString const* p(std::lower_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-
-  return iterator(*this, p - cachedPaths_);
-}
-
-susy::TriggerMap::const_iterator
-susy::TriggerMap::upper_bound(TString const& _path) const
-{
-  setCache_();
-
-  TString const* p(std::upper_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-
-  return const_iterator(*this, p - cachedPaths_);
-}
-
-susy::TriggerMap::iterator
-susy::TriggerMap::upper_bound(TString const& _path)
-{
-  setCache_();
-
-  TString const* p(std::upper_bound(cachedPaths_, cachedPaths_ + cachedSize_, _path));
-
-  return iterator(*this, p - cachedPaths_);
+  std::copy(_orig.prescales_, _orig.prescales_ + nO, prescales_);
+  std::copy(_orig.decisions_, _orig.decisions_ + nO, decisions_);
 }
 
 void
-susy::TriggerMap::setCache_() const
+susy::TriggerMap::releaseTree(TTree& _tree, Bool_t _fullRelease)
 {
-  if(currentConfig == cachedConfigName_) return;
-  if(!menuExists(currentConfig))
-    throw std::runtime_error((currentConfig + " does not exist in TriggerMap").Data());
+  TBranch* branch(0);
+  if((branch = _tree.GetBranch(trigType_ + "Bits_" + currentMenu_)))
+    _tree.ResetBranchAddress(branch);
+  if((branch = _tree.GetBranch(trigType_ + "Prescales_" + currentMenu_)))
+    _tree.ResetBranchAddress(branch);
+  if(_fullRelease && (branch = _tree.GetBranch(trigType_ + "Config")))
+    _tree.ResetBranchAddress(branch);
 
-  cachedConfigName_ = currentConfig;
+  if(!_fullRelease) return;
 
-  cachedSize_ = size_.find(currentConfig)->second;
-  cachedPaths_ = paths_.find(currentConfig)->second;
-  cachedPrescales_ = prescales_.find(currentConfig)->second;
-  cachedDecisions_ = decisions_.find(currentConfig)->second;
+  if(inputTree_ == &_tree){
+    inputTree_ = 0;
+    treeNumber_ = -1;
+  }
+  else{
+    for(unsigned iT(0); iT != outputTrees_.size(); ++iT){
+      if(outputTrees_[iT] == &_tree){
+	outputTrees_.erase(outputTrees_.begin() + iT);
+	break;
+      }
+    }
+  }
 }
 
-susy::Event::Event()
+void
+susy::TriggerMap::releaseTrees(Bool_t _fullRelease)
+{
+  if(inputTree_) releaseTree(*inputTree_, _fullRelease);
+
+  if(_fullRelease){
+    while(outputTrees_.size() != 0)
+      releaseTree(*outputTrees_[0], kTRUE); // releaseTree removes the tree from the vector
+  }
+  else{
+    for(unsigned iT(0); iT != outputTrees_.size(); ++iT)
+      releaseTree(*outputTrees_[iT], kFALSE);
+  }
+}
+
+void
+susy::TriggerMap::clear_()
+{
+  core_.clear();
+
+  delete [] prescales_;
+  delete [] decisions_;
+  prescales_ = 0;
+  decisions_ = 0;
+
+  currentMenu_ = "";
+  treeNumber_ = -1;
+}
+
+TString
+susy::TriggerMap::formLeafList_() const
+{
+  TString leaves;
+  for(CoreConstIter itr(core_.begin()); itr != core_.end(); ++itr)
+    leaves += itr->first + "/b:";
+
+  leaves.Remove(leaves.Length() - 1);
+
+  return leaves;
+}
+
+susy::Event::Event() :
+  l1Map("l1"),
+  hltMap("hlt"),
+  inputTree_(0),
+  outputTrees_()
 {
   Init();
+
+  metFilterMask = 
+    (1 << kCSCBeamHalo) | (1 << kHcalNoise) | (1 << kEcalDeadCellTP) | (1 << kHcalLaserRECOUserStep) | (1 << kTrackingFailure) |
+    (1 << kEEBadSC) | (1 << kLogErrorTooManyClusters) | (1 << kLogErrorTooManyTripletsPairs) | (1 << kLogErrorTooManySeeds);
 }
 
 susy::Event::~Event()
 {
-  Init();
-
-  while(trees_.size() != 0)
-    releaseTree(*trees_[0].first);
+  releaseTrees();
 }
 
 void
@@ -962,12 +1488,9 @@ susy::Event::Init()
   rho                         = 0;
   rhoBarrel                   = 0;
   rho25                       = 0;
-  metFilterBit                = 0;
+  metFilterBit                = 0xffffffff;
 
   beamSpot                   *= 0;
-
-  l1Map.Init();
-  hltMap.Init();
 
   vertices.clear();
   tracks.clear();
@@ -985,6 +1508,176 @@ susy::Event::Init()
   for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr) itr->second.clear();
   for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr) itr->second.clear();
   for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr) itr->second = 0.;
+}
+
+void
+susy::Event::Print(std::ostream& os/* = std::cout*/) const
+{
+  os << "---------- run " << runNumber << " event " << eventNumber << " ----------" << std::endl;
+
+  os << "isRealData: " << int(isRealData) << std::endl;
+  os << "runNumber: " << runNumber << std::endl;
+  os << "eventNumber: " << eventNumber << std::endl;
+  os << "luminosityBlockNumber: " << luminosityBlockNumber << std::endl;
+  os << "bunchCrossing: " << bunchCrossing << std::endl;
+  os << "avgInsRecLumi: " << avgInsRecLumi << std::endl;
+  os << "intgRecLumi: " << intgRecLumi << std::endl;
+  os << "cosmicFlag: " << int(cosmicFlag) << std::endl;
+  os << "rho: " << rho << std::endl;
+  os << "rhoBarrel: " << rhoBarrel << std::endl;
+  os << "rho25: " << rho25 << std::endl;
+  os << "metFilterBit: " << bin(metFilterBit) << std::endl;
+  os << "metFilterBit break down ===> " << std::endl;
+  indent(os) << "CSCBeamHalo(" << passMetFilter(kCSCBeamHalo) << ") ";
+  indent(os) << "HcalNoise(" << passMetFilter(kHcalNoise) << ") ";
+  indent(os) << "EcalDeadCellTP(" << passMetFilter(kEcalDeadCellTP) << ") ";
+  indent(os) << "EcalDeadCellBE(" << passMetFilter(kEcalDeadCellBE) << ") ";
+  indent(os) << "HcalLaserOccupancy(" << passMetFilter(kHcalLaserOccupancy) << ") ";
+  indent(os) << "TrackingFailure(" << passMetFilter(kTrackingFailure) << ") ";
+  indent(os) << "EEBadSC(" << passMetFilter(kEEBadSC) << ") ";
+  indent(os) << "HcalLaserEventList(" << passMetFilter(kHcalLaserEventList) << ") ";
+  indent(os) << "EcalLaserCorr(" << passMetFilter(kEcalLaserCorr) << ") ";
+  indent(os) << "ManyStripClus53X(" << passMetFilter(kManyStripClus53X) << ") ";
+  indent(os) << "TooManyStripClus53X(" << passMetFilter(kTooManyStripClus53X) << ") ";
+  indent(os) << "LogErrorTooManyClusters(" << passMetFilter(kLogErrorTooManyClusters) << ") ";
+  indent(os) << "EERingOfFire(" << passMetFilter(kEERingOfFire) << ") ";
+  indent(os) << "InconsistentMuon(" << passMetFilter(kInconsistentMuon) << ") ";
+  indent(os) << "GreedyMuon(" << passMetFilter(kGreedyMuon) << ") ";
+  indent(os) << "HcalLaserRECOUserStep(" << passMetFilter(kHcalLaserRECOUserStep) << ") ";
+  os << std::endl << std::endl;
+  
+  os << "beamSpot: " << beamSpot << std::endl;
+
+  os << "l1Map size(" << l1Map.size() << ") ======>" << std::endl;
+  l1Map.Print(os);
+  os << std::endl;
+
+  os << "hltMap size(" << hltMap.size() << ") ======>" << std::endl;
+  hltMap.Print(os);
+  os << std::endl;
+
+  os << "vertices size(" << vertices.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != vertices.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    vertices[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "tracks size(" << tracks.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != tracks.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    tracks[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "superClusters size(" << superClusters.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != superClusters.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    superClusters[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "clusters size(" << clusters.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != clusters.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    clusters[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "pfParticles size(" << pfParticles.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != pfParticles.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    pfParticles[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "metMap ======>" << std::endl;
+  for(std::map<TString, MET>::const_iterator it = metMap.begin(); it != metMap.end(); it++){
+    os << it->first << " ===>" << std::endl;
+    it->second.Print(os);
+  }
+  os << std::endl;
+
+  os << "muons =========>" << std::endl;
+  for(std::map<TString, MuonCollection>::const_iterator it = muons.begin(); it != muons.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  os << "electrons ======>" << std::endl;
+  for(std::map<TString, ElectronCollection>::const_iterator it = electrons.begin(); it != electrons.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  os << "photons ======>" << std::endl;
+  for(std::map<TString, PhotonCollection>::const_iterator it = photons.begin(); it != photons.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  os << "caloJets ======>" << std::endl;
+  for(std::map<TString, CaloJetCollection>::const_iterator it = caloJets.begin(); it != caloJets.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  os << "pfJets ======>" << std::endl;
+  for(std::map<TString, PFJetCollection>::const_iterator it = pfJets.begin(); it != pfJets.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  os << "jptJets ======>" << std::endl;
+  for(std::map<TString, JPTJetCollection>::const_iterator it = jptJets.begin(); it != jptJets.end(); it++) {
+    os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
+    for(unsigned i(0); i != it->second.size(); ++i){
+      os << "[" << i << "] ===>" << std::endl;
+      it->second[i].Print(os);
+    }
+  }
+  os << std::endl;
+
+  if(isRealData == 1) return;
+
+  os << "pu size(" << pu.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != pu.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    pu[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "genParticles size(" << genParticles.size() << ") ======>" << std::endl;
+  for(unsigned i(0); i != genParticles.size(); ++i){
+    os << "[" << i << "] ===>" << std::endl;
+    genParticles[i].Print(os);
+  }
+  os << std::endl;
+
+  os << "gridParams ===>" << std::endl;
+  indent(os) << gridParams << std::endl;
+
+  os << std::endl << std::endl;
 }
 
 void
@@ -1018,247 +1711,306 @@ susy::Event::fillRefs()
 }
 
 void
-susy::Event::bindTree(TTree& _tree, Bool_t _readMode/* = kTRUE*/)
+susy::Event::setInput(TTree& _tree)
 {
-  if(_readMode){
-    _tree.SetBranchAddress("isRealData", &isRealData);
-    _tree.SetBranchAddress("runNumber", &runNumber);
-    _tree.SetBranchAddress("eventNumber", &eventNumber);
-    _tree.SetBranchAddress("luminosityBlockNumber", &luminosityBlockNumber);
-    _tree.SetBranchAddress("bunchCrossing", &bunchCrossing);
-    _tree.SetBranchAddress("avgInsRecLumi", &avgInsRecLumi);
-    _tree.SetBranchAddress("intgRecLumi", &intgRecLumi);
-    _tree.SetBranchAddress("cosmicFlag", &cosmicFlag);
-    _tree.SetBranchAddress("rho", &rho);
-    _tree.SetBranchAddress("rhoBarrel", &rhoBarrel);
-    _tree.SetBranchAddress("rho25", &rho25);
-    _tree.SetBranchAddress("metFilterBit", &metFilterBit);
+  // To fix the branch status - seems odd but necessary due to a feature in TChain implementation.
+  // TChain will enable a branch even if "*" is set to 0, when the branch address is set before a tree is loaded.
+  _tree.LoadTree(0);
 
-    _tree.SetBranchAddress("l1Config", new TString*(&l1Map.currentConfig));
-    _tree.SetBranchAddress("hltConfig", new TString*(&hltMap.currentConfig));
-    _tree.SetBranchAddress("beamSpot", new TVector3*(&beamSpot));
-    _tree.SetBranchAddress("vertices", new VertexCollection*(&vertices));
-    _tree.SetBranchAddress("tracks", new TrackCollection*(&tracks));
-    _tree.SetBranchAddress("superClusters", new SuperClusterCollection*(&superClusters));
-    _tree.SetBranchAddress("clusters", new ClusterCollection*(&clusters));
-    _tree.SetBranchAddress("pfParticles", new PFParticleCollection*(&pfParticles));
-    _tree.SetBranchAddress("pu", new PUSummaryInfoCollection*(&pu));
-    _tree.SetBranchAddress("genParticles", new ParticleCollection*(&genParticles));
+  _tree.SetBranchAddress("isRealData", &isRealData);
+  _tree.SetBranchAddress("runNumber", &runNumber);
+  _tree.SetBranchAddress("eventNumber", &eventNumber);
+  _tree.SetBranchAddress("luminosityBlockNumber", &luminosityBlockNumber);
+  _tree.SetBranchAddress("bunchCrossing", &bunchCrossing);
+  _tree.SetBranchAddress("avgInsRecLumi", &avgInsRecLumi);
+  _tree.SetBranchAddress("intgRecLumi", &intgRecLumi);
+  _tree.SetBranchAddress("cosmicFlag", &cosmicFlag);
+  _tree.SetBranchAddress("rho", &rho);
+  _tree.SetBranchAddress("rhoBarrel", &rhoBarrel);
+  _tree.SetBranchAddress("rho25", &rho25);
+  _tree.SetBranchAddress("metFilterBit", &metFilterBit);
 
-    TObjArray* branches(_tree.GetListOfBranches());
+  if(_tree.GetBranchStatus("beamSpot.")) _tree.SetBranchAddress("beamSpot.", new TVector3*(&beamSpot));
+  if(_tree.GetBranchStatus("vertices")) _tree.SetBranchAddress("vertices", new VertexCollection*(&vertices));
+  if(_tree.GetBranchStatus("tracks")) _tree.SetBranchAddress("tracks", new TrackCollection*(&tracks));
+  if(_tree.GetBranchStatus("superClusters")) _tree.SetBranchAddress("superClusters", new SuperClusterCollection*(&superClusters));
+  if(_tree.GetBranchStatus("clusters")) _tree.SetBranchAddress("clusters", new ClusterCollection*(&clusters));
+  if(_tree.GetBranchStatus("pfParticles")) _tree.SetBranchAddress("pfParticles", new PFParticleCollection*(&pfParticles));
+  if(_tree.GetBranchStatus("pu")) _tree.SetBranchAddress("pu", new PUSummaryInfoCollection*(&pu));
+  if(_tree.GetBranchStatus("genParticles")) _tree.SetBranchAddress("genParticles", new ParticleCollection*(&genParticles));
 
-    for(int iB(0); iB != branches->GetEntries(); ++iB){
-      TBranch* branch(static_cast<TBranch*>(branches->At(iB)));
-      TString bName(branch->GetName());
-      TString collectionName(bName(bName.First('_') + 1, bName.Length()));
-      void** add(0);
+  metMap.clear();
+  muons.clear();
+  electrons.clear();
+  photons.clear();
+  caloJets.clear();
+  pfJets.clear();
+  jptJets.clear();
+  gridParams.clear();
 
-      if(bName.Index("met_") == 0)
-        add = reinterpret_cast<void**>(new MET*(&metMap[collectionName]));
-      else if(bName.Index("muons_") == 0)
-        add = reinterpret_cast<void**>(new MuonCollection*(&muons[collectionName]));
-      else if(bName.Index("electrons_") == 0)
-        add = reinterpret_cast<void**>(new ElectronCollection*(&electrons[collectionName]));
-      else if(bName.Index("photons_") == 0)
-        add = reinterpret_cast<void**>(new PhotonCollection*(&photons[collectionName]));
-      else if(bName.Index("caloJets_") == 0)
-        add = reinterpret_cast<void**>(new CaloJetCollection*(&caloJets[collectionName]));
-      else if(bName.Index("pfJets_") == 0)
-        add = reinterpret_cast<void**>(new PFJetCollection*(&pfJets[collectionName]));
-      else if(bName.Index("jptJets_") == 0)
-        add = reinterpret_cast<void**>(new JPTJetCollection*(&jptJets[collectionName]));
-      else if(bName.Index("gridParams_") == 0){
-        _tree.SetBranchAddress(bName, &gridParams[collectionName]);
-        continue;
-      }
-      else
-        continue;
+  TObjArray* branches(_tree.GetListOfBranches());
 
-      _tree.SetBranchAddress(bName, add);
+  for(int iB(0); iB != branches->GetEntries(); ++iB){
+    TString bName(branches->At(iB)->GetName());
+    if(!_tree.GetBranchStatus(bName)) continue;
+
+    TString collectionName(bName(bName.First('_') + 1, bName.Length()));
+    void** add(0);
+
+    if(bName.Index("met_") == 0)
+      add = reinterpret_cast<void**>(new MET*(&metMap[collectionName(0, collectionName.Length() - 1)]));
+    else if(bName.Index("muons_") == 0)
+      add = reinterpret_cast<void**>(new MuonCollection*(&muons[collectionName]));
+    else if(bName.Index("electrons_") == 0)
+      add = reinterpret_cast<void**>(new ElectronCollection*(&electrons[collectionName]));
+    else if(bName.Index("photons_") == 0)
+      add = reinterpret_cast<void**>(new PhotonCollection*(&photons[collectionName]));
+    else if(bName.Index("caloJets_") == 0)
+      add = reinterpret_cast<void**>(new CaloJetCollection*(&caloJets[collectionName]));
+    else if(bName.Index("pfJets_") == 0)
+      add = reinterpret_cast<void**>(new PFJetCollection*(&pfJets[collectionName]));
+    else if(bName.Index("jptJets_") == 0)
+      add = reinterpret_cast<void**>(new JPTJetCollection*(&jptJets[collectionName]));
+    else if(bName.Index("gridParams_") == 0){
+      _tree.SetBranchAddress(bName, &gridParams[collectionName]);
+      continue;
     }
+    else
+      continue;
 
-    for(int iB(0); iB != branches->GetEntries(); ++iB){
-      TBranch* branch(static_cast<TBranch*>(branches->At(iB)));
-      TString bName(branch->GetName());
-      TriggerMap* map(0);
-
-      if(bName.Index("l1Bits_") == 0) map = &l1Map;
-      else if(bName.Index("hltBits_") == 0) map = &hltMap;
-      else continue;
-
-      TObjArray* leaves(branch->GetListOfLeaves());
-
-      std::vector<TString> paths;
-      for(int iL(0); iL != leaves->GetEntries(); ++iL)
-        paths.push_back(leaves->At(iL)->GetName());
-
-      TString config(bName(bName.First('_') + 1, bName.Length()));
-
-      map->addMenu(config, paths);
-      _tree.SetBranchAddress(bName, map->decisions(config));
-      _tree.SetBranchAddress(bName.ReplaceAll("Bits", "Prescales"), map->prescales(config));
-    }
-  }
-  else{
-    _tree.Branch("isRealData", &isRealData, "isRealData/b");
-    _tree.Branch("runNumber", &runNumber, "runNumber/i");
-    _tree.Branch("eventNumber", &eventNumber, "eventNumber/i");
-    _tree.Branch("luminosityBlockNumber", &luminosityBlockNumber, "luminosityBlockNumber/i");
-    _tree.Branch("bunchCrossing", &bunchCrossing, "bunchCrossing/s");
-    _tree.Branch("cosmicFlag", &cosmicFlag, "cosmicFlag/b");
-    _tree.Branch("avgInsRecLumi", &avgInsRecLumi, "avgInsRecLumi/F");
-    _tree.Branch("intgRecLumi", &intgRecLumi, "intgRecLumi/F");
-    _tree.Branch("rho", &rho, "rho/F");
-    _tree.Branch("rhoBarrel", &rhoBarrel, "rhoBarrel/F");
-    _tree.Branch("rho25", &rho25, "rho25/F");
-    _tree.Branch("metFilterBit", &metFilterBit, "metFilterBit/I");
-
-    _tree.Branch("l1Config", "TString", new TString*(&l1Map.currentConfig));
-    _tree.Branch("hltConfig", "TString", new TString*(&hltMap.currentConfig));
-    _tree.Branch("beamSpot", "TVector3", new TVector3*(&beamSpot));
-    _tree.Branch("vertices", "std::vector<susy::Vertex>", new VertexCollection*(&vertices));
-    _tree.Branch("tracks", "std::vector<susy::Track>", new TrackCollection*(&tracks));
-    _tree.Branch("superClusters", "std::vector<susy::SuperCluster>", new SuperClusterCollection*(&superClusters));
-    _tree.Branch("clusters", "std::vector<susy::Cluster>", new ClusterCollection*(&clusters));
-    _tree.Branch("pfParticles", "std::vector<susy::PFParticle>", new PFParticleCollection*(&pfParticles));
-    _tree.Branch("pu", "std::vector<susy::PUSummaryInfo>", new PUSummaryInfoCollection*(&pu));
-    _tree.Branch("genParticles", "std::vector<susy::Particle>", new ParticleCollection*(&genParticles));
-
-    for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
-      _tree.Branch("met_" + itr->first, "susy::MET", new MET*(&itr->second));
-    for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr)
-      _tree.Branch("muons_" + itr->first, "std::vector<susy::Muon>", new MuonCollection*(&itr->second));
-    for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
-      _tree.Branch("electrons_" + itr->first, "std::vector<susy::Electron>", new ElectronCollection*(&itr->second));
-    for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr)
-      _tree.Branch("photons_" + itr->first, "std::vector<susy::Photon>", new PhotonCollection*(&itr->second));
-    for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
-      _tree.Branch("caloJets_" + itr->first, "std::vector<susy::CaloJet>", new CaloJetCollection*(&itr->second));
-    for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
-      _tree.Branch("pfJets_" + itr->first, "std::vector<susy::PFJet>", new PFJetCollection*(&itr->second));
-    for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
-      _tree.Branch("jptJets_" + itr->first, "std::vector<susy::JPTJet>", new JPTJetCollection*(&itr->second));
-    for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr)
-      _tree.Branch("gridParams_" + itr->first, &itr->second, itr->first + "/F");
+    _tree.SetBranchAddress(bName, add);
   }
 
-  trees_.push_back(std::pair<TTree*, Bool_t>(&_tree, _readMode));
+  if(inputTree_) releaseTree(*inputTree_);
+  inputTree_ = &_tree;
+  hltMap.setInput(_tree);
+  l1Map.setInput(_tree);
+}
+
+void
+susy::Event::addOutput(TTree& _tree)
+{
+  _tree.Branch("isRealData", &isRealData, "isRealData/b");
+  _tree.Branch("runNumber", &runNumber, "runNumber/i");
+  _tree.Branch("eventNumber", &eventNumber, "eventNumber/i");
+  _tree.Branch("luminosityBlockNumber", &luminosityBlockNumber, "luminosityBlockNumber/i");
+  _tree.Branch("bunchCrossing", &bunchCrossing, "bunchCrossing/s");
+  _tree.Branch("cosmicFlag", &cosmicFlag, "cosmicFlag/b");
+  _tree.Branch("avgInsRecLumi", &avgInsRecLumi, "avgInsRecLumi/F");
+  _tree.Branch("intgRecLumi", &intgRecLumi, "intgRecLumi/F");
+  _tree.Branch("rho", &rho, "rho/F");
+  _tree.Branch("rhoBarrel", &rhoBarrel, "rhoBarrel/F");
+  _tree.Branch("rho25", &rho25, "rho25/F");
+  _tree.Branch("metFilterBit", &metFilterBit, "metFilterBit/I");
+
+  _tree.Branch("beamSpot.", "TVector3", new TVector3*(&beamSpot));
+  _tree.Branch("vertices", "std::vector<susy::Vertex>", new VertexCollection*(&vertices));
+  _tree.Branch("tracks", "std::vector<susy::Track>", new TrackCollection*(&tracks));
+  _tree.Branch("superClusters", "std::vector<susy::SuperCluster>", new SuperClusterCollection*(&superClusters));
+  _tree.Branch("clusters", "std::vector<susy::Cluster>", new ClusterCollection*(&clusters));
+  _tree.Branch("pfParticles", "std::vector<susy::PFParticle>", new PFParticleCollection*(&pfParticles));
+  _tree.Branch("pu", "std::vector<susy::PUSummaryInfo>", new PUSummaryInfoCollection*(&pu));
+  _tree.Branch("genParticles", "std::vector<susy::Particle>", new ParticleCollection*(&genParticles));
+
+  for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
+    _tree.Branch("met_" + itr->first + ".", "susy::MET", new MET*(&itr->second));
+  for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr)
+    _tree.Branch("muons_" + itr->first, "std::vector<susy::Muon>", new MuonCollection*(&itr->second));
+  for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
+    _tree.Branch("electrons_" + itr->first, "std::vector<susy::Electron>", new ElectronCollection*(&itr->second));
+  for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr)
+    _tree.Branch("photons_" + itr->first, "std::vector<susy::Photon>", new PhotonCollection*(&itr->second));
+  for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
+    _tree.Branch("caloJets_" + itr->first, "std::vector<susy::CaloJet>", new CaloJetCollection*(&itr->second));
+  for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
+    _tree.Branch("pfJets_" + itr->first, "std::vector<susy::PFJet>", new PFJetCollection*(&itr->second));
+  for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
+    _tree.Branch("jptJets_" + itr->first, "std::vector<susy::JPTJet>", new JPTJetCollection*(&itr->second));
+  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr)
+    _tree.Branch("gridParams_" + itr->first, &itr->second, itr->first + "/F");
+
+  outputTrees_.push_back(&_tree);
+  hltMap.addOutput(_tree);
+  l1Map.addOutput(_tree);
+}
+
+Int_t
+susy::Event::getEntry(Long64_t _iEntry)
+{
+  if(!inputTree_) return 0;
+
+  Long64_t result(inputTree_->GetEntry(_iEntry));
+
+  if(result > 0){
+    l1Map.checkInput();
+    hltMap.checkInput();
+  }
+
+  fillRefs();
+
+  return result;
 }
 
 void
 susy::Event::releaseTree(TTree& _tree)
 {
-  for(std::vector<std::pair<TTree*, Bool_t> >::iterator tItr(trees_.begin()); tItr != trees_.end(); ++tItr){
-    if(tItr->first == &_tree){
-      TString** l1ConfigP(reinterpret_cast<TString**>(_tree.FindBranch("l1Config")->GetAddress()));
-      TString** hltConfigP(reinterpret_cast<TString**>(_tree.FindBranch("hltConfig")->GetAddress()));
-      TVector3** beamSpotP(reinterpret_cast<TVector3**>(_tree.FindBranch("beamSpot")->GetAddress()));
-      VertexCollection** verticesP(reinterpret_cast<VertexCollection**>(_tree.FindBranch("vertices")->GetAddress()));
-      TrackCollection** tracksP(reinterpret_cast<TrackCollection**>(_tree.FindBranch("tracks")->GetAddress()));
-      SuperClusterCollection** superClustersP(reinterpret_cast<SuperClusterCollection**>(_tree.FindBranch("superClusters")->GetAddress()));
-      ClusterCollection** clustersP(reinterpret_cast<ClusterCollection**>(_tree.FindBranch("clusters")->GetAddress()));
-      PFParticleCollection** pfParticlesP(reinterpret_cast<PFParticleCollection**>(_tree.FindBranch("pfParticles")->GetAddress()));
-      PUSummaryInfoCollection** puP(reinterpret_cast<PUSummaryInfoCollection**>(_tree.FindBranch("pu")->GetAddress()));
-      ParticleCollection** genParticlesP(reinterpret_cast<ParticleCollection**>(_tree.FindBranch("genParticles")->GetAddress()));
-
-      TObjArray* branches(_tree.GetListOfBranches());
-      std::vector<MET**> metPs;
-      std::vector<MuonCollection**> muonPs;
-      std::vector<ElectronCollection**> electronPs;
-      std::vector<PhotonCollection**> photonPs;
-      std::vector<CaloJetCollection**> caloJetPs;
-      std::vector<PFJetCollection**> pfJetPs;
-      std::vector<JPTJetCollection**> jptJetPs;
-
-      for(int iB(0); iB != branches->GetEntries(); ++iB){
-        TBranch* branch(static_cast<TBranch*>(branches->At(iB)));
-        TString bName(branch->GetName());
-
-        if(bName.Index("met_") == 0)
-          metPs.push_back(reinterpret_cast<MET**>(branch->GetAddress()));
-        else if(bName.Index("muons_") == 0)
-          muonPs.push_back(reinterpret_cast<MuonCollection**>(branch->GetAddress()));
-        else if(bName.Index("electrons_") == 0)
-          electronPs.push_back(reinterpret_cast<ElectronCollection**>(branch->GetAddress()));
-        else if(bName.Index("photons_") == 0)
-          photonPs.push_back(reinterpret_cast<PhotonCollection**>(branch->GetAddress()));
-        else if(bName.Index("caloJets_") == 0)
-          caloJetPs.push_back(reinterpret_cast<CaloJetCollection**>(branch->GetAddress()));
-        else if(bName.Index("pfJets_") == 0)
-          pfJetPs.push_back(reinterpret_cast<PFJetCollection**>(branch->GetAddress()));
-        else if(bName.Index("jptJets_") == 0)
-          jptJetPs.push_back(reinterpret_cast<JPTJetCollection**>(branch->GetAddress()));
-        else
-          continue;
+  int iTree(-2);
+  if(&_tree == inputTree_) iTree = -1;
+  else{
+    for(unsigned iT(0); iT != outputTrees_.size(); ++iT){
+      if(outputTrees_[iT] == &_tree){
+	iTree = iT;
+	break;
       }
-    
-      _tree.ResetBranchAddresses();
-    
-      delete l1ConfigP;
-      delete hltConfigP;
-      delete beamSpotP;
-      delete verticesP;
-      delete tracksP;
-      delete superClustersP;
-      delete clustersP;
-      delete pfParticlesP;
-      delete puP;
-      delete genParticlesP;
-      for(unsigned i(0); i != metPs.size(); ++i) delete metPs[i];
-      for(unsigned i(0); i != muonPs.size(); ++i) delete muonPs[i];
-      for(unsigned i(0); i != electronPs.size(); ++i) delete electronPs[i];
-      for(unsigned i(0); i != photonPs.size(); ++i) delete photonPs[i];
-      for(unsigned i(0); i != caloJetPs.size(); ++i) delete caloJetPs[i];
-      for(unsigned i(0); i != pfJetPs.size(); ++i) delete pfJetPs[i];
-      for(unsigned i(0); i != jptJetPs.size(); ++i) delete jptJetPs[i];
-
-      std::vector<std::pair<TTree*, Bool_t> >::iterator cur(tItr);
-      --cur;
-      trees_.erase(tItr);
-      tItr = cur;
     }
   }
+  if(iTree == -2) return;
+
+  TVector3** beamSpotP(_tree.GetBranchStatus("beamSpot.") ? reinterpret_cast<TVector3**>(_tree.FindBranch("beamSpot.")->GetAddress()) : 0);
+  VertexCollection** verticesP(_tree.GetBranchStatus("vertices") ? reinterpret_cast<VertexCollection**>(_tree.FindBranch("vertices")->GetAddress()) : 0);
+  TrackCollection** tracksP(_tree.GetBranchStatus("tracks") ? reinterpret_cast<TrackCollection**>(_tree.FindBranch("tracks")->GetAddress()) : 0);
+  SuperClusterCollection** superClustersP(_tree.GetBranchStatus("superClusters") ? reinterpret_cast<SuperClusterCollection**>(_tree.FindBranch("superClusters")->GetAddress()) : 0);
+  ClusterCollection** clustersP(_tree.GetBranchStatus("clusters") ? reinterpret_cast<ClusterCollection**>(_tree.FindBranch("clusters")->GetAddress()) : 0);
+  PFParticleCollection** pfParticlesP(_tree.GetBranchStatus("pfParticles") ? reinterpret_cast<PFParticleCollection**>(_tree.FindBranch("pfParticles")->GetAddress()) : 0);
+  PUSummaryInfoCollection** puP(_tree.GetBranchStatus("pu") ? reinterpret_cast<PUSummaryInfoCollection**>(_tree.FindBranch("pu")->GetAddress()) : 0);
+  ParticleCollection** genParticlesP(_tree.GetBranchStatus("genParticles") ? reinterpret_cast<ParticleCollection**>(_tree.FindBranch("genParticles")->GetAddress()) : 0);
+
+  TObjArray* branches(_tree.GetListOfBranches());
+  std::vector<MET**> metPs;
+  std::vector<MuonCollection**> muonPs;
+  std::vector<ElectronCollection**> electronPs;
+  std::vector<PhotonCollection**> photonPs;
+  std::vector<CaloJetCollection**> caloJetPs;
+  std::vector<PFJetCollection**> pfJetPs;
+  std::vector<JPTJetCollection**> jptJetPs;
+
+  for(int iB(0); iB != branches->GetEntries(); ++iB){
+    TBranch* branch(static_cast<TBranch*>(branches->At(iB)));
+    TString bName(branch->GetName());
+    if(!_tree.GetBranchStatus(bName)) continue;
+
+    TString collectionName(bName(bName.First('_') + 1, bName.Length()));
+
+    if(bName.Index("met_") == 0 && metMap.find(collectionName(0, collectionName.Length() - 1)) != metMap.end())
+      metPs.push_back(reinterpret_cast<MET**>(branch->GetAddress()));
+    else if(bName.Index("muons_") == 0 && muons.find(collectionName) != muons.end())
+      muonPs.push_back(reinterpret_cast<MuonCollection**>(branch->GetAddress()));
+    else if(bName.Index("electrons_") == 0 && electrons.find(collectionName) != electrons.end())
+      electronPs.push_back(reinterpret_cast<ElectronCollection**>(branch->GetAddress()));
+    else if(bName.Index("photons_") == 0 && photons.find(collectionName) != photons.end())
+      photonPs.push_back(reinterpret_cast<PhotonCollection**>(branch->GetAddress()));
+    else if(bName.Index("caloJets_") == 0 && caloJets.find(collectionName) != caloJets.end())
+      caloJetPs.push_back(reinterpret_cast<CaloJetCollection**>(branch->GetAddress()));
+    else if(bName.Index("pfJets_") == 0 && pfJets.find(collectionName) != pfJets.end())
+      pfJetPs.push_back(reinterpret_cast<PFJetCollection**>(branch->GetAddress()));
+    else if(bName.Index("jptJets_") == 0 && jptJets.find(collectionName) != jptJets.end())
+      jptJetPs.push_back(reinterpret_cast<JPTJetCollection**>(branch->GetAddress()));
+    else
+      continue;
+  }
+    
+  _tree.ResetBranchAddresses();
+    
+  delete beamSpotP;
+  delete verticesP;
+  delete tracksP;
+  delete superClustersP;
+  delete clustersP;
+  delete pfParticlesP;
+  delete puP;
+  delete genParticlesP;
+  for(unsigned i(0); i != metPs.size(); ++i) delete metPs[i];
+  for(unsigned i(0); i != muonPs.size(); ++i) delete muonPs[i];
+  for(unsigned i(0); i != electronPs.size(); ++i) delete electronPs[i];
+  for(unsigned i(0); i != photonPs.size(); ++i) delete photonPs[i];
+  for(unsigned i(0); i != caloJetPs.size(); ++i) delete caloJetPs[i];
+  for(unsigned i(0); i != pfJetPs.size(); ++i) delete pfJetPs[i];
+  for(unsigned i(0); i != jptJetPs.size(); ++i) delete jptJetPs[i];
+
+  l1Map.releaseTree(_tree, kTRUE);
+  hltMap.releaseTree(_tree, kTRUE);
+
+  if(iTree == -1) inputTree_ = 0;
+  else outputTrees_.erase(outputTrees_.begin() + iTree);
 }
-  
+
 void
-susy::Event::setTriggerTable(TString const& _menuName, std::vector<std::string> const& _filters, Bool_t _isHLT/* = kTRUE*/)
+susy::Event::releaseTrees()
 {
-  UInt_t* prescales(0);
-  UChar_t* decisions(0);
-  TString trigType(_isHLT ? "hlt" : "l1");
+  if(inputTree_) releaseTree(*inputTree_);
+  while(outputTrees_.size() != 0)
+    releaseTree(*outputTrees_[0]); // releaseTree removes the tree from the vector
+}
 
-  std::vector<TString> filters(_filters.size());
-  std::copy(_filters.begin(), _filters.end(), filters.begin());
-  std::sort(filters.begin(), filters.end());
+void
+susy::Event::copyEvent(Event const& _orig)
+{
+  isRealData             = _orig.isRealData;
+  runNumber              = _orig.runNumber;
+  eventNumber            = _orig.eventNumber;
+  luminosityBlockNumber  = _orig.luminosityBlockNumber;
+  bunchCrossing          = _orig.bunchCrossing;
+  avgInsRecLumi          = _orig.avgInsRecLumi;
+  intgRecLumi            = _orig.intgRecLumi;
+  cosmicFlag             = _orig.cosmicFlag;
+  rho                    = _orig.rho;
+  rhoBarrel              = _orig.rhoBarrel;
+  rho25                  = _orig.rho25;
+  metFilterBit           = _orig.metFilterBit;
 
-  if(_isHLT){
-    hltMap.addMenu(_menuName, filters);
-    prescales = hltMap.prescales(_menuName);
-    decisions = hltMap.decisions(_menuName);
+  beamSpot               = _orig.beamSpot;
+
+  l1Map.copy(_orig.l1Map);
+  hltMap.copy(_orig.hltMap);
+
+  vertices               = _orig.vertices;
+  tracks                 = _orig.tracks;
+  superClusters          = _orig.superClusters;
+  clusters               = _orig.clusters;
+  pfParticles            = _orig.pfParticles;
+  pu                     = _orig.pu;
+  genParticles           = _orig.genParticles;
+
+  for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr){
+    std::map<TString, MET>::const_iterator oItr(_orig.metMap.find(itr->first));
+    if(oItr != _orig.metMap.end()) itr->second = oItr->second;
+    else itr->second.Init();
   }
-  else{
-    l1Map.addMenu(_menuName, filters);
-    prescales = l1Map.prescales(_menuName);
-    decisions = l1Map.decisions(_menuName);
+  for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr){
+    std::map<TString, MuonCollection>::const_iterator oItr(_orig.muons.find(itr->first));
+    if(oItr != _orig.muons.end()) itr->second = oItr->second;
+    else itr->second.clear();
   }
-
-  TString psLeaves;
-  TString bitLeaves;
-  for(unsigned iF(0); iF != filters.size(); ++iF){
-    psLeaves += filters[iF] + "/i:";
-    bitLeaves += filters[iF] + "/b:";
+  for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr){
+    std::map<TString, ElectronCollection>::const_iterator oItr(_orig.electrons.find(itr->first));
+    if(oItr != _orig.electrons.end()) itr->second = oItr->second;
+    else itr->second.clear();
   }
-  psLeaves.Remove(psLeaves.Length() - 1);
-  bitLeaves.Remove(bitLeaves.Length() - 1);
-
-  for(unsigned iT(0); iT != trees_.size(); ++iT){
-    if(trees_[iT].second) continue; // is a read-only tree
-    TTree* tree(trees_[iT].first);
-
-    TBranch* psBranch(tree->Branch(trigType + "Prescales_" + _menuName, prescales, psLeaves));
-    TBranch* bitBranch(tree->Branch(trigType + "Bits_" + _menuName, decisions, bitLeaves));
-
-    psBranch->SetFirstEntry(tree->GetEntries());
-    bitBranch->SetFirstEntry(tree->GetEntries());
+  for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr){
+    std::map<TString, PhotonCollection>::const_iterator oItr(_orig.photons.find(itr->first));
+    if(oItr != _orig.photons.end()) itr->second = oItr->second;
+    else itr->second.clear();
+  }
+  for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr){
+    std::map<TString, CaloJetCollection>::const_iterator oItr(_orig.caloJets.find(itr->first));
+    if(oItr != _orig.caloJets.end()) itr->second = oItr->second;
+    else itr->second.clear();
+  }
+  for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr){
+    std::map<TString, PFJetCollection>::const_iterator oItr(_orig.pfJets.find(itr->first));
+    if(oItr != _orig.pfJets.end()) itr->second = oItr->second;
+    else itr->second.clear();
+  }
+  for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr){
+    std::map<TString, JPTJetCollection>::const_iterator oItr(_orig.jptJets.find(itr->first));
+    if(oItr != _orig.jptJets.end()) itr->second = oItr->second;
+    else itr->second.clear();
+  }
+  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr){
+    std::map<TString, Float_t>::const_iterator oItr(_orig.gridParams.find(itr->first));
+    if(oItr != _orig.gridParams.end()) itr->second = oItr->second;
+    else itr->second = 0.;
   }
 }
+
+

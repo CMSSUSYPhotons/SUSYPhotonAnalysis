@@ -12,16 +12,17 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.41 2013/04/12 09:53:27 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.42 2013/04/25 15:49:02 dmason Exp $
 //
 
 #ifndef SusyEvent_h
 #define SusyEvent_h
 
+#include <iostream>
 #include <vector>
 #include <string>
 #include <map>
-#include <math.h>
+#include <cmath>
 
 #include <TLorentzVector.h>
 
@@ -39,14 +40,17 @@ namespace susy {
     kHcalNoise,
     kEcalDeadCellTP,
     kEcalDeadCellBE,
-    kHcalLaser,
     kTrackingFailure,
     kEEBadSC,
-    kHcalLaser2012,
+    kHcalLaserOccupancy,
+    kHcalLaserEventList,
+    kHcalLaserRECOUserStep,
     kEcalLaserCorr,
     kManyStripClus53X,
     kTooManyStripClus53X,
     kLogErrorTooManyClusters,
+    kLogErrorTooManyTripletsPairs,
+    kLogErrorTooManySeeds,
     kEERingOfFire,
     kInconsistentMuon,
     kGreedyMuon,
@@ -67,6 +71,13 @@ namespace susy {
     nBTagDiscriminators
   };
 
+  // quark vs gluon discrimination
+  enum QGDiscriminators {
+    kQuarkLikelihood, // [0:1], 1 -> most quark-like
+    kGluonMLP, // from MVA, [~0.1:~0.9], 1 -> most gluon-like
+    nQGDiscriminators
+  };
+
   enum PUJetIdAlgorithms {
     kPUJetIdFull,
     kPUJetIdCutBased,
@@ -84,6 +95,7 @@ namespace susy {
     PUSummaryInfo()  { Init(); }
     ~PUSummaryInfo() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
 
     //all info below from https://twiki.cern.ch/twiki/bin/view/CMS/PileupInformation
     /*low_cut = 0.1 GeV, high_cut = 0.5 GeV, tracks summed/counted are TrackingParticles from
@@ -119,6 +131,7 @@ namespace susy {
     Particle()  { Init(); }
     ~Particle() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     UChar_t status;
@@ -140,6 +153,7 @@ namespace susy {
     PFParticle() { Init(); }
     ~PFParticle() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
 
     Char_t  charge;
     Bool_t  isPU;
@@ -160,6 +174,7 @@ namespace susy {
     MET()  { Init(); }
     ~MET() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
 
     Float_t met() const {  return mEt.Mod(); }
     Float_t metX() const { return mEt.X(); }
@@ -180,6 +195,7 @@ namespace susy {
     Vertex()  { Init(); }
     ~Vertex() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     Bool_t isFake() const { return (chi2 == 0 && ndof == 0 && tracksSize == 0); }
 
     UShort_t tracksSize;
@@ -198,6 +214,7 @@ namespace susy {
     Cluster()  { Init(); }
     ~Cluster() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
 
     UChar_t  nCrystals;
     Float_t  energy;
@@ -213,6 +230,7 @@ namespace susy {
     SuperCluster()  { Init(); }
     ~SuperCluster() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     Short_t  seedClusterIndex;                       // index in vector<Cluster> below
@@ -235,16 +253,17 @@ namespace susy {
     Track()  { Init(); }
     ~Track() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // derived quantities
     Float_t normChi2() const { return (ndof != 0) ? chi2/ndof : chi2*1e6; }
     Float_t qoverp() const { return charge/momentum.P(); }
     Float_t lambda() const { return M_PI/2 - momentum.Theta(); }
-    Float_t dsz() const { return vertex.Z()*momentum.Pt()/momentum.P() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * momentum.Pz()/momentum.P(); }
-    Float_t dz() const { return vertex.Z() - (vertex.X()*momentum.Px()+vertex.Y()*momentum.Py())/momentum.Pt() * (momentum.Pz()/momentum.Pt()); }
-    Float_t dxy() const { return (-vertex.X()*momentum.Py() + vertex.Y()*momentum.Px())/momentum.Pt(); }
-    Float_t d0() const { return -dxy(); }
+    Float_t dz(TVector3 const& _vtx = TVector3(0., 0., 0.)) const { return (vertex.Z()-_vtx.Z())-((vertex.X()-_vtx.X())*momentum.Px()+(vertex.Y()-_vtx.Y())*momentum.Py())/momentum.Pt()*momentum.Pz()/momentum.Pt(); }
+    Float_t dsz(TVector3 const& _vtx = TVector3(0., 0., 0.)) const { return dz(_vtx)*momentum.Pt()/momentum.P(); }
+    Float_t dxy(TVector3 const& _vtx = TVector3(0., 0., 0.)) const { return (-(vertex.X()-_vtx.X())*momentum.Py()+(vertex.Y()-_vtx.Y())*momentum.Px())/momentum.Pt(); }
+    Float_t d0(TVector3 const& _vtx = TVector3(0., 0., 0.)) const { return -dxy(_vtx); }
     Float_t phi() const { return momentum.Phi(); }
     Bool_t loose() const {         return (quality & ( 0x1 << 0)); }
     Bool_t tight() const {         return (quality & ( 0x1 << 1)); }
@@ -281,6 +300,7 @@ namespace susy {
     Photon()  { Init(); }
     ~Photon() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // fiducial bits
@@ -342,16 +362,12 @@ namespace susy {
     // worst non primary vertex isolation 
 
     Float_t        worstOtherVtxChargedHadronIso;
-    Int_t          worstOtherVtxChargedHadronIsoVtxIdx; // ntuple index for which vtx
-    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //!
+    Short_t        worstOtherVtxChargedHadronIsoVtxIdx; // ntuple index for which vtx
 
     // read from IsoDeposit
     Float_t        chargedHadronIsoDeposit;
     Float_t        neutralHadronIsoDeposit;
     Float_t        photonIsoDeposit;
-
-
-
 
     Float_t        seedTime; // seed timing
 
@@ -404,6 +420,7 @@ namespace susy {
     TLorentzVector momentum;
 
     const SuperCluster* superCluster; //!
+    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //!
 
   };
 
@@ -415,6 +432,7 @@ namespace susy {
     Electron()  { Init(); }
     ~Electron() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // fiducial bits
@@ -522,7 +540,6 @@ namespace susy {
     Int_t          nMissingHits;
     Bool_t         passConversionVeto;
 
-
     TVector3       trackPositionAtVtx;
     TVector3       trackPositionAtCalo;
     TLorentzVector trackMomentumAtVtx;
@@ -549,6 +566,7 @@ namespace susy {
     Muon()  { Init(); }
     ~Muon() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // muon type
@@ -657,6 +675,7 @@ namespace susy {
     CaloJet()  { Init(); }
     ~CaloJet() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // Basic Jet Info
@@ -723,6 +742,7 @@ namespace susy {
     PFJet()  { Init(); }
     ~PFJet() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     Bool_t passPuJetIdLoose(unsigned algo)  const { return algo < nPUJetIdAlgorithms ? ( puJetIdFlags[algo] & (1 << 2) ) != 0 : kFALSE; }
@@ -775,7 +795,11 @@ namespace susy {
     Float_t        puJetIdDiscriminants[nPUJetIdAlgorithms];
     Int_t          puJetIdFlags[nPUJetIdAlgorithms];
 
+    // B tag info
     Float_t        bTagDiscriminators[nBTagDiscriminators];
+
+    // Quark-gluon discrimination info
+    Float_t        qgDiscriminators[nQGDiscriminators];
 
     TLorentzVector momentum; // uncorrected momentum
 
@@ -794,6 +818,7 @@ namespace susy {
     JPTJet()  { Init(); }
     ~JPTJet() { Init(); }
     void Init();
+    void Print(std::ostream& = std::cout) const;
     void fillRefs(Event const*);
 
     // Basic Jet Info
@@ -831,76 +856,90 @@ namespace susy {
   // i.e. to resemble that of the std::map.
 
   class TriggerMap {
-  public:
+    typedef std::map<TString, std::pair<UInt_t*, UChar_t*> > MapCore;
+    typedef MapCore::const_iterator CoreConstIter;
+    typedef MapCore::iterator CoreIter;
 
+  public:
     class const_iterator {
       friend class TriggerMap;
     public:
       typedef std::pair<TString, std::pair<UInt_t, Bool_t> > value_type;
 
-      const_iterator();
-      const_iterator& operator++();
-      const_iterator operator++(int);
+      const_iterator() : core_(), pair_() {}
+      const_iterator& operator++() { ++core_; setPair(); return *this; }
+      const_iterator operator++(int) { const_iterator tmp(*this); ++core_; setPair(); return tmp; }
       value_type const* operator->() const { return &pair_; }
       value_type const& operator*() const { return pair_; }
-      bool operator==(const_iterator const&) const;
+      bool operator==(const_iterator const& _rhs) const { return core_ == _rhs.core_; }
       bool operator!=(const_iterator const& _rhs) const { return !operator==(_rhs); }
     protected:
-      size_t maxPos_;
-      TString const* paths_;
-      UInt_t const* prescales_;
-      UChar_t const* decisions_;
-      UInt_t pos_;
+      CoreConstIter core_;
       value_type pair_;
-      const_iterator(TriggerMap const&, unsigned);
-      void setPair();
+      const_iterator(CoreConstIter const& _core) :
+	core_(_core),
+	pair_()
+      {
+	setPair();
+      }
+      void setPair()
+      {
+	pair_.first = core_->first;
+	pair_.second.first = *core_->second.first;
+	pair_.second.second = *core_->second.second != 0;
+      }
     };
 
     // No non-const iterator functionalities are needed for our purpose
     typedef const_iterator iterator;
 
-    TriggerMap();
-    ~TriggerMap() { clear(); }
+    TriggerMap(TString const&);
+    ~TriggerMap();
 
-    void Init();
+    void Print(std::ostream& = std::cout) const;
 
-    std::pair<UInt_t, Bool_t> operator[](TString const&) const;
+    /*---- Functions for analysis use ----*/
     Bool_t pass(TString const&) const;
     UInt_t prescale(TString const&) const;
 
-    Bool_t menuExists(TString const&) const;
-    void addMenu(TString const&, std::vector<TString> const&);
+    TString getMenuName() const { return menuInEvent_ ? *menuInEvent_ : ""; }
+
+    std::pair<UInt_t, Bool_t> operator[](TString const&) const;
+    size_t size() const { return core_.size(); }
+    const_iterator begin() const { return const_iterator(core_.begin()); }
+    const_iterator end() const { return const_iterator(core_.end()); }
+    iterator begin() { return iterator(core_.begin()); }
+    iterator end() { return iterator(core_.end()); }
+    const_iterator find(TString const& _path) const { return const_iterator(core_.find(_path)); }
+    iterator find(TString const& _path) { return iterator(core_.find(_path)); }
+    const_iterator lower_bound(TString const& _path) const { return const_iterator(core_.lower_bound(_path)); }
+    iterator lower_bound(TString const& _path) { return iterator(core_.lower_bound(_path)); }
+    const_iterator upper_bound(TString const& _path) const { return const_iterator(core_.upper_bound(_path)); }
+    iterator upper_bound(TString const& _path) { return iterator(core_.upper_bound(_path)); }
+    /*---- Functions for analysis use ----*/
+
+    void setInput(TTree&);
+    void addOutput(TTree&);
+    void checkInput();
+    void setMenu(TString const&, std::vector<std::string> const&);
     void set(TString const&, UInt_t, Bool_t);
-    void clear();
-    size_t size() const;
-
-    UInt_t* prescales(TString const& _config) const;
-    UChar_t* decisions(TString const& _config) const;
-
-    TString currentConfig;
-
-    const_iterator begin() const;
-    const_iterator end() const;
-    iterator begin();
-    iterator end();
-    const_iterator find(TString const&) const;
-    iterator find(TString const&);
-    const_iterator lower_bound(TString const&) const;
-    iterator lower_bound(TString const&);
-    const_iterator upper_bound(TString const&) const;
-    iterator upper_bound(TString const&);
+    void copy(TriggerMap const&);
+    void releaseTree(TTree&, Bool_t);
+    void releaseTrees(Bool_t);
 
   private:
-    void setCache_() const;
-    std::map<TString, size_t> size_;
-    std::map<TString, TString*> paths_;
-    std::map<TString, UInt_t*> prescales_;
-    std::map<TString, UChar_t*> decisions_;
-    mutable TString cachedConfigName_;
-    mutable size_t cachedSize_;
-    mutable TString const* cachedPaths_;
-    mutable UInt_t* cachedPrescales_;
-    mutable UChar_t* cachedDecisions_;
+    void clear_();
+    TString formLeafList_() const;
+
+    TString const trigType_; // hlt or l1
+    MapCore core_;
+    UInt_t* prescales_;
+    UChar_t* decisions_;
+    TString* menuInEvent_;
+    TString currentMenu_;
+    Int_t treeNumber_;
+    TTree* inputTree_;
+    std::vector<TTree*> outputTrees_;
   };
 
   typedef std::vector<PUSummaryInfo> PUSummaryInfoCollection;
@@ -917,6 +956,8 @@ namespace susy {
   typedef std::vector<JPTJet> JPTJetCollection;
   typedef std::vector<PFParticle> PFParticleCollection;
 
+  // Consult section 2 of ../README for Event object usage.
+
   class Event {
 
   public:
@@ -926,21 +967,22 @@ namespace susy {
 
     // Initialize members
     void Init();
-    void fillRefs();
+    void Print(std::ostream& = std::cout) const;
 
-    // Set up the data members according to the Tree content
-    // In case of TChain, files need to be added first
-    // Set the second argument to kTRUE (default) for read access
-    void bindTree(TTree&, Bool_t = kTRUE);
+    void setInput(TTree&);
+    void addOutput(TTree&);
+
+    // This function must be used to obtain the event content from the tree (not tree->GetEntry());
+    Int_t getEntry(Long64_t);
+
     void releaseTree(TTree&);
-    void setTriggerTable(TString const&, std::vector<std::string> const&, Bool_t = kTRUE);
+    void releaseTrees();
+    void copyEvent(Event const&);
+    void fillRefs(); // Called in getEntry()
 
-    Bool_t passMetFilter(UInt_t filterIndex) const { return metFilterBit & (0x1 << filterIndex); }
+    Bool_t passMetFilter(UInt_t filterIndex) const { return (metFilterBit & (1 << filterIndex)) != 0; }
     // JetMET recommended met filters
-    Bool_t passMetFilters() const {
-      return passMetFilter(kCSCBeamHalo) && passMetFilter(kHcalNoise) && passMetFilter(kEcalDeadCellTP) &&
-        passMetFilter(kHcalLaser) && passMetFilter(kTrackingFailure) && passMetFilter(kEEBadSC);
-    }
+    Bool_t passMetFilters() const { return (metFilterBit & metFilterMask) == metFilterMask; }
 
     UChar_t                                        isRealData;
     UChar_t                                        cosmicFlag;             // empty for now
@@ -965,14 +1007,14 @@ namespace susy {
     TrackCollection                                tracks;
     SuperClusterCollection                         superClusters;          // only selected super clusters associated with photons and electrons
     ClusterCollection                              clusters;               // only selected basic clusters associated with super clusters
-    PFParticleCollection                           pfParticles;            //
+    PFParticleCollection                           pfParticles;
 
-    std::map<TString, susy::MET>                   metMap;                 //
-    std::map<TString, susy::MuonCollection>        muons;                  //
-    std::map<TString, susy::ElectronCollection>    electrons;              //
-    std::map<TString, susy::PhotonCollection>      photons;                //
-    std::map<TString, susy::CaloJetCollection>     caloJets;               //
-    std::map<TString, susy::PFJetCollection>       pfJets;                 //
+    std::map<TString, susy::MET>                   metMap;
+    std::map<TString, susy::MuonCollection>        muons;
+    std::map<TString, susy::ElectronCollection>    electrons;
+    std::map<TString, susy::PhotonCollection>      photons;
+    std::map<TString, susy::CaloJetCollection>     caloJets;
+    std::map<TString, susy::PFJetCollection>       pfJets;
     std::map<TString, susy::JPTJetCollection>      jptJets;                // not filled
 
     // generated information. Valid only for isRealData == 0, i.e. MC
@@ -980,9 +1022,15 @@ namespace susy {
     ParticleCollection                             genParticles;
     std::map<TString, Float_t>                     gridParams;             // pairs of parameter name and value
 
+    // utility member used at runtime only. Provides the filter bit mask for function passMetFilters()
+    Int_t                                          metFilterMask;
+
   private:
-    // keep a pointer to each tree that is bound to this object. Bool is true for read-only trees
-    std::vector<std::pair<TTree*, Bool_t> >        trees_;                 //
+    // Keep a pointer to each tree that is bound to this object. Only one input tree is supported.
+    // If you wish to mix events from multiple sources, you will have to copy the event using the
+    // copyEvent function.
+    TTree* inputTree_;
+    std::vector<TTree*> outputTrees_;
   };
 
 } // namespace susy
