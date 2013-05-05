@@ -16,6 +16,11 @@ sourceNames = [
 ### HLT results filter (leave empty if not filtering) ###
 
 hltPaths = [
+    'HLT_Photon36_CaloId10_Iso50_Photon22_CaloId10_Iso50_v*',
+    'HLT_Photon36_CaloId10_Iso50_Photon22_R9Id85_*',
+    'HLT_Photon36_R9Id85_Photon22_CaloId10_Iso50_v*',
+    'HLT_Photon36_R9Id85_Photon22_R9Id85_v*',
+    'HLT_Photon36_R9Id85_OR_CaloId10_Iso50_Photon22_R9Id85_OR_CaloId10_Iso50_v*'
 ]
 
 #########################################################
@@ -809,7 +814,7 @@ if is52x:
 ######################
 
 ####### SET THIS TO TRUE TO RUN THE SEQUENCE (CHECK THE README FILE FOR INSTRUCTIONS) ########
-runNoPUMVAMetSequence = False
+runNoPUMVAMetSequence = True
 ##############################################################################################
 
 if runNoPUMVAMetSequence:
