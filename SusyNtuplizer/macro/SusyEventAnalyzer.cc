@@ -15,7 +15,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.16 2013/04/11 16:38:03 yiiyama Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.17 2013/05/05 12:01:32 yiiyama Exp $
 //
 
 #include <TH1F.h>
@@ -436,7 +436,11 @@ SusyEventAnalyzer::Run()
           jecScaleUncertainty = jecUncertainty->getUncertainty(true);
         }
         else{
-          jecScale = jet.jecScaleFactors.find("L1FastL2L3")->second;
+          if(event.isRealData)
+            jecScale = jet.jecScaleFactors.find("L1FastL2L3Residual")->second;
+          else
+            jecScale = jet.jecScaleFactors.find("L1FastL2L3")->second;
+
           jecScaleUncertainty = jet.jecUncertainty;
         }
 
