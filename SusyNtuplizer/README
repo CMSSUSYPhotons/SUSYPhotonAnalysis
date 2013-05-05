@@ -27,6 +27,7 @@ cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugi
 cvs co -r V05-00-16                                  DataFormats/JetReco
 cvs co -r regressionMay18a                           RecoEgamma/EgammaTools
 cvs co -r V00-02-14                                  DataFormats/StdDictionaries
+cvs co -r v1-2-3 -d QuarkGluonTagger/EightTeV UserCode/tomc/QuarkGluonTagger/EightTeV
 
 b. Edit files that cause too many printouts
 
@@ -124,10 +125,11 @@ object collections of the same type (e.g. corrected and uncorrected MET (not a c
 object in this case)), the branches of physics objects are follow the naming convention of "type_label",
 such as met_pfMet or met_pfType1CorrectedMet.
 
-
 2.4 Parsing the tree with an Event object -------------------------------------------------------
 
 * The following works both in compiled and interactive environments.
+
+* THIS SECTION IS VERY IMPORTANT!! READ CAREFULLY!!
 
 The Event object defined in src/SusyEvent.h acts as a container of all information that is in an
 entry of the susyTree.
@@ -139,30 +141,51 @@ then pass the TTree object to it:
 
 TTree* susyTree;
 inputFile->GetObject("susyTree", susyTree);
-event->bindTree(*susyTree);
+event->setInput(*susyTree);
 
-After this, the content of the event will be automatically filled by the GetEntry() function of
-the TTree:
+To fill the event object content with the data from the input tree, *Event::getEntry function* is
+used instead of TTree::GetEntry.
 
-susyTree->GetEntry(entry_number);
+event->getEntry(entry_number);
+
+Using susyTree->GetEntry(entry_number) will not update the trigger results and will cause
+inconsistencies.
 
 At the end of the analysis code, the Event object must be deleted before the TTree is deleted:
 
 delete event;
 delete susyTree;
 
-2.4.a Object members referencing other objects --------------------------------------------------
+2.5 Copying / writing the tree ------------------------------------------------------------------
 
-Some objects (e.g. Photon) has members that points to other objects in the event
-(e.g. Photon::superCluster). The "references" are not automatically set at the time of GetEntry
-time. To enable the links, one needs to add
+It is also highly recommended to let the Event object take care of copying the susyTree. While a
+traditional method such as
 
-event->fillRefs();
+TTree* myCopy = susyTree->CloneTree(0);
 
-at the beginning of the event loop.
+will work when copying events from a single tree, for cases where susyTree is a TChain (e.g. when
+making a skim out of a large collection of files) this can fail at the trigger menu transition.
+The recommended method is to "add" the tree to the event:
+
+TFile* outputFile = TFile::Open("output.root", "recreate");
+TTree* myCopy = new TTree;
+event->addOutput(*myCopy);
+
+while(event->getEntry(iEntry++) >= 0){
+  // make event selections..
+  myCopy->Fill();
+}
+
+event->releaseTree(*myCopy); // This has to be done before the output tree is deleted
+
+outputFile->cd();
+myCopy->Write();
+delete outputFile; // Deletes the tree as well
+
+As the name of the function suggests, users can create more than one output from a single source.
 
 #################################################################################################
-3. Detailed remarks
+3. Other important information
 #################################################################################################
 
 3.1 Accessing physics objects in the Event ------------------------------------------------------
@@ -177,14 +200,48 @@ for an example of how to access the collections.
 hltMap and l1Map members of the Event holds the trigger prescales and results, which can be retrieved
 by the functions prescale(TString) and pass(TString) respectively. The string argument of the
 functions are the trigger path names, which is required to be either exact or a wildcard expression.
-The only allowed wildcard character is the *, for strings of any length, and it has to come at the
-end of the path name.
+The only allowed wildcard character is the *, which can be used in place of a string of any length,
+and it has to come at the end of the path name.
 
 Note that CMS HLT path names always end with the version number that can be different among the run
 periods. Therefore, to require the results of all triggers of e.g. Photon36_Photon22, one has to
 append "_v*" to the path name.
 
-3.3 Jet energy correction and detailed scales and uncertainties ---------------------------------
+3.3 MET filters ---------------------------------------------------------------------------------
+
+The list of MET filters is given as an enum at the beginning of the file src/SusyEvent.h. All filter
+results are stored in the SUSY ntuples as single bits in an integer metFilterBit, with the bit
+positions given by the enum above. Explanation for some of the filters are given below. Information
+on the rest of the filters should be available in JetMET twiki MissingETOptionalFilters.
+
+The Event object has two functions related to the MET filters: Event::passMetFilter(unsigned int)
+and Event::passMetFilters(). The former returns the individual met filter results by taking the bit
+number as the argument (e.g. event->passMetFilter(susy::kCSCBeamHalo)), while the latter returns the
+combined result of several MET filters. The combination is defined by the bit mask Event::metFilterMask,
+which should be configured to an appropriate combination for the dataset and run period being analyzed.
+An example of bit mask configuration is given in macro/SusyEventAnalyzer.cc.
+
+The function return value of true indicates that the event passes the filter, i.e. has no problem of
+the specific sort.
+
+HcalLaser filter
+
+There are three filters related to HCAL laser contamination. HcalLaserOccupancy bit stores the filter
+result obtained by running a rechit occupancy-based tagger (RecoMET.METFilters.hcalLaserEventFilter_cfi).
+HcalLaserEventList bit comes from the event list at EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz
+which is provided by the PdmV and covers 2012 A+B+C prompt datasets. HcalLaserRECOUserStep bit is
+only available for 22Jan2013 rereco or newer datasets, and contains the result of laser contamination
+tagging done at the central RECO stage.
+
+Tracking POG filter
+
+Filter bits ManyStripClus53X, TooManyStripClus53X, LogErrorTooManyClusters, LogErrorTooManyTripletsPairs,
+and LogErrorTooManySeeds are all grouped as "Tracking POG filter". The first two uses the information
+stored in clusterSummary, which is a part of AOD from 53X, while the latter three uses the LogError
+information from RECO step, also saved in AOD. The latter three are the default recommended Tracking
+POG filter (as of May 2013).
+
+3.4 Jet energy correction and detailed scales and uncertainties ---------------------------------
 
 The jet objects in susyTree contain L1L2L3 correction, L2L3 correction, and the unceratinty on L1L2L3
 correction. They are stored as a map from a string to the scale factor. The available corrections
