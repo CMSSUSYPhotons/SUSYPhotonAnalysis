@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.53 2013/04/25 15:49:02 dmason Exp $
+// $Id: SusyNtuplizer.cc,v 1.54 2013/05/01 20:59:36 bfrancis Exp $
 //
 //
 
@@ -216,12 +216,14 @@ private:
   std::map<std::string, VString> photonIsoDepTags_;
   std::map<std::string, VString> electronIsoDepTags_;
   std::map<std::string, VString> bTagCollectionTags_;
+  std::map<std::string, VString> qgTagCollectionTags_;
   std::map<std::string, VString> muonIdTags_;
   std::map<std::string, std::pair<std::string, std::string> > electronMVAIdTags_;
   std::map<std::string, std::pair<std::string, std::string> > jetFlavourMatchingTags_;
   std::map<std::string, VString> puJetIdCollectionTags_;
   std::string pfPUCandidatesTag_;
   std::string photonSCRegressionWeights_;
+  std::set<unsigned> metFilters_;
 
   // for HLT prescales
   HLTConfigProvider* hltConfig_;
@@ -232,8 +234,8 @@ private:
   // PFIsolator
   PFIsolationEstimator* isolator03_;
 
-  // text-based event veto for HcalLaser2012 MET filter
-  EventFilterFromListStandAlone* hcalLaser2012Filter_;
+  // text-based event veto for HcalLaserEventList MET filter
+  EventFilterFromListStandAlone* hcalLaserEventListFilter_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -332,16 +334,18 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   photonIsoDepTags_(),
   electronIsoDepTags_(),
   bTagCollectionTags_(),
+  qgTagCollectionTags_(),
   muonIdTags_(),
   electronMVAIdTags_(),
   jetFlavourMatchingTags_(),
   puJetIdCollectionTags_(),
   pfPUCandidatesTag_(iConfig.getParameter<std::string>("pfPUCandidatesTag")),
   photonSCRegressionWeights_(""),
+  metFilters_(),
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
-  hcalLaser2012Filter_(0),
+  hcalLaserEventListFilter_(0),
   debugLevel_(iConfig.getParameter<int>("debugLevel")),
   storeL1Info_(iConfig.getParameter<bool>("storeL1Info")),
   storeHLTInfo_(iConfig.getParameter<bool>("storeHLTInfo")),
@@ -377,6 +381,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
   else
     photonSCRegressionWeights_ = iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath();
+
   TFile* dummyFile(TFile::Open(photonSCRegressionWeights_.c_str()));
   if(!dummyFile || dummyFile->IsZombie())
     throw cms::Exception("IOError") << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
@@ -478,7 +483,25 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   }
 
   /*
-    Get tags for jet-parton matching for PFJet collections.
+    Get tags for quark/gluon tagging discriminators for PFJet collections.
+    Since the values are only defined with regard to specific collections,
+    the configuration is also organized into sub-configs for each collection.
+    The tags are stored as a map [collection name -> VString of tags].
+   */
+  edm::ParameterSet const& qgTagCollectionTags(iConfig.getParameterSet("qgTagCollectionTags"));
+  for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
+    if(!qgTagCollectionTags.existsAs<std::string>(*jItr)) continue;
+    std::string qgTagModule(qgTagCollectionTags.getParameter<std::string>(*jItr));
+
+    VString& tags(qgTagCollectionTags_[*jItr]);
+    tags.resize(susy::nQGDiscriminators);
+
+    tags[susy::kQuarkLikelihood] = qgTagModule + ":qgLikelihood";
+    tags[susy::kGluonMLP] = qgTagModule + ":qgMLP";
+  }
+
+  /*
+    Get tags for MC jet-parton matching for PFJet collections.
     Since the values are only defined with regard to specific collections,
     the configuration is also organized into sub-configs for each collection.
     The tags are stored as a map [collection name -> pair of tags].
@@ -515,6 +538,30 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
       else if(algos[iA] == "cutbased") collectionTags[susy::kPUJetIdCutBased] = tag + ":cutbased";
       else if(algos[iA] == "simple") collectionTags[susy::kPUJetIdSimple] = tag + ":simple";
     }
+  }
+
+  /*
+    Get the list of MET filter results to store. Default is all, but some filter is
+    CMSSW release specific and needs to be removed if running on a older release.
+  */
+  VString metFilters(iConfig.getParameter<VString>("metFilters"));
+  for(unsigned iF(0); iF != metFilters.size(); ++iF){
+    if(metFilters[iF] == "CSCBeamHalo") metFilters_.insert(susy::kCSCBeamHalo);
+    else if(metFilters[iF] == "HcalNoise") metFilters_.insert(susy::kHcalNoise);
+    else if(metFilters[iF] == "EcalDeadCellTP") metFilters_.insert(susy::kEcalDeadCellTP);
+    else if(metFilters[iF] == "EcalDeadCellBE") metFilters_.insert(susy::kEcalDeadCellBE);
+    else if(metFilters[iF] == "HcalLaserOccupancy") metFilters_.insert(susy::kHcalLaserOccupancy);
+    else if(metFilters[iF] == "TrackingFailure") metFilters_.insert(susy::kTrackingFailure);
+    else if(metFilters[iF] == "EEBadSC") metFilters_.insert(susy::kEEBadSC);
+    else if(metFilters[iF] == "HcalLaserEventList") metFilters_.insert(susy::kHcalLaserEventList);
+    else if(metFilters[iF] == "EcalLaserCorr") metFilters_.insert(susy::kEcalLaserCorr);
+    else if(metFilters[iF] == "ManyStripClus53X") metFilters_.insert(susy::kManyStripClus53X);
+    else if(metFilters[iF] == "TooManyStripClus53X") metFilters_.insert(susy::kTooManyStripClus53X);
+    else if(metFilters[iF] == "LogErrorTooManyClusters") metFilters_.insert(susy::kLogErrorTooManyClusters);
+    else if(metFilters[iF] == "EERingOfFire") metFilters_.insert(susy::kEERingOfFire);
+    else if(metFilters[iF] == "InconsistentMuon") metFilters_.insert(susy::kInconsistentMuon);
+    else if(metFilters[iF] == "GreedyMuon") metFilters_.insert(susy::kGreedyMuon);
+    else if(metFilters[iF] == "HcalLaserRECOUserStep") metFilters_.insert(susy::kHcalLaserRECOUserStep);
   }
 
   /*
@@ -573,7 +620,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   /*
     Pass the output tree to the Event object for branch bookings.
    */
-  susyEvent_->bindTree(*susyTree_, kFALSE);
+  susyEvent_->addOutput(*susyTree_);
 
   /*
     Create a trigger tree if configured.
@@ -608,12 +655,13 @@ SusyNtuplizer::beginJob()
 
   hltConfig_ = new HLTConfigProvider;
 
-  std::string hcalLaserFilterFile(std::getenv("CMSSW_BASE"));
-  hcalLaserFilterFile += "/src/EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz";
-  gzFile dummyFP(gzopen(hcalLaserFilterFile.c_str(), "r"));
-  if(dummyFP != 0){
-    gzclose(dummyFP);
-    hcalLaser2012Filter_ = new EventFilterFromListStandAlone(hcalLaserFilterFile);
+  if(metFilters_.find(susy::kHcalLaserEventList) != metFilters_.end()){
+    edm::FileInPath listPath("EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz");
+    gzFile dummyFP(gzopen(listPath.fullPath().c_str(), "r"));
+    if(dummyFP != 0){
+      gzclose(dummyFP);
+      hcalLaserEventListFilter_ = new EventFilterFromListStandAlone(listPath.fullPath());
+    }
   }
 }
 
@@ -639,21 +687,18 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
     currentConfig.Remove(currentConfig.Last('/'));
     currentConfig.ReplaceAll("/", "_");
     currentConfig.ReplaceAll(".", "_");
-    if(currentConfig != susyEvent_->l1Map.currentConfig){
-      susyEvent_->l1Map.currentConfig = currentConfig;
-      if(!susyEvent_->l1Map.menuExists(currentConfig)){
-        int err(0);
-        L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
-        if(err != 0)
-          throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
+    if(currentConfig != susyEvent_->l1Map.getMenuName()){
+      int err(0);
+      L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
+      if(err != 0)
+	throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
 
-        VString paths;
-        AlgorithmMap const& l1GtAlgorithms(menu->gtAlgorithmMap());
-        for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo)
-          paths.push_back(iAlgo->second.algoName());
+      std::vector<std::string> paths;
+      AlgorithmMap const& l1GtAlgorithms(menu->gtAlgorithmMap());
+      for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo)
+	paths.push_back(iAlgo->second.algoName());
 
-        susyEvent_->setTriggerTable(currentConfig, paths, false);
-      }
+      susyEvent_->l1Map.setMenu(currentConfig, paths);
     }
   }
 
@@ -673,10 +718,7 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
       currentConfig.ReplaceAll("/", "_");
       currentConfig.ReplaceAll(".", "_");
 
-      susyEvent_->hltMap.currentConfig = currentConfig;
-      if(!susyEvent_->hltMap.menuExists(currentConfig)){
-        susyEvent_->setTriggerTable(currentConfig, hltConfig_->triggerNames());
-      }
+      susyEvent_->hltMap.setMenu(currentConfig, hltConfig_->triggerNames());
     }
   }
 
@@ -956,62 +998,87 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMetFilters";
 
+  // All filters except for HcalLaserEventList and HcalLaserRECOUserStep have their results in the event as boolean flags.
+  // These filter names are defined in runOverAOD.py but hardcoded here - could have better implementation but OK for the time being.
   std::string filterNames[susy::nMetFilters];
   filterNames[susy::kCSCBeamHalo] = "BeamHaloSummary";
   filterNames[susy::kHcalNoise] = "HBHENoiseFilterResultProducer:HBHENoiseFilterResult";
   filterNames[susy::kEcalDeadCellTP] = "EcalDeadCellTriggerPrimitiveFilter";
   filterNames[susy::kEcalDeadCellBE] = "EcalDeadCellBoundaryEnergyFilter";
-  filterNames[susy::kHcalLaser] = "hcalLaserEventFilter";
   filterNames[susy::kTrackingFailure] = "trackingFailureFilter";
   filterNames[susy::kEEBadSC] = "eeBadScFilter";
+  filterNames[susy::kHcalLaserOccupancy] = "hcalLaserEventFilter";
   filterNames[susy::kEcalLaserCorr] = "ecalLaserCorrFilter";
   filterNames[susy::kManyStripClus53X] = "manystripclus53X";
   filterNames[susy::kTooManyStripClus53X] = "toomanystripclus53X";
   filterNames[susy::kLogErrorTooManyClusters] = "logErrorTooManyClusters";
+  filterNames[susy::kLogErrorTooManyTripletsPairs] = "logErrorTooManyTripletsPairs";
+  filterNames[susy::kLogErrorTooManySeeds] = "logErrorTooManySeeds";
   filterNames[susy::kEERingOfFire] = "eeNoiseFilter";
   filterNames[susy::kInconsistentMuon] = "inconsistentMuonPFCandidateFilter";
   filterNames[susy::kGreedyMuon] = "greedyMuonPFCandidateFilter";
-  // HcalLaser1012 is taken from an external list
-
-  std::set<unsigned> notForFastSim;
-  notForFastSim.insert(susy::kHcalNoise);
 
   std::set<unsigned> irregular;
   irregular.insert(susy::kCSCBeamHalo);
-  irregular.insert(susy::kHcalLaser2012);
+  irregular.insert(susy::kHcalLaserEventList);
+  irregular.insert(susy::kHcalLaserRECOUserStep);
 
-  std::vector<bool> pass(susy::nMetFilters, false);
+  std::vector<bool> pass(susy::nMetFilters, true);
 
   edm::Handle<bool> boolH;
   for(unsigned iF(0); iF != susy::nMetFilters; ++iF){
     // skip filters that are not a simple bool
     if(irregular.find(iF) != irregular.end()) continue;
-
-    // skip filters that are not FastSim-compatible
-    if(!susyEvent_->isRealData && isFastSim_ && notForFastSim.find(iF) != notForFastSim.end()) continue;
+    // skip filters disabled in the job configuration
+    if(metFilters_.find(iF) == metFilters_.end()) continue;
 
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[iF];
 
     _event.getByLabel(edm::InputTag(filterNames[iF]), boolH);
-    pass[iF] = *boolH;
+
+    switch(iF){
+    case susy::kManyStripClus53X:
+    case susy::kTooManyStripClus53X:
+    case susy::kLogErrorTooManyClusters:
+    case susy::kLogErrorTooManyTripletsPairs:
+    case susy::kLogErrorTooManySeeds:
+      pass[iF] = !*boolH;
+      break;
+    default:
+      pass[iF] = *boolH;
+    }
   }
 
-  // BeamHaloSummary only available in data and FullSim
-  if(susyEvent_->isRealData || !isFastSim_){
+  if(metFilters_.find(susy::kCSCBeamHalo) != metFilters_.end()){
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kCSCBeamHalo];
 
     edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
     _event.getByLabel(edm::InputTag(filterNames[susy::kCSCBeamHalo]), beamHaloSummary);
+
     pass[susy::kCSCBeamHalo] = !(beamHaloSummary->CSCTightHaloId());
   }
 
-  if(hcalLaser2012Filter_){
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kHcalLaser2012];
-    pass[susy::kHcalLaser2012] = hcalLaser2012Filter_->filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
+  if(metFilters_.find(susy::kHcalLaserEventList) != metFilters_.end() && hcalLaserEventListFilter_){
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter based on an event list (Run2012ABC)";
+
+    pass[susy::kHcalLaserEventList] = hcalLaserEventListFilter_->filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
+  }
+
+  if(metFilters_.find(susy::kHcalLaserRECOUserStep) != metFilters_.end()){
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter run at RECO (Run2012 2013 rerecos)";
+
+    edm::Handle<edm::TriggerResults> recoPathResultsH;
+    _event.getByLabel(edm::InputTag("TriggerResults", "", "RECO"), recoPathResultsH);
+    edm::TriggerNames const& recoPathNames(_event.triggerNames(*recoPathResultsH));
+    unsigned iUserStep(recoPathNames.triggerIndex("user_step"));
+    if(iUserStep == recoPathNames.size())
+      throw cms::Exception("RuntimeError") << "user_step not found in edmTriggerResults_TriggerResults__RECO";
+
+    pass[susy::kHcalLaserRECOUserStep] = recoPathResultsH->accept(iUserStep);
   }
 
   for(unsigned iF(0); iF != susy::nMetFilters; ++iF)
-    susyEvent_->metFilterBit |= (pass[iF] ? 1 << iF : 0);
+    if(!pass[iF]) susyEvent_->metFilterBit &= ~(1 << iF);
 }
 
 void
@@ -2217,12 +2284,25 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
 
     // Get b-tag information
     VString& bTagTags(bTagCollectionTags_[collectionTag]);
-    reco::JetFloatAssociation::Container const* jetDiscriminators[susy::nBTagDiscriminators];
+    reco::JetFloatAssociation::Container const* bTagDiscriminators[susy::nBTagDiscriminators];
+    for(unsigned i(0); i != susy::nBTagDiscriminators; ++i) bTagDiscriminators[i] = 0;
     if(bTagTags.size() != 0){
       for(unsigned iT(0); iT != susy::nBTagDiscriminators; ++iT){
         edm::Handle<reco::JetFloatAssociation::Container> hndl;
         _event.getByLabel(edm::InputTag(bTagTags[iT]), hndl);
-        jetDiscriminators[iT] = hndl.product();
+        bTagDiscriminators[iT] = hndl.product();
+      }
+    }
+
+    // Get quark-gluon discrimination information
+    VString& qgTagTags(qgTagCollectionTags_[collectionTag]);
+    edm::ValueMap<float> const* qgDiscriminators[susy::nQGDiscriminators];
+    for(unsigned i(0); i != susy::nQGDiscriminators; ++i) qgDiscriminators[i] = 0;
+    if(qgTagTags.size() != 0){
+      for(unsigned iT(0); iT != susy::nQGDiscriminators; ++iT){
+        edm::Handle<edm::ValueMap<float> > hndl;
+        _event.getByLabel(edm::InputTag(qgTagTags[iT]), hndl);
+        if(hndl.isValid()) qgDiscriminators[iT] = hndl.product();
       }
     }
 
@@ -2315,11 +2395,26 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       if(bTagTags.size() != 0){
         for(unsigned iT(0); iT != susy::nBTagDiscriminators; ++iT){
           try{
-            jet.bTagDiscriminators[iT] = (*(jetDiscriminators[iT]))[jetRef];
+            jet.bTagDiscriminators[iT] = (*(bTagDiscriminators[iT]))[jetRef];
           }
           catch(cms::Exception& e){
             if(e.category() == "InvalidReference")
               edm::LogWarning("InvalidReference") << "Btag discriminator " << bTagTags[iT] << " does not exist for collection " << collectionTag << " instance " << ijet;
+            else
+              throw;
+          }
+        }
+      }
+
+      if(qgTagTags.size() != 0){
+        for(unsigned iT(0); iT != susy::nQGDiscriminators; ++iT){
+          if(!qgDiscriminators[iT]) continue;
+          try{
+            jet.qgDiscriminators[iT] = (*(qgDiscriminators[iT]))[jetRef];
+          }
+          catch(cms::Exception& e){
+            if(e.category() == "InvalidReference")
+              edm::LogWarning("InvalidReference") << "Quark-gluon discriminator " << qgTagTags[iT] << " does not exist for collection " << collectionTag << " instance " << ijet;
             else
               throw;
           }
@@ -2671,8 +2766,8 @@ SusyNtuplizer::finalize()
   l1GtUtils_ = 0;
   delete isolator03_;
   isolator03_ = 0;
-  delete hcalLaser2012Filter_;
-  hcalLaser2012Filter_ = 0;
+  delete hcalLaserEventListFilter_;
+  hcalLaserEventListFilter_ = 0;
 
   if(storeTriggerEvents_)
     triggerEvent_->write();
