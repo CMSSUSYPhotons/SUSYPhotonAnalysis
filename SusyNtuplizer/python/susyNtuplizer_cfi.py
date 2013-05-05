@@ -95,6 +95,10 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
             SoftMuon = cms.string("chsSoftMuonBJetTags")
         )
     ),
+    qgTagCollectionTags = cms.PSet(
+        ak5PFJets = cms.string("QGTaggerAK5"),
+        ak5PFchsJets = cms.string("QGTaggerAK5chs")
+    ),
     jetFlavourMatchingTags = cms.PSet(
         ak5PFJets = cms.PSet(
             alg = cms.string("flavourAssociationAlg"),
@@ -120,6 +124,26 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     puSummaryInfoTag = cms.string("addPileupInfo"),
     triggerEventTag = cms.string("hltTriggerSummaryAOD"),
     gridParams = cms.vstring("ptHat"),
+    metFilters = cms.vstring(
+        'CSCBeamHalo',
+        'HcalNoise',
+        'EcalDeadCellTP',
+        'EcalDeadCellBE',
+        'TrackingFailure',
+        'EEBadSC',
+        'HcalLaserOccupancy',
+        'HcalLaserEventList',
+        'HcalLaserRECOUserStep',
+        'EcalLaserCorr',
+        'ManyStripClus53X',
+        'TooManyStripClus53X',
+        'LogErrorTooManyClusters',
+        'LogErrorTooManyTripletsPairs',
+        'LogErrorTooManySeeds',
+        'EERingOfFire',
+        'InconsistentMuon',
+        'GreedyMuon'
+    ),
     photonSCRegressionWeights = cms.string("/afs/cern.ch/user/b/bendavid/cmspublic/regweights52xV3/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),
     electronThreshold = cms.double(2.0),
