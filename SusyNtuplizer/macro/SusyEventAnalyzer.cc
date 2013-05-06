@@ -15,7 +15,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.17 2013/05/05 12:01:32 yiiyama Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.18 2013/05/05 22:11:05 yiiyama Exp $
 //
 
 #include <TH1F.h>
@@ -433,7 +433,13 @@ SusyEventAnalyzer::Run()
           jecUncertainty->setJetEta(eta);
           jecUncertainty->setJetPt(pt);
 
-          jecScaleUncertainty = jecUncertainty->getUncertainty(true);
+          try{
+            jecScaleUncertainty = jecUncertainty->getUncertainty(true);
+          }
+          catch(std::exception& e){
+            std::cerr << "Cannot get uncertainty for jet Pt = " << pt << " Eta = " << eta << ". Setting to -1." << std::endl;
+            jecScaleUncertainty = -1.;
+          }
         }
         else{
           if(event.isRealData)
