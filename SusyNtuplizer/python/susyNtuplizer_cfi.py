@@ -144,7 +144,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
         'InconsistentMuon',
         'GreedyMuon'
     ),
-    photonSCRegressionWeights = cms.string("/afs/cern.ch/user/b/bendavid/cmspublic/regweights52xV3/gbrv3ph_52x.root"),
+    photonSCRegressionWeights = cms.FileInPath("SusyAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),
     electronThreshold = cms.double(2.0),
     photonThreshold = cms.double(10.0),

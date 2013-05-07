@@ -114,10 +114,6 @@ elif isMC and is53x:
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = 0
 process.susyNtuplizer.isFastSim = isFastSim
-# For FNAL users
-#process.susyNtuplizer.photonSCRegressionWeights = "/eos/uscms/store/user/lpcpjm/NtuplizerData/gbrv3ph_52x.root"
-# For use in CRAB - mkdir SusyAnalysis/SusyNtuplizer/data; mv gbrv3ph_52x.root SusyAnalysis/SusyNtuplizer/data/
-#process.susyNtuplizer.photonSCRegressionWeights = cms.FileInPath("SusyAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root")
 
 if dataset == '53x13July2012' or dataset == '53x24Aug2012':
     process.susyNtuplizer.storeLumiInfo = cms.bool(False)

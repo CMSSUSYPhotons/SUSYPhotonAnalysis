@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.55 2013/05/05 11:53:44 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.56 2013/05/05 22:11:52 yiiyama Exp $
 //
 //
 
@@ -340,7 +340,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   jetFlavourMatchingTags_(),
   puJetIdCollectionTags_(),
   pfPUCandidatesTag_(iConfig.getParameter<std::string>("pfPUCandidatesTag")),
-  photonSCRegressionWeights_(""),
+  photonSCRegressionWeights_(iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath()),
   metFilters_(),
   hltConfig_(0),
   l1GtUtils_(0),
@@ -374,14 +374,8 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   TMVA::MsgLogger::InhibitOutput();
 
   /*
-    Input to photon supercluster energy correction.
-    Obtain file path from the configuration and check file existence.
+    Check the input file to photon supercluster energy correction.
    */
-  if(iConfig.existsAs<std::string>("photonSCRegressionWeights"))
-    photonSCRegressionWeights_ = iConfig.getParameter<std::string>("photonSCRegressionWeights");
-  else
-    photonSCRegressionWeights_ = iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath();
-
   TFile* dummyFile(TFile::Open(photonSCRegressionWeights_.c_str()));
   if(!dummyFile || dummyFile->IsZombie())
     throw cms::Exception("IOError") << "Photon SC MVA regression weight file " << photonSCRegressionWeights_ << " cannot be opened";
