@@ -31,7 +31,7 @@ cvs up -r CMSSW_5_3_8_patch3                         RecoJets/JetProducers/plugi
 cvs co -r V05-00-16                                  DataFormats/JetReco
 cvs co -r regressionMay18a                           RecoEgamma/EgammaTools
 cvs co -r V00-02-14                                  DataFormats/StdDictionaries
-cvs co -r v1-2-3 -d QuarkGluonTagger/EightTeV UserCode/tomc/QuarkGluonTagger/EightTeV
+cvs co -r v1-2-3 -d QuarkGluonTagger/EightTeV        UserCode/tomc/QuarkGluonTagger/EightTeV
 
 b. Edit files that cause too many printouts
 
@@ -100,9 +100,8 @@ cd SusyNtuplizer/macro
 make
 root -b -q ana.C
 
-ana.C links the library and compiles the two analysis codes, SusyEventAnalyzer.cc and SusyEventPrinter.cc.
-The Printer file contains the utility functions to print out the content of the event. The
-Analyzer file is the analysis skeleton. The user is invited to modify the content of the Run()
+ana.C links the library before compiling and running the analysis code SusyEventAnalyzer. This file
+is written as an analysis skeleton. The user is invited to modify the content of the Run()
 function to fit his/her analysis needs.
 
 2.2 Opening the file in bare ROOT environment ---------------------------------------------------
