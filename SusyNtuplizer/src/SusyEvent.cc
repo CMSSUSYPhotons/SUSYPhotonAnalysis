@@ -10,7 +10,7 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.31 2013/04/12 09:53:27 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.32 2013/05/05 11:48:49 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -1469,6 +1469,21 @@ susy::Event::Event() :
     (1 << kEEBadSC) | (1 << kLogErrorTooManyClusters) | (1 << kLogErrorTooManyTripletsPairs) | (1 << kLogErrorTooManySeeds);
 }
 
+susy::Event::Event(Event const& _orig) :
+  l1Map("l1"),
+  hltMap("hlt"),
+  inputTree_(0),
+  outputTrees_()
+{
+  copyEvent(_orig);
+
+  Init();
+
+  metFilterMask = 
+    (1 << kCSCBeamHalo) | (1 << kHcalNoise) | (1 << kEcalDeadCellTP) | (1 << kHcalLaserRECOUserStep) | (1 << kTrackingFailure) |
+    (1 << kEEBadSC) | (1 << kLogErrorTooManyClusters) | (1 << kLogErrorTooManyTripletsPairs) | (1 << kLogErrorTooManySeeds);
+}
+
 susy::Event::~Event()
 {
   releaseTrees();
@@ -1500,13 +1515,13 @@ susy::Event::Init()
   pu.clear();
   genParticles.clear();
 
-  for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr) itr->second.Init();
-  for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr) itr->second.clear();
-  for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr) itr->second.clear();
-  for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr) itr->second.clear();
-  for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr) itr->second.clear();
-  for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr) itr->second.clear();
-  for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr) itr->second.clear();
+  for(typename METMap::iterator itr(metMap.begin()); itr != metMap.end(); ++itr) itr->second.Init();
+  for(typename MuonCollectionMap::iterator itr(muons.begin()); itr != muons.end(); ++itr) itr->second.clear();
+  for(typename ElectronCollectionMap::iterator itr(electrons.begin()); itr != electrons.end(); ++itr) itr->second.clear();
+  for(typename PhotonCollectionMap::iterator itr(photons.begin()); itr != photons.end(); ++itr) itr->second.clear();
+  for(typename CaloJetCollectionMap::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr) itr->second.clear();
+  for(typename PFJetCollectionMap::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr) itr->second.clear();
+  for(typename JPTJetCollectionMap::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr) itr->second.clear();
   for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr) itr->second = 0.;
 }
 
@@ -1592,14 +1607,14 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "metMap ======>" << std::endl;
-  for(std::map<TString, MET>::const_iterator it = metMap.begin(); it != metMap.end(); it++){
+  for(typename METMap::const_iterator it = metMap.begin(); it != metMap.end(); it++){
     os << it->first << " ===>" << std::endl;
     it->second.Print(os);
   }
   os << std::endl;
 
   os << "muons =========>" << std::endl;
-  for(std::map<TString, MuonCollection>::const_iterator it = muons.begin(); it != muons.end(); it++) {
+  for(typename MuonCollectionMap::const_iterator it = muons.begin(); it != muons.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1609,7 +1624,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "electrons ======>" << std::endl;
-  for(std::map<TString, ElectronCollection>::const_iterator it = electrons.begin(); it != electrons.end(); it++) {
+  for(typename ElectronCollectionMap::const_iterator it = electrons.begin(); it != electrons.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1619,7 +1634,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "photons ======>" << std::endl;
-  for(std::map<TString, PhotonCollection>::const_iterator it = photons.begin(); it != photons.end(); it++) {
+  for(typename PhotonCollectionMap::const_iterator it = photons.begin(); it != photons.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1629,7 +1644,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "caloJets ======>" << std::endl;
-  for(std::map<TString, CaloJetCollection>::const_iterator it = caloJets.begin(); it != caloJets.end(); it++) {
+  for(typename CaloJetCollectionMap::const_iterator it = caloJets.begin(); it != caloJets.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1639,7 +1654,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "pfJets ======>" << std::endl;
-  for(std::map<TString, PFJetCollection>::const_iterator it = pfJets.begin(); it != pfJets.end(); it++) {
+  for(typename PFJetCollectionMap::const_iterator it = pfJets.begin(); it != pfJets.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1649,7 +1664,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << std::endl;
 
   os << "jptJets ======>" << std::endl;
-  for(std::map<TString, JPTJetCollection>::const_iterator it = jptJets.begin(); it != jptJets.end(); it++) {
+  for(typename JPTJetCollectionMap::const_iterator it = jptJets.begin(); it != jptJets.end(); it++) {
     os << it->first << " size(" << it->second.size() << ") ======>" << std::endl;
     for(unsigned i(0); i != it->second.size(); ++i){
       os << "[" << i << "] ===>" << std::endl;
@@ -1690,23 +1705,23 @@ susy::Event::fillRefs()
   for(ParticleCollection::iterator pItr(genParticles.begin()); pItr != genParticles.end(); ++pItr)
     pItr->fillRefs(this);
 
-  for(std::map<TString, MuonCollection>::iterator cItr(muons.begin()); cItr != muons.end(); ++cItr)
-    for(MuonCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename MuonCollectionMap::iterator cItr(muons.begin()); cItr != muons.end(); ++cItr)
+    for(typename MuonCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
-  for(std::map<TString, ElectronCollection>::iterator cItr(electrons.begin()); cItr != electrons.end(); ++cItr)
-    for(ElectronCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename ElectronCollectionMap::iterator cItr(electrons.begin()); cItr != electrons.end(); ++cItr)
+    for(typename ElectronCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
-  for(std::map<TString, PhotonCollection>::iterator cItr(photons.begin()); cItr != photons.end(); ++cItr)
-    for(PhotonCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename PhotonCollectionMap::iterator cItr(photons.begin()); cItr != photons.end(); ++cItr)
+    for(typename PhotonCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
-  for(std::map<TString, CaloJetCollection>::iterator cItr(caloJets.begin()); cItr != caloJets.end(); ++cItr)
-    for(CaloJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename CaloJetCollectionMap::iterator cItr(caloJets.begin()); cItr != caloJets.end(); ++cItr)
+    for(typename CaloJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
-  for(std::map<TString, PFJetCollection>::iterator cItr(pfJets.begin()); cItr != pfJets.end(); ++cItr)
-    for(PFJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename PFJetCollectionMap::iterator cItr(pfJets.begin()); cItr != pfJets.end(); ++cItr)
+    for(typename PFJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
-  for(std::map<TString, JPTJetCollection>::iterator cItr(jptJets.begin()); cItr != jptJets.end(); ++cItr)
-    for(JPTJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
+  for(typename JPTJetCollectionMap::iterator cItr(jptJets.begin()); cItr != jptJets.end(); ++cItr)
+    for(typename JPTJetCollection::iterator pItr(cItr->second.begin()); pItr != cItr->second.end(); ++pItr)
       pItr->fillRefs(this);
 }
 
@@ -1812,19 +1827,19 @@ susy::Event::addOutput(TTree& _tree)
   _tree.Branch("pu", "std::vector<susy::PUSummaryInfo>", new PUSummaryInfoCollection*(&pu));
   _tree.Branch("genParticles", "std::vector<susy::Particle>", new ParticleCollection*(&genParticles));
 
-  for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
+  for(typename METMap::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
     _tree.Branch("met_" + itr->first + ".", "susy::MET", new MET*(&itr->second));
-  for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr)
+  for(typename MuonCollectionMap::iterator itr(muons.begin()); itr != muons.end(); ++itr)
     _tree.Branch("muons_" + itr->first, "std::vector<susy::Muon>", new MuonCollection*(&itr->second));
-  for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
+  for(typename ElectronCollectionMap::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
     _tree.Branch("electrons_" + itr->first, "std::vector<susy::Electron>", new ElectronCollection*(&itr->second));
-  for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr)
+  for(typename PhotonCollectionMap::iterator itr(photons.begin()); itr != photons.end(); ++itr)
     _tree.Branch("photons_" + itr->first, "std::vector<susy::Photon>", new PhotonCollection*(&itr->second));
-  for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
+  for(typename CaloJetCollectionMap::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
     _tree.Branch("caloJets_" + itr->first, "std::vector<susy::CaloJet>", new CaloJetCollection*(&itr->second));
-  for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
+  for(typename PFJetCollectionMap::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
     _tree.Branch("pfJets_" + itr->first, "std::vector<susy::PFJet>", new PFJetCollection*(&itr->second));
-  for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
+  for(typename JPTJetCollectionMap::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
     _tree.Branch("jptJets_" + itr->first, "std::vector<susy::JPTJet>", new JPTJetCollection*(&itr->second));
   for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr)
     _tree.Branch("gridParams_" + itr->first, &itr->second, itr->first + "/F");
@@ -1971,46 +1986,48 @@ susy::Event::copyEvent(Event const& _orig)
   pu                     = _orig.pu;
   genParticles           = _orig.genParticles;
 
-  for(std::map<TString, MET>::iterator itr(metMap.begin()); itr != metMap.end(); ++itr){
-    std::map<TString, MET>::const_iterator oItr(_orig.metMap.find(itr->first));
-    if(oItr != _orig.metMap.end()) itr->second = oItr->second;
-    else itr->second.Init();
-  }
-  for(std::map<TString, MuonCollection>::iterator itr(muons.begin()); itr != muons.end(); ++itr){
-    std::map<TString, MuonCollection>::const_iterator oItr(_orig.muons.find(itr->first));
-    if(oItr != _orig.muons.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, ElectronCollection>::iterator itr(electrons.begin()); itr != electrons.end(); ++itr){
-    std::map<TString, ElectronCollection>::const_iterator oItr(_orig.electrons.find(itr->first));
-    if(oItr != _orig.electrons.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, PhotonCollection>::iterator itr(photons.begin()); itr != photons.end(); ++itr){
-    std::map<TString, PhotonCollection>::const_iterator oItr(_orig.photons.find(itr->first));
-    if(oItr != _orig.photons.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, CaloJetCollection>::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr){
-    std::map<TString, CaloJetCollection>::const_iterator oItr(_orig.caloJets.find(itr->first));
-    if(oItr != _orig.caloJets.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, PFJetCollection>::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr){
-    std::map<TString, PFJetCollection>::const_iterator oItr(_orig.pfJets.find(itr->first));
-    if(oItr != _orig.pfJets.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, JPTJetCollection>::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr){
-    std::map<TString, JPTJetCollection>::const_iterator oItr(_orig.jptJets.find(itr->first));
-    if(oItr != _orig.jptJets.end()) itr->second = oItr->second;
-    else itr->second.clear();
-  }
-  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr){
-    std::map<TString, Float_t>::const_iterator oItr(_orig.gridParams.find(itr->first));
-    if(oItr != _orig.gridParams.end()) itr->second = oItr->second;
-    else itr->second = 0.;
-  }
+  // Loop over collections in _orig. If the same collection exists, copy the value. If not, create (done automatically).
+  // If a collection in this object does not exist in _orig, clear it (but don't delete the object).
+
+  for(typename METMap::const_iterator oItr(_orig.metMap.begin()); oItr != _orig.metMap.end(); ++oItr)
+    metMap[oItr->first] = oItr->second;
+  for(typename METMap::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
+    if(_orig.metMap.find(itr->first) == _orig.metMap.end()) itr->second.Init();
+
+  for(typename MuonCollectionMap::const_iterator oItr(_orig.muons.begin()); oItr != _orig.muons.end(); ++oItr)
+    muons[oItr->first] = oItr->second;
+  for(typename MuonCollectionMap::iterator itr(muons.begin()); itr != muons.end(); ++itr)
+    if(_orig.muons.find(itr->first) == _orig.muons.end()) itr->second.clear();
+
+  for(typename ElectronCollectionMap::const_iterator oItr(_orig.electrons.begin()); oItr != _orig.electrons.end(); ++oItr)
+    electrons[oItr->first] = oItr->second;
+  for(typename ElectronCollectionMap::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
+    if(_orig.electrons.find(itr->first) == _orig.electrons.end()) itr->second.clear();
+
+  for(typename PhotonCollectionMap::const_iterator oItr(_orig.photons.begin()); oItr != _orig.photons.end(); ++oItr)
+    photons[oItr->first] = oItr->second;
+  for(typename PhotonCollectionMap::iterator itr(photons.begin()); itr != photons.end(); ++itr)
+    if(_orig.photons.find(itr->first) == _orig.photons.end()) itr->second.clear();
+
+  for(typename CaloJetCollectionMap::const_iterator oItr(_orig.caloJets.begin()); oItr != _orig.caloJets.end(); ++oItr)
+    caloJets[oItr->first] = oItr->second;
+  for(typename CaloJetCollectionMap::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
+    if(_orig.caloJets.find(itr->first) == _orig.caloJets.end()) itr->second.clear();
+
+  for(typename PFJetCollectionMap::const_iterator oItr(_orig.pfJets.begin()); oItr != _orig.pfJets.end(); ++oItr)
+    pfJets[oItr->first] = oItr->second;
+  for(typename PFJetCollectionMap::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
+    if(_orig.pfJets.find(itr->first) == _orig.pfJets.end()) itr->second.clear();
+
+  for(typename JPTJetCollectionMap::const_iterator oItr(_orig.jptJets.begin()); oItr != _orig.jptJets.end(); ++oItr)
+    jptJets[oItr->first] = oItr->second;
+  for(typename JPTJetCollectionMap::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
+    if(_orig.jptJets.find(itr->first) == _orig.jptJets.end()) itr->second.clear();
+
+  for(std::map<TString, Float_t>::const_iterator oItr(_orig.gridParams.begin()); oItr != _orig.gridParams.end(); ++oItr)
+    gridParams[oItr->first] = oItr->second;
+  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr)
+    if(_orig.gridParams.find(itr->first) == _orig.gridParams.end()) itr->second = 0.;
 }
 
 

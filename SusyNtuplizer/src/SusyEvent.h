@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.42 2013/04/25 15:49:02 dmason Exp $
+// $Id: SusyEvent.h,v 1.43 2013/05/05 11:48:48 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -956,14 +956,27 @@ namespace susy {
   typedef std::vector<JPTJet> JPTJetCollection;
   typedef std::vector<PFParticle> PFParticleCollection;
 
+  typedef std::map<TString, MET> METMap;
+  typedef std::map<TString, MuonCollection> MuonCollectionMap;
+  typedef std::map<TString, ElectronCollection> ElectronCollectionMap;
+  typedef std::map<TString, PhotonCollection> PhotonCollectionMap;
+  typedef std::map<TString, CaloJetCollection> CaloJetCollectionMap;
+  typedef std::map<TString, PFJetCollection> PFJetCollectionMap;
+  typedef std::map<TString, JPTJetCollection> JPTJetCollectionMap;
+
   // Consult section 2 of ../README for Event object usage.
 
   class Event {
+    // All three of the copy constructor, assignment operator, and copyEvent() function will copy only the
+    // event content and not the input/output trees.
 
   public:
 
     Event();
+    Event(Event const&);
     ~Event();
+
+    Event& operator=(Event const& _rhs) { copyEvent(_rhs); return *this; }
 
     // Initialize members
     void Init();
@@ -981,7 +994,6 @@ namespace susy {
     void fillRefs(); // Called in getEntry()
 
     Bool_t passMetFilter(UInt_t filterIndex) const { return (metFilterBit & (1 << filterIndex)) != 0; }
-    // JetMET recommended met filters
     Bool_t passMetFilters() const { return (metFilterBit & metFilterMask) == metFilterMask; }
 
     UChar_t                                        isRealData;
@@ -1009,13 +1021,13 @@ namespace susy {
     ClusterCollection                              clusters;               // only selected basic clusters associated with super clusters
     PFParticleCollection                           pfParticles;
 
-    std::map<TString, susy::MET>                   metMap;
-    std::map<TString, susy::MuonCollection>        muons;
-    std::map<TString, susy::ElectronCollection>    electrons;
-    std::map<TString, susy::PhotonCollection>      photons;
-    std::map<TString, susy::CaloJetCollection>     caloJets;
-    std::map<TString, susy::PFJetCollection>       pfJets;
-    std::map<TString, susy::JPTJetCollection>      jptJets;                // not filled
+    METMap                                         metMap;
+    MuonCollectionMap                              muons;
+    ElectronCollectionMap                          electrons;
+    PhotonCollectionMap                            photons;
+    CaloJetCollectionMap                           caloJets;
+    PFJetCollectionMap                             pfJets;
+    JPTJetCollectionMap                            jptJets;                // not filled
 
     // generated information. Valid only for isRealData == 0, i.e. MC
     PUSummaryInfoCollection                        pu;                     // PU summary info
@@ -1023,6 +1035,7 @@ namespace susy {
     std::map<TString, Float_t>                     gridParams;             // pairs of parameter name and value
 
     // utility member used at runtime only. Provides the filter bit mask for function passMetFilters()
+    // users should set the filter bit mask to the JetMET recommended set of filters (see Event constructor for default value)
     Int_t                                          metFilterMask;
 
   private:
