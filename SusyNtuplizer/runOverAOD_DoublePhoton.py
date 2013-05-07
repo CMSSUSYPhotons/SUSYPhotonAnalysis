@@ -25,6 +25,12 @@ hltPaths = [
 
 #########################################################
 
+# Maximum number of events to process (ignored in CRAB) #
+
+maxEvents = -1
+
+#########################################################
+
 collisionDatasets = [
     '52xPrompt',     # Run2012[AB]-PromptReco
     '52x23May2012',  # Run2012A-23May2012
@@ -59,7 +65,7 @@ import FWCore.ParameterSet.Config as cms
 ##########################
 process = cms.Process("RA3")
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(False))
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(200))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(maxEvents))
 
 process.source = cms.Source("PoolSource",
     noEventSort = cms.untracked.bool(True),
