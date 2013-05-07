@@ -15,7 +15,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.18 2013/05/05 22:11:05 yiiyama Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.19 2013/05/06 08:05:33 yiiyama Exp $
 //
 
 #include <TH1F.h>
@@ -120,10 +120,16 @@ SusyEventAnalyzer::Run()
   for(int i(0); i<20; i++) nCnt[i] = 0;
 
   ////////// TEXT OUTPUT //////////
-  std::ofstream outFile(outputName + ".log");
-  std::ostream& out(outFile);
-  // USE BELOW INSTEAD TO PRINT TO STDOUT
-  //  std::ostream& out(std::cout);
+
+  std::ofstream outFile;
+  if(logFileName != "cout"){
+    outFile.open(logFileName);
+    if(!outFile.is_open()){
+      std::cerr << "Log output " << logFileName << " could not be opened." << std::endl;
+      return;
+    }
+  }
+  std::ostream& out(logFileName == "cout" ? std::cout : outFile);
 
   ////////// SWITCH FOR USING USER-PROVIDED JEC //////////
   bool useCustomJEC(false);

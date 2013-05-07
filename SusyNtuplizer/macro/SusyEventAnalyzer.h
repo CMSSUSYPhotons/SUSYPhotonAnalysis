@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.h,v 1.7 2013/04/11 16:38:03 yiiyama Exp $
+// $Id: SusyEventAnalyzer.h,v 1.8 2013/05/05 12:01:32 yiiyama Exp $
 //
 
 #ifndef SusyEventAnalyzer_h
@@ -40,6 +40,7 @@ public:
   /* parameter configuration functions */
   void IncludeAJson(TString const&);
   void SetOutput(TString const& v) { outputName = v; }
+  void SetLogFile(TString const& v) { logFileName = v;}
   void SetPrintInterval(int v) { printInterval = v; }
   void SetPrintLevel(int v) { printLevel = v; }
   void SetProcessNEvents(int v) { processNEvents = v; }
@@ -56,6 +57,8 @@ protected:
   TTree *fTree;
   /* suffix of the output file */
   TString outputName;
+  /* log file name */
+  TString logFileName;
   /* verbosity - 0 => no printout, 1 => print function control flow, 2 => print event processing flow, 3 => print event dump */
   int printLevel;
   /* print frequency */
@@ -76,6 +79,7 @@ SusyEventAnalyzer::SusyEventAnalyzer(TTree& tree) :
   event(),
   fTree(&tree),
   outputName("analysis"),
+  logFileName(outputName + ".log"),
   printLevel(0),
   printInterval(1000),
   processNEvents(-1),

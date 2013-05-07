@@ -1,5 +1,5 @@
 // Original Author:  Dongwook Jang
-// $Id: ana.C,v 1.10 2013/04/11 17:11:20 yiiyama Exp $
+// $Id: ana.C,v 1.11 2013/05/05 12:01:32 yiiyama Exp $
 
 void ana(TString outputName="analysis"){
 
@@ -46,6 +46,7 @@ void ana(TString outputName="analysis"){
   SusyEventAnalyzer sea(chain);
 
   sea.SetOutput(outputName);
+  sea.SetLogFile("cout"); // set to a full path to a file to output log to a file
   sea.SetPrintInterval(10000);
   sea.SetPrintLevel(0);
   sea.AddHltName("HLT_Photon36_CaloId10_Iso50_Photon22_CaloId10_Iso50");
