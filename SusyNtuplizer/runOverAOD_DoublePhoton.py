@@ -7,8 +7,8 @@ dataset = '53x22Jan2013'
 ###### Set the input file name if running locally  ######
 
 sourceNames = [
-#    'root://xrootd.unl.edu//store/data/Run2012A/Photon/AOD/22Jan2013-v1/20000/FEF664CA-ED68-E211-A3FA-003048678B08.root'
-#    'root://xrootd.unl.edu//store/mc/Summer12_DR53X/GVJets_Incl_8TeV-madgraph/AODSIM/PU_S10_START53_V7C-v1/00001/FEE4A970-1333-E211-A759-00261894398B.root'    
+    'root://xrootd.unl.edu//store/data/Run2012A/Photon/AOD/22Jan2013-v1/20000/FEF664CA-ED68-E211-A3FA-003048678B08.root'
+#    'root://xrootd.unl.edu//store/mc/Summer12_DR53X/GVJets_Incl_8TeV-madgraph/AODSIM/PU_S10_START53_V7C-v1/00001/FEE4A970-1333-E211-A759-00261894398B.root'
 ]
 
 #########################################################
@@ -27,7 +27,7 @@ hltPaths = [
 
 # Maximum number of events to process (ignored in CRAB) #
 
-maxEvents = -1
+maxEvents = 10
 
 #########################################################
 
@@ -79,7 +79,8 @@ process.source = cms.Source("PoolSource",
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 process.MessageLogger.suppressWarning = cms.untracked.vstring(
-    'newSecondaryVertoexTagInfos',
+    'newSecondaryVertexTagInfos',
+    'chsSecondaryVertexTagInfos',
     'pfCandidateToVertexAssoc',
     'manystripclus53X',
     'toomanystripclus53X'
@@ -135,11 +136,14 @@ if isRealData:
     process.susyNtuplizer.gridParams = cms.vstring()
 elif isFastSim:
     process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
-    process.susyNtuplizer.muonIDCollectionTags = cms.PSet()
+    process.susyNtuplizer.muonIdTags = cms.PSet()
     process.susyNtuplizer.metFilters.remove('CSCBeamHalo')
     process.susyNtuplizer.metFilters.remove('HcalNoise')
+    process.susyNtuplizer.metFilters.remove('LogErrorTooManyClusters')
+    process.susyNtuplizer.metFilters.remove('LogErrorTooManyTripletsPairs')
+    process.susyNtuplizer.metFilters.remove('LogErrorTooManySeeds')
 
-if is52x:
+if is52x or isFastSim:
     process.susyNtuplizer.metFilters.remove('ManyStripClus53X')
     process.susyNtuplizer.metFilters.remove('TooManyStripClus53X')
 
@@ -304,7 +308,6 @@ process.ak5PFchsL1FastL2L3Residual.correctors.append('ak5PFchsResidual')
 ###############################
 process.load("JetMETCorrections.Type1MET.caloMETCorrections_cff")
 process.load("JetMETCorrections.Type1MET.pfMETCorrections_cff")
-process.load("JetMETCorrections.Type1MET.pfMETsysShiftCorrections_cfi")
 
 if isRealData:
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3Residual")
@@ -312,6 +315,11 @@ if isRealData:
 else:
     process.caloJetMETcorr.jetCorrLabel = cms.string("ak5CaloL2L3")
     process.pfJetMETcorr.jetCorrLabel = cms.string("ak5PFL1FastL2L3")
+
+from JetMETCorrections.Type1MET.pfMETsysShiftCorrections_cfi import pfMEtSysShiftCorr
+process.pfMEtSysShiftCorr = pfMEtSysShiftCorr.clone(
+    srcVertices = cms.InputTag('goodVertices')
+)
 
 # http://cmssw.cvs.cern.ch/cgi-bin/cmssw.cgi/CMSSW/JetMETCorrections/Type1MET/python/pfMETsysShiftCorrections_cfi.py?revision=1.6&view=markup
 # pfMEtSysShiftCorrParameters_2012runABCvsNvtx_data (_mc)
@@ -374,7 +382,7 @@ process.pfType01p2SysShiftCorrectedMet = process.pfType1p2CorrectedMet.clone(
 process.correctedMetSequence = cms.Sequence(
     process.produceCaloMETCorrections +
     process.producePFMETCorrections +
-    process.pfMEtSysShiftCorrSequence +
+    process.pfMEtSysShiftCorr +
     process.pfCandidateToVertexAssoc +
     process.pfType0MetCorrection +
     process.pfType0CorrectedMet +
@@ -806,8 +814,11 @@ process.metFiltersSequence = cms.Sequence(
 
 if isFastSim:
     process.metFiltersSequence.remove(process.HBHENoiseFilterResultProducer)
+    process.metFiltersSequence.remove(process.logErrorTooManyClusters)
+    process.metFiltersSequence.remove(process.logErrorTooManyTripletsPairs)
+    process.metFiltersSequence.remove(process.logErrorTooManySeeds)
 
-if is52x:
+if is52x or isFastSim:
     process.metFiltersSequence.remove(process.manystripclus53X)
     process.metFiltersSequence.remove(process.toomanystripclus53X)
 
