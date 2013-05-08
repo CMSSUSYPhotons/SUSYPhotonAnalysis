@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.43 2013/05/05 11:48:48 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.44 2013/05/07 20:29:25 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -1003,6 +1003,7 @@ namespace susy {
     UInt_t                                         luminosityBlockNumber;
     UShort_t                                       bunchCrossing;
     Int_t                                          metFilterBit;
+    Int_t                                          metFilterMask;          // fixed at ntuplizer job configuration, saved per event for convenience
 
     Float_t                                        avgInsRecLumi;
     Float_t                                        intgRecLumi;
@@ -1033,10 +1034,6 @@ namespace susy {
     PUSummaryInfoCollection                        pu;                     // PU summary info
     ParticleCollection                             genParticles;
     std::map<TString, Float_t>                     gridParams;             // pairs of parameter name and value
-
-    // utility member used at runtime only. Provides the filter bit mask for function passMetFilters()
-    // users should set the filter bit mask to the JetMET recommended set of filters (see Event constructor for default value)
-    Int_t                                          metFilterMask;
 
   private:
     // Keep a pointer to each tree that is bound to this object. Only one input tree is supported.

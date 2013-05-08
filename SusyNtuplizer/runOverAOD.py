@@ -22,14 +22,15 @@ hltPaths = [
 
 # Maximum number of events to process (ignored in CRAB) #
 
-maxEvents = 10
+maxEvents = -1
 
 #########################################################
 
 collisionDatasets = [
-    '52xPrompt',     # Run2012[AB]-PromptReco
+    '52xPrompt',     # Run2012[AB]{C}-PromptReco{_v1} 
     '52x23May2012',  # Run2012A-23May2012
-    '53xPrompt',     # Run2012C-PromptReco-v2, Run2012D-PromptReco
+    '53xPromptC',    # Run2012C-PromptReco-v2
+    '53xPromptD',    # Run2012D-PromptReco
     '53x13July2012', # Run2012[AB]-13Jul2012
     '53x06Aug2012',  # Run2012A-06Aug2012
     '53x24Aug2012',  # Run2012C-24Aug2012
@@ -90,13 +91,14 @@ process.MessageLogger.cerr.SusyNtuplizer = cms.untracked.PSet( limit = cms.untra
 process.load('Configuration.Geometry.GeometryIdeal_cff')
 process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
+
 # The following global tags are the latest as of April 8th 2013. The user is strongly recommended to check the
 # SWGuideFrontierConditions twiki before running the configuration.
 if dataset == '52xPrompt':
     process.GlobalTag.globaltag = 'GR_P_V39_AN3::All'
 elif dataset == '52x23May2012':
     process.GlobalTag.globaltag = 'FT_P_V32B_AN4::All'
-elif dataset == '53xPrompt':
+elif dataset == '53xPromptC' or dataset == '53xPromptD':
     process.GlobalTag.globaltag = 'GR_P_V42_AN4::All'    
 elif dataset == '53x13July2012':
     process.GlobalTag.globaltag = 'FT_53_V6C_AN4::All'
@@ -122,28 +124,14 @@ process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = 0
 process.susyNtuplizer.isFastSim = isFastSim
 
-if dataset == '53x13July2012' or dataset == '53x24Aug2012':
-    process.susyNtuplizer.storeLumiInfo = cms.bool(False)
-
-if isRealData:
-    process.susyNtuplizer.metCollectionTags.remove('genMetTrue')
-    process.susyNtuplizer.jetFlavourMatchingTags = cms.PSet()
-    process.susyNtuplizer.gridParams = cms.vstring()
-elif isFastSim:
-    process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
-    process.susyNtuplizer.muonIdTags = cms.PSet()
-    process.susyNtuplizer.metFilters.remove('CSCBeamHalo')
-    process.susyNtuplizer.metFilters.remove('HcalNoise')
-    process.susyNtuplizer.metFilters.remove('LogErrorTooManyClusters')
-    process.susyNtuplizer.metFilters.remove('LogErrorTooManyTripletsPairs')
-    process.susyNtuplizer.metFilters.remove('LogErrorTooManySeeds')
-
-if is52x or isFastSim:
-    process.susyNtuplizer.metFilters.remove('ManyStripClus53X')
-    process.susyNtuplizer.metFilters.remove('TooManyStripClus53X')
-
-if dataset != '53x22Jan2013':
-    process.susyNtuplizer.metFilters.remove('HcalLaserRECOUserStep')
+#########################
+### HLT result filter ###
+#########################
+if len(hltPaths) != 0:
+    process.load("HLTrigger.HLTfilters.hltHighLevel_cfi")
+    process.hltHighLevel.HLTPaths = hltPaths
+else:
+    process.hltHighLevel = cms.Sequence() # placeholder
 
 ##########################################
 ### Good vertex collection (transient) ###
@@ -377,10 +365,10 @@ process.pfType01p2SysShiftCorrectedMet = process.pfType1p2CorrectedMet.clone(
 process.correctedMetSequence = cms.Sequence(
     process.produceCaloMETCorrections +
     process.producePFMETCorrections +
-    process.pfMEtSysShiftCorr +
     process.pfCandidateToVertexAssoc +
     process.pfType0MetCorrection +
     process.pfType0CorrectedMet +
+    process.pfMEtSysShiftCorr +
     process.pfSysShiftCorrectedMet +
     process.pfType01SysShiftCorrectedMet +
     process.pfType01p2SysShiftCorrectedMet
@@ -807,16 +795,6 @@ process.metFiltersSequence = cms.Sequence(
     process.logErrorTooManySeeds
 )
 
-if isFastSim:
-    process.metFiltersSequence.remove(process.HBHENoiseFilterResultProducer)
-    process.metFiltersSequence.remove(process.logErrorTooManyClusters)
-    process.metFiltersSequence.remove(process.logErrorTooManyTripletsPairs)
-    process.metFiltersSequence.remove(process.logErrorTooManySeeds)
-
-if is52x or isFastSim:
-    process.metFiltersSequence.remove(process.manystripclus53X)
-    process.metFiltersSequence.remove(process.toomanystripclus53X)
-
 ######################
 ### NoPU & MVA MET ###
 ######################
@@ -878,15 +856,68 @@ if runNoPUMVAMetSequence:
         process.pfMVAMet
     )
 else:
+    process.noPUMVAMetSequence = cms.Sequence() # placeholder
+
+###################################################################
+### Dataset-dependent sequence and event content configurations ###
+###################################################################
+
+if isRealData:
+    process.susyNtuplizer.metCollectionTags.remove('genMetTrue')
+    process.susyNtuplizer.jetFlavourMatchingTags = cms.PSet()
+    process.susyNtuplizer.gridParams = cms.vstring()
+
+if isFastSim:
+    process.susyNtuplizer.muonCollectionTags = cms.vstring("muons")
+    process.susyNtuplizer.muonIdTags = cms.PSet()
+
+    process.metFiltersSequence.remove(process.HBHENoiseFilterResultProducer)
+    process.metFiltersSequence.remove(process.logErrorTooManyClusters)
+    process.metFiltersSequence.remove(process.logErrorTooManyTripletsPairs)
+    process.metFiltersSequence.remove(process.logErrorTooManySeeds)
+    # met filters with run = False will automatically be default = False
+    process.susyNtuplizer.metFilters.CSCBeamHalo.run = False
+    process.susyNtuplizer.metFilters.HcalNoise.run = False
+    process.susyNtuplizer.metFilters.LogErrorTooManyClusters.run = False
+    process.susyNtuplizer.metFilters.LogErrorTooManyTripletsPairs.run = False
+    process.susyNtuplizer.metFilters.LogErrorTooManySeeds.run = False
+
+if is52x or isFastSim:
+    process.metFiltersSequence.remove(process.manystripclus53X)
+    process.metFiltersSequence.remove(process.toomanystripclus53X)
+    process.susyNtuplizer.metFilters.ManyStripClus53X.run = False
+    process.susyNtuplizer.metFilters.TooManyStripClus53X.run = False
+
+if not runNoPUMVAMetSequence:
     process.susyNtuplizer.metCollectionTags.remove('pfNoPileUpMet')
     process.susyNtuplizer.metCollectionTags.remove('pfMVAMet')
-    process.noPUMVAMetSequence = cms.Sequence()
 
-#########################
-### HLT result filter ###
-#########################
-process.load("HLTrigger.HLTfilters.hltHighLevel_cfi")
-process.hltHighLevel.HLTPaths = hltPaths
+if dataset == '52xPrompt' or dataset == '52x23May2012' or dataset == '53xPromptC' or \
+dataset == '53x13July2012' or dataset == '53x06Aug2012' or dataset == '53x24Aug2012' or dataset == '53x11Dec2013':
+    process.susyNtuplizer.metFilters.HcalLaserEventList.default = True
+
+if dataset == '53xPromptD' or dataset == '53x16Jan2013':
+    process.susyNtuplizer.metFilters.HcalLaserOccupancy.default = True
+
+if dataset == '53x22Jan2013':
+    process.susyNtuplizer.metFilters.HcalLaserRECOUserStep.default = True
+else:
+    process.susyNtuplizer.metFilters.HcalLaserRECOUserStep.run = False
+
+if dataset == '53x13July2012' or dataset == '53x06Aug2012':
+    process.susyNtuplizer.metFilters.EcalLaserCorr.default = True
+
+if dataset == '53x13July2012' or dataset == '53x24Aug2012':
+    process.susyNtuplizer.storeLumiInfo = cms.bool(False)
+
+if dataset == '53x22Jan2013':
+    process.correctedMetSequence.remove(process.pfMEtSysShiftCorr)
+    process.correctedMetSequence.remove(process.pfSysShiftCorrectedMet)
+    process.correctedMetSequence.remove(process.pfType01SysShiftCorrectedMet)
+    process.correctedMetSequence.remove(process.pfType01p2SysShiftCorrectedMet)
+    process.susyNtuplizer.metCollectionTags.remove('pfSysShiftCorrectedMet')
+    process.susyNtuplizer.metCollectionTags.remove('pfType01SysShiftCorrectedMet')
+    process.susyNtuplizer.metCollectionTags.remove('pfType01p2SysShiftCorrectedMet')
 
 #####################
 ### Finalize path ###

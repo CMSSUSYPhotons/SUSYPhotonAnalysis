@@ -10,7 +10,7 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.32 2013/05/05 11:48:49 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.33 2013/05/07 20:29:24 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -1463,10 +1463,6 @@ susy::Event::Event() :
   outputTrees_()
 {
   Init();
-
-  metFilterMask = 
-    (1 << kCSCBeamHalo) | (1 << kHcalNoise) | (1 << kEcalDeadCellTP) | (1 << kHcalLaserRECOUserStep) | (1 << kTrackingFailure) |
-    (1 << kEEBadSC) | (1 << kLogErrorTooManyClusters) | (1 << kLogErrorTooManyTripletsPairs) | (1 << kLogErrorTooManySeeds);
 }
 
 susy::Event::Event(Event const& _orig) :
@@ -1478,10 +1474,6 @@ susy::Event::Event(Event const& _orig) :
   copyEvent(_orig);
 
   Init();
-
-  metFilterMask = 
-    (1 << kCSCBeamHalo) | (1 << kHcalNoise) | (1 << kEcalDeadCellTP) | (1 << kHcalLaserRECOUserStep) | (1 << kTrackingFailure) |
-    (1 << kEEBadSC) | (1 << kLogErrorTooManyClusters) | (1 << kLogErrorTooManyTripletsPairs) | (1 << kLogErrorTooManySeeds);
 }
 
 susy::Event::~Event()
@@ -1504,6 +1496,7 @@ susy::Event::Init()
   rhoBarrel                   = 0;
   rho25                       = 0;
   metFilterBit                = 0xffffffff;
+  // metFilterMask must not be initialized per event
 
   beamSpot                   *= 0;
 
@@ -1542,6 +1535,7 @@ susy::Event::Print(std::ostream& os/* = std::cout*/) const
   os << "rhoBarrel: " << rhoBarrel << std::endl;
   os << "rho25: " << rho25 << std::endl;
   os << "metFilterBit: " << bin(metFilterBit) << std::endl;
+  os << "metFilterMask:" << bin(metFilterMask) << std::endl;
   os << "metFilterBit break down ===> " << std::endl;
   indent(os) << "CSCBeamHalo(" << passMetFilter(kCSCBeamHalo) << ") ";
   indent(os) << "HcalNoise(" << passMetFilter(kHcalNoise) << ") ";
@@ -1744,6 +1738,7 @@ susy::Event::setInput(TTree& _tree)
   _tree.SetBranchAddress("rhoBarrel", &rhoBarrel);
   _tree.SetBranchAddress("rho25", &rho25);
   _tree.SetBranchAddress("metFilterBit", &metFilterBit);
+  _tree.SetBranchAddress("metFilterMask", &metFilterMask);
 
   if(_tree.GetBranchStatus("beamSpot.")) _tree.SetBranchAddress("beamSpot.", new TVector3*(&beamSpot));
   if(_tree.GetBranchStatus("vertices")) _tree.SetBranchAddress("vertices", new VertexCollection*(&vertices));
@@ -1817,6 +1812,7 @@ susy::Event::addOutput(TTree& _tree)
   _tree.Branch("rhoBarrel", &rhoBarrel, "rhoBarrel/F");
   _tree.Branch("rho25", &rho25, "rho25/F");
   _tree.Branch("metFilterBit", &metFilterBit, "metFilterBit/I");
+  _tree.Branch("metFilterMask", &metFilterMask, "metFilterMask/I");
 
   _tree.Branch("beamSpot.", "TVector3", new TVector3*(&beamSpot));
   _tree.Branch("vertices", "std::vector<susy::Vertex>", new VertexCollection*(&vertices));
@@ -1972,6 +1968,7 @@ susy::Event::copyEvent(Event const& _orig)
   rhoBarrel              = _orig.rhoBarrel;
   rho25                  = _orig.rho25;
   metFilterBit           = _orig.metFilterBit;
+  metFilterMask          = _orig.metFilterMask;
 
   beamSpot               = _orig.beamSpot;
 

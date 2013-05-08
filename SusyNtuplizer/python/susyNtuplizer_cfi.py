@@ -124,25 +124,97 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
     puSummaryInfoTag = cms.string("addPileupInfo"),
     triggerEventTag = cms.string("hltTriggerSummaryAOD"),
     gridParams = cms.vstring("ptHat"),
-    metFilters = cms.vstring(
-        'CSCBeamHalo',
-        'HcalNoise',
-        'EcalDeadCellTP',
-        'EcalDeadCellBE',
-        'TrackingFailure',
-        'EEBadSC',
-        'HcalLaserOccupancy',
-        'HcalLaserEventList',
-        'HcalLaserRECOUserStep',
-        'EcalLaserCorr',
-        'ManyStripClus53X',
-        'TooManyStripClus53X',
-        'LogErrorTooManyClusters',
-        'LogErrorTooManyTripletsPairs',
-        'LogErrorTooManySeeds',
-        'EERingOfFire',
-        'InconsistentMuon',
-        'GreedyMuon'
+    metFilters = cms.PSet(
+        CSCBeamHalo = cms.PSet(
+            tag = cms.string("BeamHaloSummary"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        HcalNoise = cms.PSet(
+            tag = cms.string("HBHENoiseFilterResultProducer:HBHENoiseFilterResult"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        EcalDeadCellTP = cms.PSet(
+            tag = cms.string("EcalDeadCellTriggerPrimitiveFilter"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        EcalDeadCellBE = cms.PSet(
+            tag = cms.string("EcalDeadCellBoundaryEnergyFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        TrackingFailure = cms.PSet(
+            tag = cms.string("trackingFailureFilter"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        EEBadSC = cms.PSet(
+            tag = cms.string("eeBadScFilter"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        HcalLaserOccupancy = cms.PSet(
+            tag = cms.string("hcalLaserEventFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        HcalLaserEventList = cms.PSet(
+            tag = cms.string(""),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        HcalLaserRECOUserStep = cms.PSet(
+            tag = cms.string(""),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        EcalLaserCorr = cms.PSet(
+            tag = cms.string("ecalLaserCorrFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        ManyStripClus53X = cms.PSet(
+            tag = cms.string("manystripclus53X"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        TooManyStripClus53X = cms.PSet(
+            tag = cms.string("toomanystripclus53X"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        LogErrorTooManyClusters = cms.PSet(
+            tag = cms.string("logErrorTooManyClusters"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        LogErrorTooManyTripletsPairs = cms.PSet(
+            tag = cms.string("logErrorTooManyTripletsPairs"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        LogErrorTooManySeeds = cms.PSet(
+            tag = cms.string("logErrorTooManySeeds"),
+            run = cms.bool(True),
+            default = cms.bool(True)
+        ),
+        EERingOfFire = cms.PSet(
+            tag = cms.string("eeNoiseFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        InconsistentMuon = cms.PSet(
+            tag = cms.string("inconsistentMuonPFCandidateFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        ),
+        GreedyMuon = cms.PSet(
+            tag = cms.string("greedyMuonPFCandidateFilter"),
+            run = cms.bool(True),
+            default = cms.bool(False)
+        )
     ),
     photonSCRegressionWeights = cms.FileInPath("SusyAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),

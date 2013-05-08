@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.56 2013/05/05 22:11:52 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.57 2013/05/07 09:51:57 yiiyama Exp $
 //
 //
 
@@ -223,7 +223,7 @@ private:
   std::map<std::string, VString> puJetIdCollectionTags_;
   std::string pfPUCandidatesTag_;
   std::string photonSCRegressionWeights_;
-  std::set<unsigned> metFilters_;
+  std::map<unsigned, std::string> metFilterTags_;
 
   // for HLT prescales
   HLTConfigProvider* hltConfig_;
@@ -341,7 +341,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   puJetIdCollectionTags_(),
   pfPUCandidatesTag_(iConfig.getParameter<std::string>("pfPUCandidatesTag")),
   photonSCRegressionWeights_(iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath()),
-  metFilters_(),
+  metFilterTags_(),
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
@@ -456,7 +456,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     Since the values are only defined with regard to specific collections,
     the configuration is also organized into sub-configs for each collection.
     The tags are stored as a map [collection name -> VString of tags].
-   */
+  */
   edm::ParameterSet const& bTagCollectionTags(iConfig.getParameterSet("bTagCollectionTags"));
   for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
     if(!bTagCollectionTags.existsAs<edm::ParameterSet>(*jItr)) continue;
@@ -481,7 +481,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     Since the values are only defined with regard to specific collections,
     the configuration is also organized into sub-configs for each collection.
     The tags are stored as a map [collection name -> VString of tags].
-   */
+  */
   edm::ParameterSet const& qgTagCollectionTags(iConfig.getParameterSet("qgTagCollectionTags"));
   for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
     if(!qgTagCollectionTags.existsAs<std::string>(*jItr)) continue;
@@ -499,7 +499,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     Since the values are only defined with regard to specific collections,
     the configuration is also organized into sub-configs for each collection.
     The tags are stored as a map [collection name -> pair of tags].
-   */
+  */
   edm::ParameterSet const& jetFlavourMatchingTags(iConfig.getParameterSet("jetFlavourMatchingTags"));
   for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
     if(!jetFlavourMatchingTags.existsAs<edm::ParameterSet>(*jItr)) continue;
@@ -516,7 +516,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     Since the values are only defined with regard to specific collections,
     the configuration is also organized into sub-configs for each collection.
     The tags are stored as a map [collection name -> VString of tags].
-   */
+  */
   edm::ParameterSet const& puJetIdConfigs(iConfig.getParameterSet("puJetId"));
   for(VString::iterator jItr(pfJetCollectionTags_.begin()); jItr != pfJetCollectionTags_.end(); ++jItr){
     if(!puJetIdConfigs.existsAs<edm::ParameterSet>(*jItr)) continue;
@@ -535,32 +535,8 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   }
 
   /*
-    Get the list of MET filter results to store. Default is all, but some filter is
-    CMSSW release specific and needs to be removed if running on a older release.
-  */
-  VString metFilters(iConfig.getParameter<VString>("metFilters"));
-  for(unsigned iF(0); iF != metFilters.size(); ++iF){
-    if(metFilters[iF] == "CSCBeamHalo") metFilters_.insert(susy::kCSCBeamHalo);
-    else if(metFilters[iF] == "HcalNoise") metFilters_.insert(susy::kHcalNoise);
-    else if(metFilters[iF] == "EcalDeadCellTP") metFilters_.insert(susy::kEcalDeadCellTP);
-    else if(metFilters[iF] == "EcalDeadCellBE") metFilters_.insert(susy::kEcalDeadCellBE);
-    else if(metFilters[iF] == "HcalLaserOccupancy") metFilters_.insert(susy::kHcalLaserOccupancy);
-    else if(metFilters[iF] == "TrackingFailure") metFilters_.insert(susy::kTrackingFailure);
-    else if(metFilters[iF] == "EEBadSC") metFilters_.insert(susy::kEEBadSC);
-    else if(metFilters[iF] == "HcalLaserEventList") metFilters_.insert(susy::kHcalLaserEventList);
-    else if(metFilters[iF] == "EcalLaserCorr") metFilters_.insert(susy::kEcalLaserCorr);
-    else if(metFilters[iF] == "ManyStripClus53X") metFilters_.insert(susy::kManyStripClus53X);
-    else if(metFilters[iF] == "TooManyStripClus53X") metFilters_.insert(susy::kTooManyStripClus53X);
-    else if(metFilters[iF] == "LogErrorTooManyClusters") metFilters_.insert(susy::kLogErrorTooManyClusters);
-    else if(metFilters[iF] == "EERingOfFire") metFilters_.insert(susy::kEERingOfFire);
-    else if(metFilters[iF] == "InconsistentMuon") metFilters_.insert(susy::kInconsistentMuon);
-    else if(metFilters[iF] == "GreedyMuon") metFilters_.insert(susy::kGreedyMuon);
-    else if(metFilters[iF] == "HcalLaserRECOUserStep") metFilters_.insert(susy::kHcalLaserRECOUserStep);
-  }
-
-  /*
     Open the output file.
-   */
+  */
   TString outputFileName(iConfig.getParameter<std::string>("outputFileName"));
 
   TFile* outF(TFile::Open(outputFileName, "RECREATE"));
@@ -576,7 +552,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     The character ':' in the collection tags need to be replaced with '_'.
     Also for jet collections, we historically have the convention to strip off the
     "CaloJets" and "PFJets" from the collection name.
-   */
+  */
   susyEvent_ = new susy::Event;
 
   for(VString::iterator tItr(metCollectionTags_.begin()); tItr != metCollectionTags_.end(); ++tItr)
@@ -602,23 +578,59 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     susyEvent_->jptJets[TString(*tItr).ReplaceAll(":", "_")] = susy::JPTJetCollection();
 
   /*
+    Get the list of MET filter results to store.
+    Only the fiters with "run" parameter set to True are stored.
+    At the same time set the MET filter bitmask to the correct setting for the dataset.
+    This mask will be used in Event::passMetFilters() function.
+  */
+  susyEvent_->metFilterMask = 0;
+
+  edm::ParameterSet const& metFilters(iConfig.getParameterSet("metFilters"));
+  VString metFilterNames(metFilters.getParameterNames());
+  for(unsigned iF(0); iF != metFilterNames.size(); ++iF){
+    edm::ParameterSet const& filterConfig(metFilters.getParameterSet(metFilterNames[iF]));
+    if(!filterConfig.getParameter<bool>("run")) continue;
+
+    unsigned bitPosition(-1);
+    if(metFilterNames[iF] == "CSCBeamHalo") bitPosition = susy::kCSCBeamHalo;
+    else if(metFilterNames[iF] == "HcalNoise") bitPosition = susy::kHcalNoise;
+    else if(metFilterNames[iF] == "EcalDeadCellTP") bitPosition = susy::kEcalDeadCellTP;
+    else if(metFilterNames[iF] == "EcalDeadCellBE") bitPosition = susy::kEcalDeadCellBE;
+    else if(metFilterNames[iF] == "HcalLaserOccupancy") bitPosition = susy::kHcalLaserOccupancy;
+    else if(metFilterNames[iF] == "TrackingFailure") bitPosition = susy::kTrackingFailure;
+    else if(metFilterNames[iF] == "EEBadSC") bitPosition = susy::kEEBadSC;
+    else if(metFilterNames[iF] == "HcalLaserEventList") bitPosition = susy::kHcalLaserEventList;
+    else if(metFilterNames[iF] == "EcalLaserCorr") bitPosition = susy::kEcalLaserCorr;
+    else if(metFilterNames[iF] == "ManyStripClus53X") bitPosition = susy::kManyStripClus53X;
+    else if(metFilterNames[iF] == "TooManyStripClus53X") bitPosition = susy::kTooManyStripClus53X;
+    else if(metFilterNames[iF] == "LogErrorTooManyClusters") bitPosition = susy::kLogErrorTooManyClusters;
+    else if(metFilterNames[iF] == "EERingOfFire") bitPosition = susy::kEERingOfFire;
+    else if(metFilterNames[iF] == "InconsistentMuon") bitPosition = susy::kInconsistentMuon;
+    else if(metFilterNames[iF] == "GreedyMuon") bitPosition = susy::kGreedyMuon;
+    else if(metFilterNames[iF] == "HcalLaserRECOUserStep") bitPosition = susy::kHcalLaserRECOUserStep;
+
+    metFilterTags_[bitPosition] = filterConfig.getParameter<std::string>("tag");
+    if(filterConfig.getParameter<bool>("default")) susyEvent_->metFilterMask |= (1 << bitPosition);
+  }
+
+  /*
     Get the list of gridParams to be stored.
     By its nature, any addition of the gridParams will require modifying the function fillGenInfo and
     recompiling the code. In addition, the use must specify, as a VString in the python configuration,
     what the names of the parameters are.
-   */
+  */
   VString gridParamsList(iConfig.getParameter<VString>("gridParams"));
   for(VString::iterator pItr(gridParamsList.begin()); pItr != gridParamsList.end(); ++pItr)
     susyEvent_->gridParams[*pItr] = 0.;
 
   /*
     Pass the output tree to the Event object for branch bookings.
-   */
+  */
   susyEvent_->addOutput(*susyTree_);
 
   /*
     Create a trigger tree if configured.
-   */
+  */
   if(storeTriggerEvents_){
     TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
 
@@ -649,7 +661,7 @@ SusyNtuplizer::beginJob()
 
   hltConfig_ = new HLTConfigProvider;
 
-  if(metFilters_.find(susy::kHcalLaserEventList) != metFilters_.end()){
+  if(metFilterTags_.find(susy::kHcalLaserEventList) != metFilterTags_.end()){
     edm::FileInPath listPath("EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz");
     gzFile dummyFP(gzopen(listPath.fullPath().c_str(), "r"));
     if(dummyFP != 0){
@@ -992,26 +1004,6 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillMetFilters";
 
-  // All filters except for HcalLaserEventList and HcalLaserRECOUserStep have their results in the event as boolean flags.
-  // These filter names are defined in runOverAOD.py but hardcoded here - could have better implementation but OK for the time being.
-  std::string filterNames[susy::nMetFilters];
-  filterNames[susy::kCSCBeamHalo] = "BeamHaloSummary";
-  filterNames[susy::kHcalNoise] = "HBHENoiseFilterResultProducer:HBHENoiseFilterResult";
-  filterNames[susy::kEcalDeadCellTP] = "EcalDeadCellTriggerPrimitiveFilter";
-  filterNames[susy::kEcalDeadCellBE] = "EcalDeadCellBoundaryEnergyFilter";
-  filterNames[susy::kTrackingFailure] = "trackingFailureFilter";
-  filterNames[susy::kEEBadSC] = "eeBadScFilter";
-  filterNames[susy::kHcalLaserOccupancy] = "hcalLaserEventFilter";
-  filterNames[susy::kEcalLaserCorr] = "ecalLaserCorrFilter";
-  filterNames[susy::kManyStripClus53X] = "manystripclus53X";
-  filterNames[susy::kTooManyStripClus53X] = "toomanystripclus53X";
-  filterNames[susy::kLogErrorTooManyClusters] = "logErrorTooManyClusters";
-  filterNames[susy::kLogErrorTooManyTripletsPairs] = "logErrorTooManyTripletsPairs";
-  filterNames[susy::kLogErrorTooManySeeds] = "logErrorTooManySeeds";
-  filterNames[susy::kEERingOfFire] = "eeNoiseFilter";
-  filterNames[susy::kInconsistentMuon] = "inconsistentMuonPFCandidateFilter";
-  filterNames[susy::kGreedyMuon] = "greedyMuonPFCandidateFilter";
-
   std::set<unsigned> irregular;
   irregular.insert(susy::kCSCBeamHalo);
   irregular.insert(susy::kHcalLaserEventList);
@@ -1019,16 +1011,19 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
 
   std::vector<bool> pass(susy::nMetFilters, true);
 
+  std::map<unsigned, std::string>::iterator fItr;
+
   edm::Handle<bool> boolH;
   for(unsigned iF(0); iF != susy::nMetFilters; ++iF){
-    // skip filters that are not a simple bool
+    // skip filters that are not a simple bool in the edm::Event
     if(irregular.find(iF) != irregular.end()) continue;
     // skip filters disabled in the job configuration
-    if(metFilters_.find(iF) == metFilters_.end()) continue;
+    fItr = metFilterTags_.find(iF);
+    if(fItr == metFilterTags_.end()) continue;
 
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[iF];
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << fItr->first;
 
-    _event.getByLabel(edm::InputTag(filterNames[iF]), boolH);
+    _event.getByLabel(edm::InputTag(fItr->second), boolH);
 
     switch(iF){
     case susy::kManyStripClus53X:
@@ -1043,22 +1038,22 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
     }
   }
 
-  if(metFilters_.find(susy::kCSCBeamHalo) != metFilters_.end()){
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << filterNames[susy::kCSCBeamHalo];
+  if((fItr = metFilterTags_.find(susy::kCSCBeamHalo)) != metFilterTags_.end()){
+    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: " << fItr->first;
 
     edm::Handle<reco::BeamHaloSummary> beamHaloSummary;
-    _event.getByLabel(edm::InputTag(filterNames[susy::kCSCBeamHalo]), beamHaloSummary);
+    _event.getByLabel(edm::InputTag(fItr->second), beamHaloSummary);
 
     pass[susy::kCSCBeamHalo] = !(beamHaloSummary->CSCTightHaloId());
   }
 
-  if(metFilters_.find(susy::kHcalLaserEventList) != metFilters_.end() && hcalLaserEventListFilter_){
+  if(metFilterTags_.find(susy::kHcalLaserEventList) != metFilterTags_.end() && hcalLaserEventListFilter_){
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter based on an event list (Run2012ABC)";
 
     pass[susy::kHcalLaserEventList] = hcalLaserEventListFilter_->filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
   }
 
-  if(metFilters_.find(susy::kHcalLaserRECOUserStep) != metFilters_.end()){
+  if(metFilterTags_.find(susy::kHcalLaserRECOUserStep) != metFilterTags_.end()){
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter run at RECO (Run2012 2013 rerecos)";
 
     edm::Handle<edm::TriggerResults> recoPathResultsH;
