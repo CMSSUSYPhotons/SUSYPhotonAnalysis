@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.44 2013/05/07 20:29:25 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.45 2013/05/08 16:11:33 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -142,7 +142,7 @@ namespace susy {
     TVector3 vertex;
     TLorentzVector momentum;
 
-    Particle const* mother;  //!
+    Particle const* mother;  //! Transient member - only filled at analysis time
 
   };
 
@@ -241,8 +241,8 @@ namespace susy {
     TVector3 position;
     std::vector<UShort_t> basicClusterIndices;
 
-    const Cluster* seedCluster;                 //!
-    std::vector<const Cluster*> basicClusters;  //!
+    const Cluster* seedCluster;                 //! Transient member - only filled at analysis time
+    std::vector<const Cluster*> basicClusters;  //! Transient member - only filled at analysis time
   };
 
 
@@ -289,7 +289,7 @@ namespace susy {
     TVector3       vertex;   // position of the point of reference for momentum calculation (not the assigned PV)
     TLorentzVector momentum;
 
-    const Vertex*  assignedVertex; //!
+    const Vertex*  assignedVertex; //! Transient member - only filled at analysis time
   };
 
 
@@ -419,8 +419,8 @@ namespace susy {
 
     TLorentzVector momentum;
 
-    const SuperCluster* superCluster; //!
-    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //!
+    const SuperCluster* superCluster; //! Transient member - only filled at analysis time
+    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //! Transient member - only filled at analysis time
 
   };
 
@@ -551,10 +551,10 @@ namespace susy {
     TVector3       vertex;
     TLorentzVector momentum;
 
-    const Track*        gsfTrack;        //!
-    const Track*        closestCtfTrack; //!
-    const Cluster*      electronCluster; //!
-    const SuperCluster* superCluster;    //!
+    const Track*        gsfTrack;        //! Transient member - only filled at analysis time
+    const Track*        closestCtfTrack; //! Transient member - only filled at analysis time
+    const Cluster*      electronCluster; //! Transient member - only filled at analysis time
+    const SuperCluster* superCluster;    //! Transient member - only filled at analysis time
   };
 
 
@@ -657,14 +657,14 @@ namespace susy {
     Short_t        dytTrackIndex;
     TLorentzVector momentum;
 
-    const Track* innerTrack;       //!
-    const Track* outerTrack;       //!
-    const Track* globalTrack;      //!
-    const Track* tpfmsTrack;       //!
-    const Track* pickyTrack;       //!
-    const Track* dytTrack;         //!
-    const Track* bestTrack;        //!
-    const Track* highPtBestTrack;  //!
+    const Track* innerTrack;       //! Transient member - only filled at analysis time
+    const Track* outerTrack;       //! Transient member - only filled at analysis time
+    const Track* globalTrack;      //! Transient member - only filled at analysis time
+    const Track* tpfmsTrack;       //! Transient member - only filled at analysis time
+    const Track* pickyTrack;       //! Transient member - only filled at analysis time
+    const Track* dytTrack;         //! Transient member - only filled at analysis time
+    const Track* bestTrack;        //! Transient member - only filled at analysis time
+    const Track* highPtBestTrack;  //! Transient member - only filled at analysis time
   };
 
 
@@ -806,8 +806,8 @@ namespace susy {
     std::map<TString, Float_t> jecScaleFactors;
     Float_t        jecUncertainty;
 
-    std::vector<const Track*> tracks;           //!
-    std::vector<const PFParticle*> pfParticles; //!
+    std::vector<const Track*> tracks;           //! Transient member - only filled at analysis time
+    std::vector<const PFParticle*> pfParticles; //! Transient member - only filled at analysis time
   };
 
 
@@ -1039,6 +1039,7 @@ namespace susy {
     // Keep a pointer to each tree that is bound to this object. Only one input tree is supported.
     // If you wish to mix events from multiple sources, you will have to copy the event using the
     // copyEvent function.
+    // These variables are not saved members of the susyTree.
     TTree* inputTree_;
     std::vector<TTree*> outputTrees_;
   };
