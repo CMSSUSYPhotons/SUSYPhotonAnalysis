@@ -12,7 +12,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.h,v 1.45 2013/05/08 16:11:33 yiiyama Exp $
+// $Id: SusyEvent.h,v 1.46 2013/05/10 14:49:26 yiiyama Exp $
 //
 
 #ifndef SusyEvent_h
@@ -414,8 +414,8 @@ namespace susy {
     Float_t        superClusterEtaWidth;
     TVector3       caloPosition;
 
-    std::pair<Double_t, Double_t> MVAregEnergyAndErr;
-    TLorentzVector MVAcorrMomentum;
+    Double_t       MVAregEnergy;
+    Double_t       MVAregErr;
 
     TLorentzVector momentum;
 

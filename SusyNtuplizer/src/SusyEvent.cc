@@ -10,7 +10,7 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.33 2013/05/07 20:29:24 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.34 2013/05/08 16:11:33 yiiyama Exp $
 //
 
 #include "SusyEvent.h"
@@ -363,9 +363,8 @@ susy::Photon::Init()
   superClusterEtaWidth            = 0;
   caloPosition                   *= 0;
 
-  MVAregEnergyAndErr.first        = 0;
-  MVAregEnergyAndErr.second       = 0;
-  MVAcorrMomentum                *= 0;
+  MVAregEnergy                    = 0;
+  MVAregErr                       = 0;
 
   momentum                       *= 0;
 
@@ -465,8 +464,8 @@ susy::Photon::Print(std::ostream& os/* = std::cout*/) const
   indent(os) << "superClusterEtaWidth: " << superClusterEtaWidth << std::endl;
   indent(os) << "caloPosition: " << caloPosition << std::endl;
   
-  indent(os) << "MVAregEnergyAndErr: " << MVAregEnergyAndErr.first << ", " << MVAregEnergyAndErr.second << std::endl;
-  indent(os) << "MVAcorrMomentum: " << MVAcorrMomentum << std::endl;
+  indent(os) << "MVAregEnergy: " << MVAregEnergy << std::endl;
+  indent(os) << "MVAregErr:    " << MVAregErr    << std::endl;
   
   indent(os) << "momentum: " << momentum << std::endl;
 }

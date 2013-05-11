@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.57 2013/05/07 09:51:57 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.58 2013/05/08 16:11:33 yiiyama Exp $
 //
 //
 
@@ -1725,10 +1725,18 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       fillTracksAround(*it, 0.4, trkH);
 
       // using kt6PFJets:rho
-      pho.MVAregEnergyAndErr = scEnergyCorrector_.CorrectedEnergyWithErrorV3(*it, *vtxWithBSH, susyEvent_->rho, lazyTools, _eventSetup);
-      double regEnergy(pho.MVAregEnergyAndErr.first);
-      pho.MVAcorrMomentum.SetVect(pho.caloPosition * (regEnergy / pho.caloPosition.Mag()));
-      pho.MVAcorrMomentum.SetE(regEnergy);
+      //MVA supercluster regression correction and error are calculated with respect to the primary vertex.
+      //Photons use (0,0,0) as vertex, so need to be corrected as follows, where PhoOne and PhoTwo are susy::Photon* :
+      /*
+      TVector3 vPos = (event.vertices[0]).position;
+      TVector3 dirPhoOne=PhoOne->caloPosition - vPos,dirPhoTwo=PhoTwo->caloPosition - vPos;
+      TVector3 pOne=dirPhoOne.Unit()*PhoOne->MVAregEnergy,pTwo=dirPhoTwo.Unit()*PhoTwo->MVAregEnergy;
+      TLorentzVector p4PhoOneVcorr(pOne.x(),pOne.y(),pOne.z(),PhoOne->MVAregEnergy),p4PhoTwoVcorr(pTwo.x(),pTwo.y(),pTwo.z(),PhoTwo->MVAregEnergy);
+      float InvarMassMVAcorrVertexCorr=(p4PhoOneVcorr+p4PhoTwoVcorr).M();
+      */
+      std::pair<double,double> scEcor = scEnergyCorrector_.CorrectedEnergyWithErrorV3(*it, *vtxWithBSH, susyEvent_->rho, lazyTools, _eventSetup);
+      pho.MVAregEnergy = scEcor.first;
+      pho.MVAregErr = scEcor.second;
 
       susyCollection.push_back(pho);
 
