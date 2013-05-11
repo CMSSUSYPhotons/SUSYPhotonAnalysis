@@ -15,7 +15,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.19 2013/05/06 08:05:33 yiiyama Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.20 2013/05/07 20:29:38 yiiyama Exp $
 //
 
 #include <TH1F.h>
@@ -302,7 +302,7 @@ SusyEventAnalyzer::Run()
         double effA[3];
         photonEffectiveAreas(absEta, effA);
 
-        if(photon.neutralHadronIso - event.rho25 * effA[1] - 0.4 * pt > 3.5) continue;
+        if(photon.neutralHadronIso - event.rho25 * effA[1] - 0.04 * pt > 3.5) continue;
 
         if(photon.photonIso - event.rho25 * effA[2] - 0.005 * pt > 1.3) continue;
 
