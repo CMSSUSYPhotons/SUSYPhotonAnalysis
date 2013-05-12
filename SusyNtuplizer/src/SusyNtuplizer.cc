@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.58 2013/05/08 16:11:33 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.59 2013/05/11 14:50:02 dmorse Exp $
 //
 //
 
@@ -1725,8 +1725,8 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       fillTracksAround(*it, 0.4, trkH);
 
       // using kt6PFJets:rho
-      //MVA supercluster regression correction and error are calculated with respect to the primary vertex.
-      //Photons use (0,0,0) as vertex, so need to be corrected as follows, where PhoOne and PhoTwo are susy::Photon* :
+      //MVA supercluster regression corrected energy and error.
+      //Photons use (0,0,0) as vertex, so for the best mass resolution they need to be corrected to the primary vertex as follows, where PhoOne and PhoTwo are susy::Photon* :
       /*
       TVector3 vPos = (event.vertices[0]).position;
       TVector3 dirPhoOne=PhoOne->caloPosition - vPos,dirPhoTwo=PhoTwo->caloPosition - vPos;
