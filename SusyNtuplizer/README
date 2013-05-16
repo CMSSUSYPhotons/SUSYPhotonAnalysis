@@ -13,8 +13,7 @@ setenv SCRAM_ARCH slc5_amd64_gcc462
 cmsrel CMSSW_5_3_8_patch3
 cd CMSSW_5_3_8_patch3/src
 cmsenv
-############## TODO change this line once we have a tag for the new release ###########
-cvs co -r HEAD -d SusyAnalysis/SusyNtuplizer         UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -r cms538v0 -d SusyAnalysis/SusyNtuplizer     UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cvs co -r V00-00-13                                  RecoMET/METFilters
 cvs co -r V00-00-08                                  RecoMET/METAnalyzers
 cvs co -r V00-11-17                                  DPGAnalysis/SiStripTools
@@ -78,6 +77,24 @@ c. Compile the workspace.
 
 d. In runOverAOD.py, search for a boolean flag runNoPUMVAMetSequence and set it to True.
 
+1.4 Running on MC -------------------------------------------------------------------------------
+
+Running the ntuplizer on AODSIM sources is no different from running on AOD sources. The only
+requirement is to change the dataset variable in runOverAOD.py to a suitable string, depending
+on the CMSSW release and the type of the simulation the AODSIM was used to create.
+
+One point that needs a special care is the gridParams variable in the Event object (explained
+below). This variable can be used to store additional information of the MC file, such as the mass
+of the sparticle that was used for the scan. If a user wants to add such information to the Event
+object, he/she will have to actually edit the SusyNtuplizer.cc source code. In addition, the name
+of all the parameters must be specified in the job configuration so that the ntuplizer knows what
+branches to make on the susyTree.
+
+By default, for simulation files, a parameter ptHat is registered and is saved to the tree. To
+add parameters, add the following line to the job configuration after susyNtuplizer is loaded:
+
+process.susyNtuplizer.gridParams = ['ptHat', 'another_param', 'yet_another_param']
+
 #################################################################################################
 2. How to use the ntuples
 #################################################################################################
@@ -94,8 +111,7 @@ root -b -q ana.C
 If instead one wishes to work without the CMSSW framework, the library has to be compiled before
 running the analysis:
 
-############## TODO change this line once we have a tag for the new release ###########
-cvs co -d SusyNtuplizer -r HEAD UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -d SusyNtuplizer -r cms538v0 UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cd SusyNtuplizer/macro
 make
 root -b -q ana.C
