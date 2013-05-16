@@ -13,7 +13,7 @@ setenv SCRAM_ARCH slc5_amd64_gcc462
 cmsrel CMSSW_5_3_8_patch3
 cd CMSSW_5_3_8_patch3/src
 cmsenv
-cvs co -r cms538v0 -d SusyAnalysis/SusyNtuplizer     UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -r cms538_v0 -d SusyAnalysis/SusyNtuplizer     UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cvs co -r V00-00-13                                  RecoMET/METFilters
 cvs co -r V00-00-08                                  RecoMET/METAnalyzers
 cvs co -r V00-11-17                                  DPGAnalysis/SiStripTools
@@ -111,7 +111,7 @@ root -b -q ana.C
 If instead one wishes to work without the CMSSW framework, the library has to be compiled before
 running the analysis:
 
-cvs co -d SusyNtuplizer -r cms538v0 UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -d SusyNtuplizer -r cms538_v0 UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cd SusyNtuplizer/macro
 make
 root -b -q ana.C
