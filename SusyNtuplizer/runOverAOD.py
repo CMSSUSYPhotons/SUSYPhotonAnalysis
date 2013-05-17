@@ -337,9 +337,16 @@ process.pfType0MetCorrection = pfMETcorrType0.clone(
     srcHardScatterVertex = cms.InputTag('primaryVertex')
 )
 
-process.pfType0CorrectedMet = process.pfType1CorrectedMet.clone(
+process.pfType01CorrectedMet = process.pfType1CorrectedMet.clone(
     srcType1Corrections = cms.VInputTag(
-        cms.InputTag('pfType0MetCorrection')
+        cms.InputTag('pfType0MetCorrection'),
+        cms.InputTag('pfJetMETcorr', 'type1')
+    )
+)
+process.pfType01p2CorrectedMet = process.pfType1p2CorrectedMet.clone(
+    srcType1Corrections = cms.VInputTag(
+        cms.InputTag('pfType0MetCorrection'),
+        cms.InputTag('pfJetMETcorr', 'type1')
     )
 )
 process.pfSysShiftCorrectedMet = process.pfType1CorrectedMet.clone(
@@ -354,24 +361,17 @@ process.pfType01SysShiftCorrectedMet = process.pfType1CorrectedMet.clone(
         cms.InputTag('pfMEtSysShiftCorr')
     )
 )
-process.pfType01p2SysShiftCorrectedMet = process.pfType1p2CorrectedMet.clone(
-    srcType1Corrections = cms.VInputTag(
-        cms.InputTag('pfType0MetCorrection'),
-        cms.InputTag('pfJetMETcorr', 'type1'),
-        cms.InputTag('pfMEtSysShiftCorr')
-    )
-)
 
 process.correctedMetSequence = cms.Sequence(
     process.produceCaloMETCorrections +
     process.producePFMETCorrections +
     process.pfCandidateToVertexAssoc +
     process.pfType0MetCorrection +
-    process.pfType0CorrectedMet +
+    process.pfType01CorrectedMet +
+    process.pfType01p2CorrectedMet +
     process.pfMEtSysShiftCorr +
     process.pfSysShiftCorrectedMet +
-    process.pfType01SysShiftCorrectedMet +
-    process.pfType01p2SysShiftCorrectedMet
+    process.pfType01SysShiftCorrectedMet
 )
 
 #############################
@@ -914,10 +914,8 @@ if dataset == '53x22Jan2013':
     process.correctedMetSequence.remove(process.pfMEtSysShiftCorr)
     process.correctedMetSequence.remove(process.pfSysShiftCorrectedMet)
     process.correctedMetSequence.remove(process.pfType01SysShiftCorrectedMet)
-    process.correctedMetSequence.remove(process.pfType01p2SysShiftCorrectedMet)
     process.susyNtuplizer.metCollectionTags.remove('pfSysShiftCorrectedMet')
     process.susyNtuplizer.metCollectionTags.remove('pfType01SysShiftCorrectedMet')
-    process.susyNtuplizer.metCollectionTags.remove('pfType01p2SysShiftCorrectedMet')
 
 #####################
 ### Finalize path ###
