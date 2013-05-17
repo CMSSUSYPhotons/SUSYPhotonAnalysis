@@ -53,6 +53,10 @@ Two new MET algorithms were developed by the JetMET group in late 2012. These ar
 of CMSSW, and requires several additional packages to run. By default, the new METs are not included
 in the standard ntuplizer configuration. Follow the instructions below to run the new algorithms.
 
+An instance of fatal error thrown by NoPileUpPFMEtProducer was observed running on a data file.
+Until a fix for this problem is provided by the JetMET group, use of these MET products is not
+recommended.
+
 a. Check out the following packages
 
 cvs co -r b5_3_X_cvMEtCorr_2013Feb22  DataFormats/METReco

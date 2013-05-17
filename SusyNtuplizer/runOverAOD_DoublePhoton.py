@@ -805,7 +805,7 @@ process.metFiltersSequence = cms.Sequence(
 ######################
 
 ####### SET THIS TO TRUE TO RUN THE SEQUENCE (CHECK THE README FILE FOR INSTRUCTIONS) ########
-runNoPUMVAMetSequence = True
+runNoPUMVAMetSequence = False
 ##############################################################################################
 
 if runNoPUMVAMetSequence:
