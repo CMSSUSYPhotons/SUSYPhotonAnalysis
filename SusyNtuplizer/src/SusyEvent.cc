@@ -10,7 +10,7 @@ Description: Objects definitions used for SusyNtuples
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.34 2013/05/08 16:11:33 yiiyama Exp $
+// $Id: SusyEvent.cc,v 1.35 2013/05/11 14:50:02 dmorse Exp $
 //
 
 #include "SusyEvent.h"
@@ -1313,17 +1313,19 @@ susy::TriggerMap::setMenu(TString const& _menuName, std::vector<std::string> con
   currentMenu_ = _menuName;
 
   unsigned nP(_paths.size());
-  unsigned iP(0);
-  for(; iP != nP; ++iP)
-    core_.insert(typename MapCore::value_type(_paths[iP], std::pair<UInt_t*, UChar_t*>(0, 0)));
 
   prescales_ = new UInt_t[nP];
   decisions_ = new UChar_t[nP];
 
-  iP = 0;
-  for(CoreIter itr(core_.begin()); itr != core_.end(); ++itr, ++iP){
-    itr->second.first = prescales_ + iP;
-    itr->second.second = decisions_ + iP;
+  // insert all paths to core first to make sure they are alphabetically ordered
+  for(unsigned iP(0); iP != nP; ++iP)
+    core_.insert(typename MapCore::value_type(_paths[iP], std::pair<UInt_t*, UChar_t*>(0, 0)));
+
+  UInt_t* ps(prescales_);
+  UChar_t* bit(decisions_);
+  for(CoreIter itr(core_.begin()); itr != core_.end(); ++itr, ++ps, ++bit){
+    itr->second.first = ps;
+    itr->second.second = bit;
   }
 
   std::fill_n(prescales_, nP, 0);
@@ -1395,10 +1397,11 @@ susy::TriggerMap::releaseTree(TTree& _tree, Bool_t _fullRelease)
     _tree.ResetBranchAddress(branch);
   if((branch = _tree.GetBranch(trigType_ + "Prescales_" + currentMenu_)))
     _tree.ResetBranchAddress(branch);
-  if(_fullRelease && (branch = _tree.GetBranch(trigType_ + "Config")))
-    _tree.ResetBranchAddress(branch);
 
   if(!_fullRelease) return;
+
+  if((branch = _tree.GetBranch(trigType_ + "Config")))
+    _tree.ResetBranchAddress(branch);
 
   if(inputTree_ == &_tree){
     inputTree_ = 0;

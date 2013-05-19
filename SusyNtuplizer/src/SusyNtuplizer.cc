@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.59 2013/05/11 14:50:02 dmorse Exp $
+// $Id: SusyNtuplizer.cc,v 1.60 2013/05/12 10:56:11 dmorse Exp $
 //
 //
 
@@ -690,9 +690,8 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
     l1GtUtils_->getL1GtRunCache(iRun, _eventSetup, true, false); // use event setup, do not use L1TriggerMenuLite
 
     TString currentConfig(l1GtUtils_->l1TriggerMenu());
-    currentConfig.Remove(currentConfig.Last('/'));
     currentConfig.ReplaceAll("/", "_");
-    currentConfig.ReplaceAll(".", "_");
+    currentConfig.ReplaceAll(".", "p");
     if(currentConfig != susyEvent_->l1Map.getMenuName()){
       int err(0);
       L1GtTriggerMenu const* menu(l1GtUtils_->ptrL1TriggerMenuEventSetup(err));
@@ -720,9 +719,8 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
       TString currentConfig(hltConfig_->tableName());
       currentConfig.ReplaceAll("/online/collisions/", "");
       currentConfig.ReplaceAll("/cdaq/physics/", "");
-      currentConfig.Remove(currentConfig.Index("/HLT"));
       currentConfig.ReplaceAll("/", "_");
-      currentConfig.ReplaceAll(".", "_");
+      currentConfig.ReplaceAll(".", "p");
 
       susyEvent_->hltMap.setMenu(currentConfig, hltConfig_->triggerNames());
     }
