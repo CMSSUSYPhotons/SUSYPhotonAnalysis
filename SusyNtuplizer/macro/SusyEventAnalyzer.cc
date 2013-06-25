@@ -15,7 +15,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyEventAnalyzer.cc,v 1.20 2013/05/07 20:29:38 yiiyama Exp $
+// $Id: SusyEventAnalyzer.cc,v 1.21 2013/05/11 14:14:45 yiiyama Exp $
 //
 
 #include <TH1F.h>
@@ -448,10 +448,8 @@ SusyEventAnalyzer::Run()
           }
         }
         else{
-          if(event.isRealData)
-            jecScale = jet.jecScaleFactors.find("L1FastL2L3Residual")->second;
-          else
-            jecScale = jet.jecScaleFactors.find("L1FastL2L3")->second;
+          // "Residual" correction for data is already included in the ntuplizer (see line 2279 of SusyNtuplizer.cc)
+          jecScale = jet.jecScaleFactors.find("L1FastL2L3")->second;
 
           jecScaleUncertainty = jet.jecUncertainty;
         }
