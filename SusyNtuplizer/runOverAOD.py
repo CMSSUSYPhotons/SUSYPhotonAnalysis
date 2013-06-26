@@ -111,11 +111,11 @@ elif dataset == '53x11Dec2012':
 elif dataset == '53x16Jan2013':
     process.GlobalTag.globaltag = 'FT_P_V43E_AN4::All'
 elif dataset == '53x22Jan2013':
-    process.GlobalTag.globaltag = 'FT_53_V21_AN3::All'
+    process.GlobalTag.globaltag = 'FT_53_V21_AN4::All'
 elif isMC and is52x:
     process.GlobalTag.globaltag = 'START52_V16::All'
 elif isMC and is53x:
-    process.GlobalTag.globaltag = 'START53_V21::All'
+    process.GlobalTag.globaltag = 'START53_V25::All'
 
 #####################
 ### SusyNtuplizer ###
@@ -123,6 +123,7 @@ elif isMC and is53x:
 process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = 0
 process.susyNtuplizer.isFastSim = isFastSim
+process.susyNtuplizer.caloJetCollectionTags = []
 
 #########################
 ### HLT result filter ###
