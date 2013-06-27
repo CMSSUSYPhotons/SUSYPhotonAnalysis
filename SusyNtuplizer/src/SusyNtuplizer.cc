@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.60 2013/05/12 10:56:11 dmorse Exp $
+// $Id: SusyNtuplizer.cc,v 1.61 2013/05/19 09:34:47 yiiyama Exp $
 //
 //
 
@@ -1408,21 +1408,35 @@ SusyNtuplizer::fillMet(edm::Event const& _event, edm::EventSetup const&)
   for(unsigned iCol(0); iCol != metCollectionTags_.size(); ++iCol){
     std::string& colName(metCollectionTags_[iCol]);
 
+    susy::MET& susyMet(susyEvent_->metMap.find(TString(colName).ReplaceAll(":", "_"))->second);
+
     edm::Handle<edm::View<reco::MET> > metH;
     _event.getByLabel(edm::InputTag(colName), metH);
 
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMet: size of MET coll " << colName << " = " << metH->size();
+    if(metH.isValid()){
 
-    reco::MET const& recoMet(*(metH->begin()));
-    susy::MET& susyMet(susyEvent_->metMap.find(TString(colName).ReplaceAll(":", "_"))->second);
+      if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMet: size of MET coll " << colName << " = " << metH->size();
 
-    susyMet.mEt.Set(recoMet.p4().px(),recoMet.p4().py());
-    susyMet.sumEt = recoMet.sumEt();
-    susyMet.significance = recoMet.significance();
+      reco::MET const& recoMet(*(metH->begin()));
 
-    if(debugLevel_ > 2) edm::LogInfo(name()) << "met, metX, metY, sumEt, significance : "
-                                             << susyMet.mEt.Mod() << ", " << susyMet.mEt.X() << ", " << susyMet.mEt.Y() << ", "
-                                             << susyMet.sumEt << ", " << susyMet.significance;
+      susyMet.mEt.Set(recoMet.p4().px(),recoMet.p4().py());
+      susyMet.sumEt = recoMet.sumEt();
+      susyMet.significance = recoMet.significance();
+
+      if(debugLevel_ > 2) edm::LogInfo(name()) << "met, metX, metY, sumEt, significance : "
+                                               << susyMet.mEt.Mod() << ", " << susyMet.mEt.X() << ", " << susyMet.mEt.Y() << ", "
+                                               << susyMet.sumEt << ", " << susyMet.significance;
+
+    }
+    else{
+      // FIX FOR NoPUMet
+
+      if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMet: MET " << colName << " invalid";
+
+      susyMet.mEt.Set(0., 0.);
+      susyMet.sumEt = -1.;
+      susyMet.significance = -1.;
+    }
   }
 }
 

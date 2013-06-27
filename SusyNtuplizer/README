@@ -8,12 +8,11 @@ all the environments set up even in this case).
 
 1.1 Setup ---------------------------------------------------------------------------------------
 
-a. Create a release workspace and checkout the required packages
 setenv SCRAM_ARCH slc5_amd64_gcc462
 cmsrel CMSSW_5_3_8_patch3
 cd CMSSW_5_3_8_patch3/src
 cmsenv
-cvs co -r cms538_v0 -d SusyAnalysis/SusyNtuplizer     UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -r cms538_v1 -d SusyAnalysis/SusyNtuplizer    UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cvs co -r V00-00-13                                  RecoMET/METFilters
 cvs co -r V00-00-08                                  RecoMET/METAnalyzers
 cvs co -r V00-11-17                                  DPGAnalysis/SiStripTools
@@ -31,13 +30,9 @@ cvs co -r V05-00-16                                  DataFormats/JetReco
 cvs co -r regressionMay18a                           RecoEgamma/EgammaTools
 cvs co -r V00-02-14                                  DataFormats/StdDictionaries
 cvs co -r v1-2-3 -d QuarkGluonTagger/EightTeV        UserCode/tomc/QuarkGluonTagger/EightTeV
-
-b. Edit files that cause too many printouts
-
-RecoEgamma/EgammaTools/src/EGEnergyCorrector.cc Line 562-565: delete
-EGamma/EGammaAnalysisTools/plugins/ElectronIdMVAProducer.cc Line 72: insert "TMVA::MsgLogger::InhibitOutput();"
-
-c. Compile
+sed -i '562i/*' RecoEgamma/EgammaTools/src/EGEnergyCorrector.cc
+sed -i '567i*/' RecoEgamma/EgammaTools/src/EGEnergyCorrector.cc
+sed -i '72iTMVA::MsgLogger::InhibitOutput();' EGamma/EGammaAnalysisTools/plugins/ElectronIdMVAProducer.cc
 
 scram b -j8
 
@@ -54,10 +49,10 @@ of CMSSW, and requires several additional packages to run. By default, the new M
 in the standard ntuplizer configuration. Follow the instructions below to run the new algorithms.
 
 An instance of fatal error thrown by NoPileUpPFMEtProducer was observed running on a data file.
-Until a fix for this problem is provided by the JetMET group, use of these MET products is not
-recommended.
+The job configuration was set up to ignore such cases and make the NoPUMet invalid, with
+mEt = (0., 0.), sumEt = -1., and significance = -1.
 
-a. Check out the following packages
+a. Setup additional source codes
 
 cvs co -r b5_3_X_cvMEtCorr_2013Feb22  DataFormats/METReco
 # The package below depends on DataFormats/METReco, and requires a recompile
@@ -69,17 +64,11 @@ cvs co -r V00-03-34                   PhysicsTools/SelectorUtils
 cvs co -r HEAD -d pharrisTmp          UserCode/pharris/MVAMet/data
 cp  -d pharrisTmp/*Dec2012*.root JetMETCorrections/METPUSubtraction/data/
 rm -rf pharrisTmp
+sed -i 's|RecoMET/METAlgorithms|DataFormats/METReco|' JetMETCorrections/METPUSubtraction/plugins/NoPileUpPFMEtDataProducer.cc
 
-b. Then, before compiling, edit the file JetMETCorrections/METPUSubtraction/plugin/NoPileUpPFMEtDataProducer.cc
+b. Compile the workspace.
 
-Replace line 17
-#include "RecoMET/METAlgorithms/interface/SigInputObj.h"    //PH: preserve 5_3_x dependence
-with
-#include "DataFormats/METReco/interface/SigInputObj.h"
-
-c. Compile the workspace.
-
-d. In runOverAOD.py, search for a boolean flag runNoPUMVAMetSequence and set it to True.
+c. In runOverAOD.py, search for a boolean flag runNoPUMVAMetSequence and set it to True.
 
 1.4 Running on MC -------------------------------------------------------------------------------
 
@@ -115,7 +104,7 @@ root -b -q ana.C
 If instead one wishes to work without the CMSSW framework, the library has to be compiled before
 running the analysis:
 
-cvs co -d SusyNtuplizer -r cms538_v0 UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
+cvs co -d SusyNtuplizer -r cms538_v1 UserCode/LPCPJM/SusyAnalysis/SusyNtuplizer
 cd SusyNtuplizer/macro
 make
 root -b -q ana.C

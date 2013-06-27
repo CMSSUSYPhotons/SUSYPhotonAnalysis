@@ -65,8 +65,13 @@ import FWCore.ParameterSet.Config as cms
 ### Initialize process ###
 ##########################
 process = cms.Process("RA3")
-process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(False))
 process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(maxEvents))
+process.options = cms.untracked.PSet(
+    wantSummary = cms.untracked.bool(False),
+    FailPath = cms.untracked.vstring(
+        'FatalRootError'
+    )
+)
 
 process.source = cms.Source("PoolSource",
     noEventSort = cms.untracked.bool(True),
@@ -806,7 +811,7 @@ process.metFiltersSequence = cms.Sequence(
 ######################
 
 ####### SET THIS TO TRUE TO RUN THE SEQUENCE (CHECK THE README FILE FOR INSTRUCTIONS) ########
-runNoPUMVAMetSequence = False
+runNoPUMVAMetSequence = True
 ##############################################################################################
 
 if runNoPUMVAMetSequence:
@@ -926,7 +931,7 @@ if dataset == '53x22Jan2013':
 #####################
 ### Finalize path ###
 #####################
-process.p = cms.Path(
+process.standard_path = cms.Path(
     process.hltHighLevel +
     process.vertexSelectionSequence +
     process.puRhoSequence +
@@ -942,7 +947,13 @@ process.p = cms.Path(
     process.newJetBtagging +
     process.chsJetBtagging +
     process.QGTaggingSequence +
-    process.metFiltersSequence +
-    process.noPUMVAMetSequence +
+    process.metFiltersSequence
+)
+
+process.optional_path = cms.Path(
+    process.noPUMVAMetSequence
+)
+
+process.ntuplizer_step = cms.EndPath(
     process.susyNtuplizer
 )
