@@ -926,7 +926,7 @@ if dataset == '53x22Jan2013':
 #####################
 ### Finalize path ###
 #####################
-process.standard_path = cms.Path(
+process.standard_step = cms.Path(
     process.hltHighLevel +
     process.vertexSelectionSequence +
     process.puRhoSequence +
@@ -945,10 +945,14 @@ process.standard_path = cms.Path(
     process.metFiltersSequence
 )
 
-process.optional_path = cms.Path(
+process.optional_step = cms.Path(
+    process.hltHighLevel +
     process.noPUMVAMetSequence
 )
 
-process.ntuplizer_step = cms.EndPath(
+process.ntuplizer_step = cms.Path(
+    process.hltHighLevel +
     process.susyNtuplizer
 )
+
+process.schedule = cms.Schedule(process.standard_step,process.optional_step,process.ntuplizer_step)
