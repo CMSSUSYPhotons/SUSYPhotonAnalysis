@@ -13,20 +13,22 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.61 2013/05/19 09:34:47 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.62 2013/06/27 09:17:03 yiiyama Exp $
 //
 //
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/EDAnalyzer.h"
-
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/LuminosityBlock.h"
+#include "FWCore/Framework/interface/TriggerNamesService.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/FileInPath.h"
+
+#include "FWCore/ServiceRegistry/interface/Service.h"
 
 #include "DataFormats/Common/interface/RefToPtr.h"
 
@@ -127,6 +129,8 @@
 // MET filters
 #include "PhysicsTools/Utilities/interface/EventFilterFromListStandAlone.h"
 #include "DataFormats/METReco/interface/BeamHaloSummary.h"
+
+
 
 // system include files
 #include <memory>
@@ -244,6 +248,15 @@ private:
   // 3 : print the values of objects in the collection
   int debugLevel_;
 
+  // name of the current process
+  std::string processName_;
+
+  // paths to filter on (useful when running as an EndPath module)
+  // useful when e.g. producing ntuples on-the-fly from MC generation
+  // in such cases the ntuplizer will be in endpath and cannot be skipped with EDFilters
+  // default : empty
+  VString selectEvents_;
+
   // flag for storing L1 information
   // default : true
   bool storeL1Info_;
@@ -347,6 +360,8 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   isolator03_(0),
   hcalLaserEventListFilter_(0),
   debugLevel_(iConfig.getParameter<int>("debugLevel")),
+  processName_(""),
+  selectEvents_(iConfig.getParameter<VString>("selectEvents")),
   storeL1Info_(iConfig.getParameter<bool>("storeL1Info")),
   storeHLTInfo_(iConfig.getParameter<bool>("storeHLTInfo")),
   storeGenInfo_(iConfig.getParameter<bool>("storeGenInfo")),
@@ -367,6 +382,9 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   triggerEvent_(0)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "ctor";
+
+  edm::Service<service::TriggerNamesService> triggerNamesService;
+  processName_ = triggerNamesService->getProcessName();
 
   /*
     Suppress TMVA messages. Only effective for MVA methods invoked from this module.
@@ -698,7 +716,7 @@ SusyNtuplizer::beginRun(edm::Run const& iRun, edm::EventSetup const& _eventSetup
       if(err != 0)
 	throw cms::Exception("RuntimeError") << "L1GtUtils failed to return the trigger menu";
 
-      std::vector<std::string> paths;
+      VString paths;
       AlgorithmMap const& l1GtAlgorithms(menu->gtAlgorithmMap());
       for(CItAlgo iAlgo(l1GtAlgorithms.begin()); iAlgo != l1GtAlgorithms.end(); ++iAlgo)
 	paths.push_back(iAlgo->second.algoName());
@@ -739,6 +757,26 @@ void
 SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& _eventSetup)
 {
   if(debugLevel_ > 0) edm::LogInfo(name()) << "analyze";
+
+  /*
+    If the module is placed in an EndPath, by default all events are processed. This is
+    inconvenient if some EDFilter is employed in the normal paths. In such cases, give the
+    list of framework paths that needs to complete before the ntuplizer can run as the
+    selectEvents vstring. (EDM OutputModule has the exact same functionality)
+  */
+  if(selectEvents_.size() != 0){
+    edm::Handle<edm::TriggerResults> triggerResults;
+    if(_event.getByLabel(edm::InputTag("TriggerResults", "", processName_), triggerResults)){
+
+      edm::TriggerNames const& pathNames(_event.triggerNames(*triggerResults));
+      unsigned iS(0);
+      for(; iS != selectEvents_.size(); ++iS){
+        unsigned iP(pathNames.triggerIndex(selectEvents_[iS]));
+        if(iP != pathNames.size() && triggerResults->accept(iP)) break;
+      }
+      if(iS == selectEvents_.size()) return;
+    }
+  }
 
   /*
     Framework will guarantee that the destructor will be called in case of exceptions.
