@@ -25,6 +25,8 @@
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
+#include <map>
+#include <utility>
 
 // REMOVE THE LINES BELOW IF NOT RUNNING IN CMSSW ENVIRONMENT
 #include "CondFormats/JetMETObjects/interface/FactorizedJetCorrector.h" // to access the JEC scales
@@ -186,8 +188,10 @@ SusyEventAnalyzer::Run()
 
     TH1F* h_met_gg(new TH1F("h_met_gg","#gamma#gamma #slash{E}_{T};#slash{E}_{T} (GeV);Events / GeV", 200, 0., 200.));
     TH1F* h_met_ff(new TH1F("h_met_ff","ff #slash{E}_{T};#slash{E}_{T} (GeV);Events / GeV", 200, 0., 200.));
-    TH1F* h_diEMPt_gg(new TH1F("h_dEMPt_gg", "#gamma#gamma diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
-    TH1F* h_diEMPt_ff(new TH1F("h_dEMPt_ff", "ff diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
+    TH1F* h_diEMPt_gg(new TH1F("h_diEMPt_gg", "#gamma#gamma diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
+    TH1F* h_diEMPt_ff(new TH1F("h_diEMPt_ff", "ff diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
+    TH1F* h_PFDiEMPt_gg(new TH1F("h_PFDiEMPt_gg", "#gamma#gamma PF diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
+    TH1F* h_PFDiEMPt_ff(new TH1F("h_PFDiEMPt_ff", "ff PF diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
 
     ////////// INITIALIZE JEC //////////
     // REMOVE THE LINES BELOW IF NOT RUNNING IN CMSSW ENVIRONMENT
@@ -202,32 +206,6 @@ SusyEventAnalyzer::Run()
                                        jecSourcePrefix + "L2RelativeL3AbsoluteResidual_AK5PF.txt");
       jecUncertainty = new JetCorrectionUncertainty(jecSourcePrefix + "Uncertainty_AK5PF.txt");
     }
-
-    ////////// SET MET FILTER COMBINATION //////////
-    if(printLevel > 0) out << "Set MET filter combination" << std::endl;
-
-    /*
-      Recommended set of MET filters depends on the dataset being used. Analysists should check the JetMET twiki
-      MissingETOptionalFilters (for general info) and PdmVKnowFeatures (for specifics, especially on HcalLaser
-      filter) and modify the configuration below accordingly. The example below follows the JetMET recommendation
-      for 22Jan2013 rereco datasets.
-    */
-    /*
-      There are two ways to apply a combined filter. One is to simply take the logical AND of the individual filters:
-
-      event.passMetFilter(susy::kCSCBeamHalo) && event.passMetFilter(susy::kHcalNoise) && ... (for each event)
-
-      and the other is to use the bit mask below:
-
-      event.metFilterMask = (1 << susy::kCSCBeamHalo) | (1 << susy::kHcalNoise) | ...; (once before the event loop)
-      event.passMetFilters(); (for each event)
-
-      Both will yield exactly same results.
-    */
-    event.metFilterMask =
-      (1 << susy::kCSCBeamHalo) | (1 << susy::kHcalNoise) | (1 << susy::kEcalDeadCellTP) | (1 << susy::kHcalLaserRECOUserStep) | (1 << susy::kTrackingFailure) |
-      (1 << susy::kEEBadSC) | (1 << susy::kLogErrorTooManyClusters) | (1 << susy::kLogErrorTooManyTripletsPairs) | (1 << susy::kLogErrorTooManySeeds);
-
 
     /////////////////////////////////////
     ////////// MAIN EVENT LOOP //////////
@@ -471,7 +449,7 @@ SusyEventAnalyzer::Run()
       }
 
       ////////// MET //////////
-      TVector2 const& metV(event.metMap["pfType01SysShiftCorrectedMet"].mEt);
+      TVector2 const& metV(event.metMap["pfType01CorrectedMet"].mEt);
 
       if(nGoodJets > 0 && metV.Mod() > 50.){
         /* number of events with two good photons, no lepton, >=1 good jets, and MET > 50 GeV */
@@ -479,6 +457,21 @@ SusyEventAnalyzer::Run()
         /* number of events with two fake photons, no lepton, >=1 good jets, and MET > 50 GeV */
         if(fakePhotons.size() >= 2) nCnt[11]++;
       }
+
+      ////////// PF PARTICLES (DEMONSTRATION OF THE WORKAROUND FOR THE BUG IN TAG cms538v0 / cms538v1) ///////////
+      std::map<std::pair<int, float>, susy::PFParticle const*> uniquePF;
+
+      unsigned nPF(event.pfParticles.size());
+      for(unsigned iPF(0); iPF != nPF; ++iPF){
+        susy::PFParticle const& particle(event.pfParticles[iPF]);
+        uniquePF[std::pair<int, float>(particle.pdgId, particle.momentum.Pt())] = &particle;
+      }
+
+      std::vector<susy::PFParticle const*> pfParticles;
+      for(std::map<std::pair<int, float>, susy::PFParticle const*>::iterator pfItr(uniquePF.begin()); pfItr != uniquePF.end(); ++pfItr)
+        pfParticles.push_back(pfItr->second);
+
+      nPF = pfParticles.size();
 
       ////////// FILL HISTOGRAMS //////////
 
@@ -488,12 +481,24 @@ SusyEventAnalyzer::Run()
           TLorentzVector diEMP(goodPhotons[0]->momentum);
           diEMP += goodPhotons[1]->momentum;
           h_diEMPt_gg->Fill(diEMP.Pt());
+
+          TLorentzVector PFDiEMP;
+          for(unsigned iPF(0); iPF != nPF; ++iPF)
+            if(pfParticles[iPF]->momentum.DeltaR(goodPhotons[0]->momentum) < 0.3 || pfParticles[iPF]->momentum.DeltaR(goodPhotons[1]->momentum) < 0.3)
+              PFDiEMP += pfParticles[iPF]->momentum;
+          h_PFDiEMPt_gg->Fill(PFDiEMP.Pt());
         }
         if(fakePhotons.size() >= 2){
           h_met_ff->Fill(metV.Mod());
           TLorentzVector diEMP(fakePhotons[0]->momentum);
           diEMP += fakePhotons[1]->momentum;
           h_diEMPt_ff->Fill(diEMP.Pt());
+
+          TLorentzVector PFDiEMP;
+          for(unsigned iPF(0); iPF != nPF; ++iPF)
+            if(pfParticles[iPF]->momentum.DeltaR(fakePhotons[0]->momentum) < 0.3 || pfParticles[iPF]->momentum.DeltaR(fakePhotons[1]->momentum) < 0.3)
+              PFDiEMP += pfParticles[iPF]->momentum;
+          h_PFDiEMPt_ff->Fill(PFDiEMP.Pt());
         }
       }
 

@@ -13,7 +13,7 @@
 */
 //
 // Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.62 2013/06/27 09:17:03 yiiyama Exp $
+// $Id: SusyNtuplizer.cc,v 1.63 2013/07/03 15:47:07 yiiyama Exp $
 //
 //
 
@@ -187,13 +187,13 @@ private:
   void fillPFJets(edm::Event const&, edm::EventSetup const&);
   void fillJPTJets(edm::Event const&, edm::EventSetup const&);
 
-  unsigned fillTrack(reco::TrackRef const&);
-  unsigned fillGsfTrack(reco::GsfTrackRef const&);
-  unsigned fillSuperCluster(reco::SuperClusterRef const&);
-  unsigned fillCluster(reco::CaloClusterPtr const&);
-  unsigned fillPFParticle(reco::PFCandidatePtr const&);
+  unsigned fillTrack(reco::Track const*);
+  unsigned fillGsfTrack(reco::GsfTrack const*);
+  unsigned fillSuperCluster(reco::SuperCluster const*);
+  unsigned fillCluster(reco::CaloCluster const*);
+  unsigned fillPFParticle(reco::PFCandidate const*, edm::ProductID const* = 0);
 
-  unsigned fillTrackCommon(edm::Ptr<reco::Track> const&, bool&);
+  unsigned fillTrackCommon(reco::Track const*, bool&);
 
   void fillTracksAround(reco::Candidate const&, double, edm::Handle<reco::TrackCollection> const&);
 
@@ -308,10 +308,10 @@ private:
   EGEnergyCorrector scEnergyCorrector_;
 
   // since we deal with both reco::Track and reco::GsfTrack, the track reference needs to be polymorphic
-  typedef std::map<edm::Ptr<reco::Track>, unsigned> TrackStore;
-  typedef std::map<reco::SuperClusterRef, unsigned> SuperClusterStore;
-  typedef std::map<reco::CaloClusterPtr, unsigned> CaloClusterStore;
-  typedef std::map<reco::PFCandidatePtr, unsigned> PFCandidateStore;
+  typedef std::map<reco::Track const*, unsigned> TrackStore;
+  typedef std::map<reco::SuperCluster const*, unsigned> SuperClusterStore;
+  typedef std::map<reco::CaloCluster const*, unsigned> CaloClusterStore;
+  typedef std::map<reco::PFCandidate const*, unsigned> PFCandidateStore;
   struct ProductStore {
     void clear() { tracks.clear(); superClusters.clear(); basicClusters.clear(); pfCandidates.clear(); }
     TrackStore tracks;
@@ -1009,7 +1009,7 @@ SusyNtuplizer::fillVertices(edm::Event const& _event, edm::EventSetup const&)
     if(debugLevel_ > 2) edm::LogInfo(name()) << "vtx" << iV << " : " << recoVtx.x() << ", " << recoVtx.y() << ", " << recoVtx.z();
 
     for(reco::Vertex::trackRef_iterator trkItr(recoVtx.tracks_begin()); trkItr != recoVtx.tracks_end(); ++trkItr){
-      TrackStore::const_iterator itr(productStore_.tracks.find(edm::refToPtr(trkItr->castTo<edm::Ref<reco::TrackCollection> >())));
+      TrackStore::const_iterator itr(productStore_.tracks.find(trkItr->get()));
       if(itr != productStore_.tracks.end())
         susyEvent_->tracks[itr->second].vertexIndex = iV;
     }
@@ -1031,7 +1031,7 @@ SusyNtuplizer::fillGeneralTracks(edm::Event const& _event, edm::EventSetup const
   unsigned iTrk(0);
   for(reco::TrackCollection::const_iterator tItr(trackH->begin()); tItr != trackH->end(); ++tItr, ++iTrk){
     if(tItr->pt() < 1.0) continue;
-    fillTrack(reco::TrackRef(trackH, iTrk));
+    fillTrack(&*tItr);
   }
 }
 
@@ -1124,19 +1124,27 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
   unsigned long iPart(0);
   for(reco::PFCandidateCollection::const_iterator pItr(pfH->begin()); pItr != pfH->end(); ++pItr, ++iPart){
     if(pItr->pt() < pfParticleThreshold_) continue;
-    fillPFParticle(reco::PFCandidatePtr(pfH, iPart));
+    fillPFParticle(&*pItr);
 
     if(debugLevel_ > 2) edm::LogInfo(name()) << "e, px, py, pz = " << pItr->energy() << ", "
                                              << pItr->px() << ", " << pItr->py() << ", " << pItr->pz();
   }
 
-  std::set<unsigned long> puKeys;
-
-  for(reco::PFCandidateCollection::const_iterator puItr(pfPUH->begin()); puItr != pfPUH->end(); ++puItr)
-    puKeys.insert(puItr->sourceCandidatePtr(0).key());
+  std::set<reco::Candidate const*> puCands;
+  for(reco::PFCandidateCollection::const_iterator puItr(pfPUH->begin()); puItr != pfPUH->end(); ++puItr){
+    reco::Candidate const* cand(&*puItr);
+    reco::CandidatePtr sourcePtr;
+    while((sourcePtr = cand->sourceCandidatePtr(0)).isNonnull()){
+      if(sourcePtr.id() == pfH.id()){
+        puCands.insert(sourcePtr.get());
+        break;
+      }
+      cand = sourcePtr.get();
+    }
+  }
 
   for(PFCandidateStore::iterator sItr(productStore_.pfCandidates.begin()); sItr != productStore_.pfCandidates.end(); ++sItr)
-    if(puKeys.find(sItr->first.key()) != puKeys.end()) susyEvent_->pfParticles[sItr->second].isPU = kTRUE;
+    if(puCands.find(sItr->first) != puCands.end()) susyEvent_->pfParticles[sItr->second].isPU = kTRUE;
 }
 
 void
@@ -1710,7 +1718,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
         }
       }
 
-      pho.superClusterIndex = fillSuperCluster(scRef);
+      pho.superClusterIndex = fillSuperCluster(scRef.get());
 
       pho.nPixelSeeds = it->electronPixelSeeds().size();
       pho.passelectronveto = !ConversionTools::hasMatchedPromptElectron(it->superCluster(), hVetoElectrons, hVetoConversions, beamSpot);
@@ -1987,11 +1995,11 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       ele.ecalEnergyError                   = it->ecalEnergyError();
       ele.trackMomentumError                = it->trackMomentumError();
 
-      ele.electronClusterIndex = fillCluster(it->electronCluster());
-      ele.superClusterIndex    = isPF ? fillSuperCluster(it->pflowSuperCluster()) : fillSuperCluster(it->superCluster());
+      ele.electronClusterIndex = fillCluster(it->electronCluster().get());
+      ele.superClusterIndex    = isPF ? fillSuperCluster(it->pflowSuperCluster().get()) : fillSuperCluster(it->superCluster().get());
 
-      ele.closestCtfTrackIndex = fillTrack(it->closestCtfTrackRef());
-      ele.gsfTrackIndex        = fillGsfTrack(it->gsfTrack());
+      ele.closestCtfTrackIndex = fillTrack(it->closestCtfTrackRef().get());
+      ele.gsfTrackIndex        = fillGsfTrack(it->gsfTrack().get());
 
       susyCollection.push_back(ele);
 
@@ -2119,7 +2127,7 @@ SusyNtuplizer::fillMuons(edm::Event const& _event, edm::EventSetup const& _event
         reco::Muon::MuonTrackType trackType(trackTypes[iT]);
 
         if(it->isAValidMuonTrack(trackType))
-          *trackIndices[iT] = fillTrack(it->muonTrack(trackType));
+          *trackIndices[iT] = fillTrack(it->muonTrack(trackType).get());
       }
 
       if(it->isPFMuon()){
@@ -2302,6 +2310,11 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
   // ak5PFJetsL1FastL2L3
 
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillPFJets";
+
+  // Ultimate source of the PF candidates in jets
+  edm::Handle<reco::PFCandidateCollection> pfH;
+  _event.getByLabel(pfCandidateCollectionTag_, pfH);
+  edm::ProductID pfCollectionId(pfH.id());
 
   edm::Handle<edm::View<reco::PFJet> > jetH;
   for(unsigned iJetC=0; iJetC < pfJetCollectionTags_.size(); iJetC++) {
@@ -2493,11 +2506,15 @@ SusyNtuplizer::fillPFJets(edm::Event const& _event, edm::EventSetup const& _even
       // add tracks from this jet into track collection and tally up the local id's.
       reco::TrackRefVector trkvec(it->getTrackRefs());
       for(reco::TrackRefVector::const_iterator t_it(trkvec.begin()); t_it != trkvec.end(); ++t_it)
-        jet.tracklist.push_back(fillTrack(*t_it));
+        jet.tracklist.push_back(fillTrack(t_it->get()));
 
       std::vector<reco::PFCandidatePtr> constituents(it->getPFConstituents());
-      for(unsigned iC(0); iC != constituents.size(); ++iC)
-        jet.pfParticleList.push_back(fillPFParticle(constituents[iC]));
+      for(unsigned iC(0); iC != constituents.size(); ++iC){
+        if(constituents[iC].id() == pfCollectionId)
+          jet.pfParticleList.push_back(fillPFParticle(constituents[iC].get()));
+        else
+          jet.pfParticleList.push_back(fillPFParticle(constituents[iC].get(), &pfCollectionId));
+      }
 
       // if MC, add parton flavor id matches
       if(!susyEvent_->isRealData && flavMatchAlg && flavMatchPhy){
@@ -2651,75 +2668,75 @@ SusyNtuplizer::fillJPTJets(edm::Event const& _event, edm::EventSetup const& _eve
 }
 
 unsigned
-SusyNtuplizer::fillTrack(reco::TrackRef const& _trkRef)
+SusyNtuplizer::fillTrack(reco::Track const* _trkPtr)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTrack";
 
-  if(_trkRef.isNull()) return -1;
+  if(!_trkPtr) return -1;
 
   bool existed(false);
-  unsigned index(fillTrackCommon(edm::refToPtr(_trkRef), existed));
+  unsigned index(fillTrackCommon(_trkPtr, existed));
 
   if(!existed){
     susy::Track& track(susyEvent_->tracks[index]);
 
-    track.charge = _trkRef->charge();
-    for(int i=0; i<reco::Track::dimension; i++) track.error[i] = _trkRef->error(i);
-    track.ptError = _trkRef->ptError();
-    track.momentum.SetXYZT(_trkRef->px(),_trkRef->py(),_trkRef->pz(),_trkRef->p());
+    track.charge = _trkPtr->charge();
+    for(int i=0; i<reco::Track::dimension; i++) track.error[i] = _trkPtr->error(i);
+    track.ptError = _trkPtr->ptError();
+    track.momentum.SetXYZT(_trkPtr->px(),_trkPtr->py(),_trkPtr->pz(),_trkPtr->p());
   }
 
   return index;
 }
 
 unsigned
-SusyNtuplizer::fillGsfTrack(reco::GsfTrackRef const& _trkRef)
+SusyNtuplizer::fillGsfTrack(reco::GsfTrack const* _trkPtr)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillGsfTrack";
 
-  if(_trkRef.isNull()) return -1;
+  if(!_trkPtr) return -1;
 
   bool existed(false);
-  unsigned index(fillTrackCommon(edm::Ptr<reco::Track>(edm::refToPtr(_trkRef)), existed));
+  unsigned index(fillTrackCommon(_trkPtr, existed));
 
   if(!existed){
     susy::Track& track(susyEvent_->tracks[index]);
 
-    track.charge = _trkRef->chargeMode();
-    for(int i=0; i<reco::GsfTrack::dimensionMode; i++) track.error[i] = _trkRef->errorMode(i);
-    track.ptError = _trkRef->ptModeError();
-    track.momentum.SetXYZT(_trkRef->pxMode(),_trkRef->pyMode(),_trkRef->pzMode(),_trkRef->pMode());
+    track.charge = _trkPtr->chargeMode();
+    for(int i=0; i<reco::GsfTrack::dimensionMode; i++) track.error[i] = _trkPtr->errorMode(i);
+    track.ptError = _trkPtr->ptModeError();
+    track.momentum.SetXYZT(_trkPtr->pxMode(),_trkPtr->pyMode(),_trkPtr->pzMode(),_trkPtr->pMode());
   }
 
   return index;
 }
 
 unsigned
-SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
+SusyNtuplizer::fillSuperCluster(reco::SuperCluster const* _scPtr)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillSuperCluster";
 
   if(susyEvent_->superClusters.size() != productStore_.superClusters.size())
     throw cms::Exception("RuntimeError") << "Number of buffered SCs does not match the number of SCs in the susyEvent";
 
-  if(_scRef.isNull()) return -1;
+  if(!_scPtr) return -1;
 
-  std::pair<SuperClusterStore::iterator, bool> insertion(productStore_.superClusters.insert(std::pair<reco::SuperClusterRef, unsigned>(_scRef, productStore_.superClusters.size())));
+  std::pair<SuperClusterStore::iterator, bool> insertion(productStore_.superClusters.insert(SuperClusterStore::value_type(_scPtr, productStore_.superClusters.size())));
 
   if(!insertion.second) return insertion.first->second;
   else{
     susy::SuperCluster sc;
 
-    sc.energy = _scRef->energy();
-    sc.preshowerEnergy = _scRef->preshowerEnergy();
-    sc.phiWidth = _scRef->phiWidth();
-    sc.etaWidth = _scRef->etaWidth();
-    sc.position.SetXYZ(_scRef->x(),_scRef->y(),_scRef->z());
+    sc.energy = _scPtr->energy();
+    sc.preshowerEnergy = _scPtr->preshowerEnergy();
+    sc.phiWidth = _scPtr->phiWidth();
+    sc.etaWidth = _scPtr->etaWidth();
+    sc.position.SetXYZ(_scPtr->x(),_scPtr->y(),_scPtr->z());
 
-    for(reco::CaloClusterPtrVector::const_iterator it = _scRef->clustersBegin(); it != _scRef->clustersEnd(); it++){
-      unsigned index(fillCluster(*it));
+    for(reco::CaloClusterPtrVector::const_iterator it = _scPtr->clustersBegin(); it != _scPtr->clustersEnd(); it++){
+      unsigned index(fillCluster(it->get()));
       sc.basicClusterIndices.push_back(index);
-      if(_scRef->seed() == *it) sc.seedClusterIndex = index;
+      if(_scPtr->seed() == *it) sc.seedClusterIndex = index;
     }
 
     susyEvent_->superClusters.push_back(sc);
@@ -2729,16 +2746,16 @@ SusyNtuplizer::fillSuperCluster(reco::SuperClusterRef const& _scRef)
 }
 
 unsigned
-SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
+SusyNtuplizer::fillCluster(reco::CaloCluster const* _clPtr)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillCluster";
 
   if(susyEvent_->clusters.size() != productStore_.basicClusters.size())
     throw cms::Exception("RuntimeError") << "Number of buffered SCs does not match the number of SCs in the susyEvent";
 
-  if(_clPtr.isNull()) return -1;
+  if(!_clPtr) return -1;
 
-  std::pair<CaloClusterStore::iterator, bool> insertion(productStore_.basicClusters.insert(std::pair<reco::CaloClusterPtr, unsigned>(_clPtr, productStore_.basicClusters.size())));
+  std::pair<CaloClusterStore::iterator, bool> insertion(productStore_.basicClusters.insert(CaloClusterStore::value_type(_clPtr, productStore_.basicClusters.size())));
 
   if(!insertion.second) return insertion.first->second;
   else{
@@ -2755,16 +2772,37 @@ SusyNtuplizer::fillCluster(reco::CaloClusterPtr const& _clPtr)
 }
 
 unsigned
-SusyNtuplizer::fillPFParticle(reco::PFCandidatePtr const& _partPtr)
+SusyNtuplizer::fillPFParticle(reco::PFCandidate const* _partPtr, edm::ProductID const* _refId/* = 0*/)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillPFParticle";
 
   if(susyEvent_->pfParticles.size() != productStore_.pfCandidates.size())
     throw cms::Exception("RuntimeError") << "Number of buffered PFCandidates does not match the number of pfParticles in the susyEvent";
 
-  if(_partPtr.isNull()) return -1;
+  if(!_partPtr) return -1;
 
-  std::pair<PFCandidateStore::iterator, bool> insertion(productStore_.pfCandidates.insert(std::pair<reco::PFCandidatePtr, unsigned>(_partPtr, productStore_.pfCandidates.size())));
+  reco::PFCandidate const* storeKey(_partPtr);
+
+  if(_refId){
+    // If a reference collection is given, trace back the ancestry to find a match
+    // PFCandidates are copied multiple times within the reconstruction process; simply identifying objects with pointers will result in duplicates
+    // The case where the partPtr points to an object in the collection of refId must be checked before calling this function
+    reco::Candidate const* cand(_partPtr);
+    reco::CandidatePtr sourcePtr;
+    while((sourcePtr = cand->sourceCandidatePtr(0)).isNonnull()){
+      if(!sourcePtr.isAvailable()){
+        cand = 0;
+        break;
+      }
+      cand = sourcePtr.get();
+      if(sourcePtr.id() == *_refId) break;
+    }
+    if(cand == 0 || sourcePtr.isNull()) return -1;
+
+    storeKey = static_cast<reco::PFCandidate const*>(cand);
+  }
+
+  std::pair<PFCandidateStore::iterator, bool> insertion(productStore_.pfCandidates.insert(PFCandidateStore::value_type(storeKey, productStore_.pfCandidates.size())));
 
   if(!insertion.second) return insertion.first->second;
   else{
@@ -2785,7 +2823,7 @@ SusyNtuplizer::fillPFParticle(reco::PFCandidatePtr const& _partPtr)
 }
 
 unsigned
-SusyNtuplizer::fillTrackCommon(edm::Ptr<reco::Track> const& _trkPtr, bool& _existed)
+SusyNtuplizer::fillTrackCommon(reco::Track const* _trkPtr, bool& _existed)
 {
   if(debugLevel_ > 2) edm::LogInfo(name()) << "fillTrackCommon";
 
@@ -2830,8 +2868,7 @@ SusyNtuplizer::fillTracksAround(reco::Candidate const& _cand, double _deltaR, ed
     double dR(reco::deltaR(_cand, *tItr));
     if(dR > _deltaR) continue;
     
-    reco::TrackRef ref(_tracks, iTrk);
-    fillTrack(ref);
+    fillTrack(&*tItr);
   }
 }
 
