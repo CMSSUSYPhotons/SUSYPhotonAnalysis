@@ -125,7 +125,7 @@ elif isMC and is53x:
 #####################
 ### SusyNtuplizer ###
 #####################
-process.load("SusyAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
+process.load("SUSYPhotonAnalysis.SusyNtuplizer.susyNtuplizer_cfi")
 process.susyNtuplizer.debugLevel = 0
 process.susyNtuplizer.isFastSim = isFastSim
 process.susyNtuplizer.caloJetCollectionTags = []
