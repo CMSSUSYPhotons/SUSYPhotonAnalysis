@@ -11,7 +11,7 @@
 
 #include "DataFormats/HLTReco/interface/TriggerEvent.h"
 
-#include "SusyAnalysis/SusyNtuplizer/src/SusyTriggerEvent.h"
+#include "SusyTriggerEvent.h"
 
 #include "TString.h"
 
