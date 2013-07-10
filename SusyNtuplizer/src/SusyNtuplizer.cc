@@ -3,7 +3,7 @@
 // Package:    SusyNtuplizer
 // Class:      SusyNtuplizer
 //
-/**\class SusyNtuplizer SusyNtuplizer.cc SusyAnalysis/SusyNtuplizer/src/SusyNtuplizer.cc
+/**\class SusyNtuplizer SusyNtuplizer.cc SUSYPhotonAnalysis/SusyNtuplizer/src/SusyNtuplizer.cc
 
    Description: Ntuple maker for SUSY analysis
 
