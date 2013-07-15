@@ -934,3 +934,4 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, runNoPUMVAM
     )
 
     process.schedule = cms.Schedule(process.standard_step,process.optional_step,process.ntuplizer_step)
+    return process
