@@ -12,4 +12,4 @@ hltPaths = [
     'HLT_Photon36_R9Id85_OR_CaloId10_Iso50_Photon22_R9Id85_OR_CaloId10_Iso50_v*'
 ]
 
-configure( '53x22Jan2013', sourceNames, hltPaths, runNoPUMVAMetSequence=False)
+process = configure( '53x22Jan2013', sourceNames, hltPaths, runNoPUMVAMetSequence=False)
