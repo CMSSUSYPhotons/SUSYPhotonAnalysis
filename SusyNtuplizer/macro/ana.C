@@ -22,22 +22,22 @@ void ana(TString outputName="analysis"){
   // Especially be careful when producing a skim - disabled branches will not be copied.
   // You can either enable all branches, or have two Event objects (one for event selection with reduced branch configuration, and the
   // other for event copying with branches fully enabled).
-  chain.SetBranchStatus("*", 0);
-  chain.SetBranchStatus("runNumber", 1);
-  chain.SetBranchStatus("luminosityBlockNumber", 1);
-  chain.SetBranchStatus("eventNumber", 1);
-  chain.SetBranchStatus("isRealData", 1);
-  chain.SetBranchStatus("metFilterBit", 1);
-  chain.SetBranchStatus("rho", 1);
-  chain.SetBranchStatus("rho25", 1);
-  chain.SetBranchStatus("hlt*", 1);
-  chain.SetBranchStatus("vertices*", 1);
-  chain.SetBranchStatus("photons_photons*", 1);
-  chain.SetBranchStatus("muons_muons*", 1);
-  chain.SetBranchStatus("electrons_gsfElectrons*", 1);
-  chain.SetBranchStatus("pfJets_ak5*", 1);
-  chain.SetBranchStatus("met_pfType01CorrectedMet*", 1);
-  chain.SetBranchStatus("pfParticles*", 1);
+  //chain.SetBranchStatus("*", 0);
+  //chain.SetBranchStatus("runNumber", 1);
+  //chain.SetBranchStatus("luminosityBlockNumber", 1);
+  //chain.SetBranchStatus("eventNumber", 1);
+  //chain.SetBranchStatus("isRealData", 1);
+  //chain.SetBranchStatus("metFilterBit", 1);
+  //chain.SetBranchStatus("rho", 1);
+  //chain.SetBranchStatus("rho25", 1);
+  //chain.SetBranchStatus("hlt*", 1);
+  //chain.SetBranchStatus("vertices*", 1);
+  //chain.SetBranchStatus("photons_photons*", 1);
+  //chain.SetBranchStatus("muons_muons*", 1);
+  //chain.SetBranchStatus("electrons_gsfElectrons*", 1);
+  //chain.SetBranchStatus("pfJets_ak5*", 1);
+  //chain.SetBranchStatus("met_pfType01CorrectedMet*", 1);
+  //chain.SetBranchStatus("pfParticles*", 1);
 
   if(chain.LoadTree(0) != 0){
     cerr << "Error with input chain. Do the files exist?" << endl;
