@@ -28,9 +28,21 @@
 #include <map>
 #include <utility>
 
-// REMOVE THE LINES BELOW IF NOT RUNNING IN CMSSW ENVIRONMENT
+// Not particularly enamored with this, but since there seem to be several places scattered around
+// where the Jet correction code is enabled, resorting to preprocessor directives to switch this
+// code in or out.  Ultimately controlled by this #define:
+
+//#define CMSSWENVIRONMENT=true
+
+// uncomment above to enable changing the jet corrections (requires a CMSSW environment).
+
+
+#ifdef CMSSWENVIRONMENT // protecting if not in CMSSW environment
+
 #include "CondFormats/JetMETObjects/interface/FactorizedJetCorrector.h" // to access the JEC scales
 #include "CondFormats/JetMETObjects/interface/JetCorrectionUncertainty.h" // to access the uncertainties
+
+#endif //CMSSWENVIRONMENT
 
 #include "SusyEventAnalyzer.h"
 
@@ -133,12 +145,17 @@ SusyEventAnalyzer::Run()
   }
   std::ostream& out(logFileName == "cout" ? std::cout : outFile);
 
+
+  
+#ifdef CMSSWENVIRONMENT // protecting if not CMSSW environment -- set above
+  
   ////////// SWITCH FOR USING USER-PROVIDED JEC //////////
   bool useCustomJEC(false);
-
-  // REMOVE THE LINES BELOW IF NOT RUNNING IN CMSSW ENVIRONMENT
+  
   FactorizedJetCorrector* jetCorrection(0);
   JetCorrectionUncertainty* jecUncertainty(0);
+  
+#endif //CMSSWENVIRONMENT
 
   TFile* ggFile(0);
   TFile* ffFile(0);
@@ -193,8 +210,9 @@ SusyEventAnalyzer::Run()
     TH1F* h_PFDiEMPt_gg(new TH1F("h_PFDiEMPt_gg", "#gamma#gamma PF diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
     TH1F* h_PFDiEMPt_ff(new TH1F("h_PFDiEMPt_ff", "ff PF diEM P_{T};diEM P_{T} (GeV);Events / GeV", 200, 0., 200.));
 
+
+#ifdef CMSSWENVIRONMENT // protecting if not CMSSW environment -- set above
     ////////// INITIALIZE JEC //////////
-    // REMOVE THE LINES BELOW IF NOT RUNNING IN CMSSW ENVIRONMENT
     if(useCustomJEC){
       if(printLevel > 0) out << "Initialize jet energy corrections" << std::endl;
 
@@ -206,6 +224,7 @@ SusyEventAnalyzer::Run()
                                        jecSourcePrefix + "L2RelativeL3AbsoluteResidual_AK5PF.txt");
       jecUncertainty = new JetCorrectionUncertainty(jecSourcePrefix + "Uncertainty_AK5PF.txt");
     }
+#endif //CMSSWENVIRONMENT
 
     /////////////////////////////////////
     ////////// MAIN EVENT LOOP //////////
@@ -352,9 +371,9 @@ SusyEventAnalyzer::Run()
           if(isSameObject(electron, *goodPhotons[iP])) break;
         if(iP != goodPhotons.size()) continue;
 
-        if(std::abs(electron.deltaEtaSuperClusterTrackAtVtx) > isBarrel ? 0.007 : 0.01) continue;
-        if(std::abs(electron.deltaPhiSuperClusterTrackAtVtx) > isBarrel ? 0.8 : 0.7) continue;
-        if(electron.sigmaIetaIeta > isBarrel ? 0.01 : 0.03) continue;
+        if(std::abs(electron.deltaEtaSuperClusterTrackAtVtx) > (isBarrel ? 0.007 : 0.01)) continue;
+        if(std::abs(electron.deltaPhiSuperClusterTrackAtVtx) > (isBarrel ? 0.8 : 0.7)) continue;
+        if(electron.sigmaIetaIeta > (isBarrel ? 0.01 : 0.03)) continue;
         if(isBarrel && electron.hcalOverEcalBc > 0.15) continue;
 
         if(electron.gsfTrack == 0) continue;
@@ -402,10 +421,15 @@ SusyEventAnalyzer::Run()
           if(isSameObject(jet, *goodPhotons[iP])) break;
         if(iP != goodPhotons.size()) continue;
 
-        double pt(jet.momentum.Pt());
 
         float jecScale;
         float jecScaleUncertainty;
+        
+#ifdef CMSSWENVIRONMENT // protecting if not CMSSW environment -- set above
+        
+        double pt(jet.momentum.Pt());
+
+        
         if(useCustomJEC){
           jetCorrection->setJetEta(eta);
           jetCorrection->setJetPt(pt);
@@ -426,11 +450,19 @@ SusyEventAnalyzer::Run()
           }
         }
         else{
+        
+#endif // CMSSWENVIRONMENT        
+
           // "Residual" correction for data is already included in the ntuplizer (see line 2279 of SusyNtuplizer.cc)
           jecScale = jet.jecScaleFactors.find("L1FastL2L3")->second;
 
           jecScaleUncertainty = jet.jecUncertainty;
+
+#ifdef CMSSWENVIRONMENT // protecting if not CMSSW environment -- set above (other half of circumventing the if() above)
+
         }
+
+#endif // CMSSWENVIRONMENT   (yes we really just #ifdef'ed a closing bracket)     
 
         if(jecScaleUncertainty > 0.2) continue;
 
@@ -552,8 +584,13 @@ SusyEventAnalyzer::Run()
     event.releaseTrees();
   }
 
+#ifdef CMSSWENVIRONMENT // protecting if not CMSSW environment -- set above
+
   delete jetCorrection;
   delete jecUncertainty;
+
+#endif // CMSSWENVIRONMENT        
+
 
   delete ggFile;
   delete ffFile;
