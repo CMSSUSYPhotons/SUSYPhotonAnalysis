@@ -30,9 +30,9 @@ endif
 
 ifeq ($(ARCH),macosx64)
 # Linux with egcs, gcc 2.9x, gcc 3.x (>= RedHat 5.2)
-CXX           = g++
+CXX           = clang++
 CXXFLAGS      = -O2 -Wall -fPIC
-LD            = g++
+LD            = clang++
 LDFLAGS       = -O2
 SOFLAGS       = -shared
 endif
