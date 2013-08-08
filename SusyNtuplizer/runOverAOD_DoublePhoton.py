@@ -1,4 +1,4 @@
-from runOverAOD import configure
+from SUSYPhotonAnalysis.SusyNtuplizer.runOverAOD import configure
 
 sourceNames = [
     'root://xrootd.unl.edu//store/data/Run2012A/Photon/AOD/22Jan2013-v1/20000/FEF664CA-ED68-E211-A3FA-003048678B08.root'
