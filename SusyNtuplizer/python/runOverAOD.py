@@ -1,4 +1,4 @@
-def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, runNoPUMVAMetSequence=False ):
+def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName = '', runNoPUMVAMetSequence=False ):
     """ This is the main routine used to configure the nTuplizer. Please check
     the correctness of all relevant default parameters.
 
@@ -111,6 +111,8 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, runNoPUMVAM
     process.susyNtuplizer.debugLevel = 0
     process.susyNtuplizer.isFastSim = isFastSim
     process.susyNtuplizer.caloJetCollectionTags = []
+    if outputName:
+        process.susyNtuplizer.outputFileName = outputName
 
     #########################
     ### HLT result filter ###

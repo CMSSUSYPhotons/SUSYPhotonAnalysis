@@ -289,20 +289,12 @@ private:
   // default : true (turned off for 24Aug2012 and 13Jul2012 datasets in runOverAOD.py)
   bool storeLumiInfo_;
 
-  // electronThreshold
   double electronThreshold_;
-
-  // muonThreshold
   double muonThreshold_;
-
-  // photonThreshold
   double photonThreshold_;
-
-  // jetThreshold will be applied on corrected jets' pt
   double jetThreshold_;
-
-  // PFParticleThreshold
   double pfParticleThreshold_;
+  double genParticleThreshold_;
 
   //Photon SC energy MVA regression
   EGEnergyCorrector scEnergyCorrector_;
@@ -375,6 +367,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   photonThreshold_(iConfig.getParameter<double>("photonThreshold")),
   jetThreshold_(iConfig.getParameter<double>("jetThreshold")),
   pfParticleThreshold_(iConfig.getParameter<double>("pfParticleThreshold")),
+  genParticleThreshold_(iConfig.getParameter<double>("genParticleThreshold")),
   scEnergyCorrector_(),
   productStore_(),
   susyEvent_(0),
@@ -563,7 +556,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
 
   outF->cd();    
   susyTree_ = new TTree("susyTree", "SUSY Event");
-  susyTree_->SetAutoSave(10000000); // 10M events
+  susyTree_->SetAutoSave(10000000); // 10MB
 
   /*
     Construct an Event object and tell it what collections it should expect.
@@ -826,7 +819,7 @@ SusyNtuplizer::analyze(edm::Event const& _event, edm::EventSetup const& _eventSe
 
   fillPFJets(_event, _eventSetup);
 
-  //  fillJPTJets(_event, _eventSetup);
+  fillJPTJets(_event, _eventSetup);
 
   fillPFParticles(_event, _eventSetup);
 
@@ -1265,7 +1258,7 @@ SusyNtuplizer::fillGenParticles(edm::Event const& _event, edm::EventSetup const&
 
   // Save all particles that might appear in the final decay tree
   for(reco::GenParticleCollection::const_iterator it(gpH->begin()); it != gpH->end(); it++){
-    if(it->status() == 1 && it->pt() < 2.) continue;
+    if(it->status() == 1 && it->pt() < genParticleThreshold_) continue;
     if(it->numberOfDaughters() == 0 && it->status() != 1) continue;
     gps.insert(&*it);
   }
@@ -1764,6 +1757,9 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
           std::vector<double> signedd0 = conversion.tracksSigned_d0();
           pho.convTrack1Signedd0 = signedd0[0];
           pho.convTrack2Signedd0 = signedd0[1];
+
+          pho.convTrack1Index = fillTrack(&track0);
+          pho.convTrack2Index = fillTrack(&track1);
         }
       }
 

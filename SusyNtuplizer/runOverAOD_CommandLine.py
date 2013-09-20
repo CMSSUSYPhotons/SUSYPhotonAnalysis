@@ -30,4 +30,4 @@ opt.register(
 
 opt.parseArguments()
 
-process = configure( opt.dataset, opt.inputFiles, opt.hltPaths, opt.maxEvents )
+process = configure(dataset = opt.dataset, sourceNames = opt.inputFiles, hltPaths = opt.hltPaths, maxEvents = opt.maxEvents, outputName = opt.outputFile)
