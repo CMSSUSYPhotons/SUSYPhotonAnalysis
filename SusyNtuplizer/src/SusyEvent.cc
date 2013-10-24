@@ -361,8 +361,6 @@ susy::Photon::Init()
   convTrack2InnerY                = 0.;
   convTrack1Signedd0              = 0.;
   convTrack2Signedd0              = 0.;
-  convTrack1Index                 = -1;
-  convTrack2Index                 = -1;
 
   superClusterIndex               = -1;
   superClusterPreshowerEnergy     = 0;
@@ -377,8 +375,6 @@ susy::Photon::Init()
 
   superCluster = 0;
   worstOtherVtxChargedHadronIsoVtx = 0;
-  convTrack1 = 0;
-  convTrack2 = 0;
 }
 
 void
@@ -466,8 +462,6 @@ susy::Photon::Print(std::ostream& os/* = std::cout*/) const
   indent(os) << "convTrack2InnerY: " << convTrack2InnerY << std::endl;
   indent(os) << "convTrack1Signedd0: " << convTrack1Signedd0 << std::endl;
   indent(os) << "convTrack2Signedd0: " << convTrack2Signedd0 << std::endl;
-  indent(os) << "convTrack1Index" << convTrack1Index << std::endl;
-  indent(os) << "convTrack2Index" << convTrack2Index << std::endl;
   
   indent(os) << "superClusterIndex: " << superClusterIndex << std::endl;
   indent(os) << "superClusterPreshowerEnergy: " << superClusterPreshowerEnergy << std::endl;
@@ -489,13 +483,6 @@ susy::Photon::fillRefs(Event const* _evt)
 
   if(unsigned(worstOtherVtxChargedHadronIsoVtxIdx) < _evt->vertices.size())
     worstOtherVtxChargedHadronIsoVtx = &_evt->vertices[worstOtherVtxChargedHadronIsoVtxIdx];
-
-  unsigned nT(_evt->tracks.size());
-
-  if(unsigned(convTrack1Index) < nT)
-    convTrack1 = &_evt->tracks[convTrack1Index];
-  if(unsigned(convTrack2Index) < nT)
-    convTrack2 = &_evt->tracks[convTrack2Index];
 }
 
 void
@@ -1814,30 +1801,23 @@ susy::Event::setInput(TTree& _tree)
     if(!_tree.GetBranchStatus(bName)) continue;
 
     TString collectionName(bName(bName.First('_') + 1, bName.Length()));
-    void** add(0);
 
     if(bName.Index("met_") == 0)
-      add = reinterpret_cast<void**>(new MET*(&metMap[collectionName(0, collectionName.Length() - 1)]));
+      _tree.SetBranchAddress(bName, new MET*(&metMap[collectionName(0, collectionName.Length() - 1)]));
     else if(bName.Index("muons_") == 0)
-      add = reinterpret_cast<void**>(new MuonCollection*(&muons[collectionName]));
+      _tree.SetBranchAddress(bName, new MuonCollection*(&muons[collectionName]));
     else if(bName.Index("electrons_") == 0)
-      add = reinterpret_cast<void**>(new ElectronCollection*(&electrons[collectionName]));
+      _tree.SetBranchAddress(bName, new ElectronCollection*(&electrons[collectionName]));
     else if(bName.Index("photons_") == 0)
-      add = reinterpret_cast<void**>(new PhotonCollection*(&photons[collectionName]));
+      _tree.SetBranchAddress(bName, new PhotonCollection*(&photons[collectionName]));
     else if(bName.Index("caloJets_") == 0)
-      add = reinterpret_cast<void**>(new CaloJetCollection*(&caloJets[collectionName]));
+      _tree.SetBranchAddress(bName, new CaloJetCollection*(&caloJets[collectionName]));
     else if(bName.Index("pfJets_") == 0)
-      add = reinterpret_cast<void**>(new PFJetCollection*(&pfJets[collectionName]));
+      _tree.SetBranchAddress(bName, new PFJetCollection*(&pfJets[collectionName]));
     else if(bName.Index("jptJets_") == 0)
-      add = reinterpret_cast<void**>(new JPTJetCollection*(&jptJets[collectionName]));
-    else if(bName.Index("gridParams_") == 0){
+      _tree.SetBranchAddress(bName, new JPTJetCollection*(&jptJets[collectionName]));
+    else if(bName.Index("gridParams_") == 0)
       _tree.SetBranchAddress(bName, &gridParams[collectionName]);
-      continue;
-    }
-    else
-      continue;
-
-    _tree.SetBranchAddress(bName, add);
   }
 
   if(inputTree_) releaseTree(*inputTree_);

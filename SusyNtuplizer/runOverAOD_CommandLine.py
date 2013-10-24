@@ -1,10 +1,10 @@
 from SUSYPhotonAnalysis.SusyNtuplizer.runOverAOD import configure
-import FWCore.ParameterSet.VarParsing as VarParsing
+from FWCore.ParameterSet.VarParsing import VarParsing
 # Call by e.g. "cmsRun runOverAOD_CommandLine.py dataset=53x22Jan2013 inputFiles=file1.root file2.root"
 
 
 ## get command line arguments
-opt = VarParsing.VarParsing("analysis")
+opt = VarParsing("analysis")
 # 'analysis' contains some default options:
 # maxEvents: Number of events to process (singleton integer)
 # inputFiles: List of files to process as input (list string)
@@ -16,18 +16,25 @@ opt = VarParsing.VarParsing("analysis")
 opt.register(
     "dataset",
     "", # default value
-    VarParsing.VarParsing.multiplicity.singleton,
-    VarParsing.VarParsing.varType.string, # string, int, or float
+    VarParsing.multiplicity.singleton,
+    VarParsing.varType.string, # string, int, or float
     "Please choose a dataset token. For examples see config file."
 )
 opt.register(
     "hltPaths",
     [],
-    VarParsing.VarParsing.multiplicity.list,
-    VarParsing.VarParsing.varType.string,
+    VarParsing.multiplicity.list,
+    VarParsing.varType.string,
     "Please choose a hltPath token. For examples see config file."
+)
+opt.register(
+    "outputName",
+    "susyEvents.root",
+    VarParsing.multiplicity.singleton,
+    VarParsing.varType.string,
+    "Please choose an output file name."
 )
 
 opt.parseArguments()
 
-process = configure(dataset = opt.dataset, sourceNames = opt.inputFiles, hltPaths = opt.hltPaths, maxEvents = opt.maxEvents, outputName = opt.outputFile)
+process = configure(dataset = opt.dataset, sourceNames = opt.inputFiles, hltPaths = opt.hltPaths, maxEvents = opt.maxEvents, outputName = opt.outputName)
