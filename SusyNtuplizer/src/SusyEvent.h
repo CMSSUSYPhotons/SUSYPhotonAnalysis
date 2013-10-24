@@ -407,6 +407,8 @@ namespace susy {
     Float_t        convTrack2InnerY;
     Float_t        convTrack1Signedd0;
     Float_t        convTrack2Signedd0;
+    Short_t        convTrack1Index;
+    Short_t        convTrack2Index;
 
     Short_t        superClusterIndex;
     Float_t        superClusterPreshowerEnergy;
@@ -420,7 +422,9 @@ namespace susy {
     TLorentzVector momentum;
 
     const SuperCluster* superCluster; //! Transient member - only filled at analysis time
-    const Vertex*  worstOtherVtxChargedHadronIsoVtx; //! Transient member - only filled at analysis time
+    const Vertex* worstOtherVtxChargedHadronIsoVtx; //! Transient member - only filled at analysis time
+    const Track* convTrack1; //! Transient member - only filled at analysis time
+    const Track* convTrack2; //! Transient member - only filled at analysis time
 
   };
 

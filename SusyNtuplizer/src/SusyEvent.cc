@@ -361,6 +361,8 @@ susy::Photon::Init()
   convTrack2InnerY                = 0.;
   convTrack1Signedd0              = 0.;
   convTrack2Signedd0              = 0.;
+  convTrack1Index                 = -1;
+  convTrack2Index                 = -1;
 
   superClusterIndex               = -1;
   superClusterPreshowerEnergy     = 0;
@@ -375,6 +377,8 @@ susy::Photon::Init()
 
   superCluster = 0;
   worstOtherVtxChargedHadronIsoVtx = 0;
+  convTrack1 = 0;
+  convTrack2 = 0;
 }
 
 void
@@ -462,6 +466,8 @@ susy::Photon::Print(std::ostream& os/* = std::cout*/) const
   indent(os) << "convTrack2InnerY: " << convTrack2InnerY << std::endl;
   indent(os) << "convTrack1Signedd0: " << convTrack1Signedd0 << std::endl;
   indent(os) << "convTrack2Signedd0: " << convTrack2Signedd0 << std::endl;
+  indent(os) << "convTrack1Index" << convTrack1Index << std::endl;
+  indent(os) << "convTrack2Index" << convTrack2Index << std::endl;
   
   indent(os) << "superClusterIndex: " << superClusterIndex << std::endl;
   indent(os) << "superClusterPreshowerEnergy: " << superClusterPreshowerEnergy << std::endl;
@@ -483,6 +489,13 @@ susy::Photon::fillRefs(Event const* _evt)
 
   if(unsigned(worstOtherVtxChargedHadronIsoVtxIdx) < _evt->vertices.size())
     worstOtherVtxChargedHadronIsoVtx = &_evt->vertices[worstOtherVtxChargedHadronIsoVtxIdx];
+
+  unsigned nT(_evt->tracks.size());
+
+  if(unsigned(convTrack1Index) < nT)
+    convTrack1 = &_evt->tracks[convTrack1Index];
+  if(unsigned(convTrack2Index) < nT)
+    convTrack2 = &_evt->tracks[convTrack2Index];
 }
 
 void

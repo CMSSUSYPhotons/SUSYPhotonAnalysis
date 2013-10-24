@@ -1757,6 +1757,9 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
           std::vector<double> signedd0 = conversion.tracksSigned_d0();
           pho.convTrack1Signedd0 = signedd0[0];
           pho.convTrack2Signedd0 = signedd0[1];
+
+          pho.convTrack1Index = fillTrack(&track0);
+          pho.convTrack2Index = fillTrack(&track1);
         }
       }
 
