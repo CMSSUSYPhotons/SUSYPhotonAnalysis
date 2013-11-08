@@ -878,22 +878,22 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         process.susyNtuplizer.metCollectionTags.remove('pfNoPileUpMet')
         process.susyNtuplizer.metCollectionTags.remove('pfMVAMet')
 
-    if dataset == '52xPrompt' or dataset == '52x23May2012' or dataset == '53xPromptC' or \
-    dataset == '53x13July2012' or dataset == '53x06Aug2012' or dataset == '53x24Aug2012' or dataset == '53x11Dec2013':
+    if dataset in ['52xPrompt', '52x23May2012', '53xPromptC', '53x13July2012', '53x06Aug2012', '53x24Aug2012', '53x11Dec2013']:
         process.susyNtuplizer.metFilters.HcalLaserEventList.default = True
 
-    if dataset == '53xPromptD' or dataset == '53x16Jan2013':
+    if dataset in ['53xPromptD', '53x16Jan2013']:
         process.susyNtuplizer.metFilters.HcalLaserOccupancy.default = True
 
     if dataset == '53x22Jan2013':
         process.susyNtuplizer.metFilters.HcalLaserRECOUserStep.default = True
+        process.susyNtuplizer.metFilters.EcalLaserCorr.default = True
     else:
         process.susyNtuplizer.metFilters.HcalLaserRECOUserStep.run = False
 
-    if dataset == '53x13July2012' or dataset == '53x06Aug2012':
+    if dataset in ['53x13July2012', '53x06Aug2012']:
         process.susyNtuplizer.metFilters.EcalLaserCorr.default = True
 
-    if dataset == '53x13July2012' or dataset == '53x24Aug2012':
+    if dataset in ['53x13July2012', '53x24Aug2012']:
         process.susyNtuplizer.storeLumiInfo = cms.bool(False)
 
     if dataset == '53x22Jan2013':
