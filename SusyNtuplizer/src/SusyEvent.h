@@ -994,7 +994,10 @@ namespace susy {
     void fillRefs(); // Called in getEntry()
 
     Bool_t passMetFilter(UInt_t filterIndex) const { return (metFilterBit & (1 << filterIndex)) != 0; }
-    Bool_t passMetFilters() const { return (metFilterBit & metFilterMask) == metFilterMask; }
+    Bool_t passMetFilters(Int_t filterMask = 0) const {
+      if(filterMask == 0) return (metFilterBit & metFilterMask) == metFilterMask;
+      else return (metFilterBit & filterMask) == filterMask;
+    }
 
     UChar_t                                        isRealData;
     UChar_t                                        cosmicFlag;             // empty for now
