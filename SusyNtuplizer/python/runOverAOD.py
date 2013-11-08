@@ -249,6 +249,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     # pfJets comes from PFBRECO.
 
     process.ak5PFchsJets = process.pfJets.clone()
+    process.ak5PFchsJets.doAreaFastjet = True
 
     process.pfCHSJetSequence = cms.Sequence(
         process.ak5PFchsJets
