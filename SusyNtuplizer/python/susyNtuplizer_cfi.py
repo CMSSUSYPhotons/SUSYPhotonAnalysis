@@ -173,7 +173,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
         EcalLaserCorr = cms.PSet(
             tag = cms.string("ecalLaserCorrFilter"),
             run = cms.bool(True),
-            default = cms.bool(False)
+            default = cms.bool(True)
         ),
         ManyStripClus53X = cms.PSet(
             tag = cms.string("manystripclus53X"),
