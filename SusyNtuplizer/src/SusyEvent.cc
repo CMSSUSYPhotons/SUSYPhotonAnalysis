@@ -8,10 +8,6 @@
 Description: Objects definitions used for SusyNtuples
 
 */
-//
-// Original Author:  Dongwook Jang
-// $Id: SusyEvent.cc,v 1.35 2013/05/11 14:50:02 dmorse Exp $
-//
 
 #include "SusyEvent.h"
 
@@ -1758,6 +1754,9 @@ susy::Event::fillRefs()
 void
 susy::Event::setInput(TTree& _tree)
 {
+  // Release the trees before the branch addresses become invalid
+  releaseTrees();
+
   // To fix the branch status - seems odd but necessary due to a feature in TChain implementation.
   // TChain will enable a branch even if "*" is set to 0, when the branch address is set before a tree is loaded.
   _tree.LoadTree(0);
@@ -1829,45 +1828,101 @@ susy::Event::setInput(TTree& _tree)
 void
 susy::Event::addOutput(TTree& _tree)
 {
-  _tree.Branch("isRealData", &isRealData, "isRealData/b");
-  _tree.Branch("runNumber", &runNumber, "runNumber/i");
-  _tree.Branch("eventNumber", &eventNumber, "eventNumber/i");
-  _tree.Branch("luminosityBlockNumber", &luminosityBlockNumber, "luminosityBlockNumber/i");
-  _tree.Branch("bunchCrossing", &bunchCrossing, "bunchCrossing/s");
-  _tree.Branch("cosmicFlag", &cosmicFlag, "cosmicFlag/b");
-  _tree.Branch("avgInsRecLumi", &avgInsRecLumi, "avgInsRecLumi/F");
-  _tree.Branch("intgRecLumi", &intgRecLumi, "intgRecLumi/F");
-  _tree.Branch("rho", &rho, "rho/F");
-  _tree.Branch("rhoBarrel", &rhoBarrel, "rhoBarrel/F");
-  _tree.Branch("rho25", &rho25, "rho25/F");
-  _tree.Branch("metFilterBit", &metFilterBit, "metFilterBit/I");
-  _tree.Branch("metFilterMask", &metFilterMask, "metFilterMask/I");
+  if(_tree.GetBranch("isRealData")) _tree.SetBranchAddress("isRealData", &isRealData);
+  else _tree.Branch("isRealData", &isRealData, "isRealData/b");
 
-  _tree.Branch("beamSpot.", "TVector3", new TVector3*(&beamSpot));
-  _tree.Branch("vertices", "std::vector<susy::Vertex>", new VertexCollection*(&vertices));
-  _tree.Branch("tracks", "std::vector<susy::Track>", new TrackCollection*(&tracks));
-  _tree.Branch("superClusters", "std::vector<susy::SuperCluster>", new SuperClusterCollection*(&superClusters));
-  _tree.Branch("clusters", "std::vector<susy::Cluster>", new ClusterCollection*(&clusters));
-  _tree.Branch("pfParticles", "std::vector<susy::PFParticle>", new PFParticleCollection*(&pfParticles));
-  _tree.Branch("pu", "std::vector<susy::PUSummaryInfo>", new PUSummaryInfoCollection*(&pu));
-  _tree.Branch("genParticles", "std::vector<susy::Particle>", new ParticleCollection*(&genParticles));
+  if(_tree.GetBranch("runNumber")) _tree.SetBranchAddress("runNumber", &runNumber);
+  else _tree.Branch("runNumber", &runNumber, "runNumber/i");
 
-  for(METMap::iterator itr(metMap.begin()); itr != metMap.end(); ++itr)
-    _tree.Branch("met_" + itr->first + ".", "susy::MET", new MET*(&itr->second));
-  for(MuonCollectionMap::iterator itr(muons.begin()); itr != muons.end(); ++itr)
-    _tree.Branch("muons_" + itr->first, "std::vector<susy::Muon>", new MuonCollection*(&itr->second));
-  for(ElectronCollectionMap::iterator itr(electrons.begin()); itr != electrons.end(); ++itr)
-    _tree.Branch("electrons_" + itr->first, "std::vector<susy::Electron>", new ElectronCollection*(&itr->second));
-  for(PhotonCollectionMap::iterator itr(photons.begin()); itr != photons.end(); ++itr)
-    _tree.Branch("photons_" + itr->first, "std::vector<susy::Photon>", new PhotonCollection*(&itr->second));
-  for(CaloJetCollectionMap::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr)
-    _tree.Branch("caloJets_" + itr->first, "std::vector<susy::CaloJet>", new CaloJetCollection*(&itr->second));
-  for(PFJetCollectionMap::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr)
-    _tree.Branch("pfJets_" + itr->first, "std::vector<susy::PFJet>", new PFJetCollection*(&itr->second));
-  for(JPTJetCollectionMap::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr)
-    _tree.Branch("jptJets_" + itr->first, "std::vector<susy::JPTJet>", new JPTJetCollection*(&itr->second));
-  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr)
-    _tree.Branch("gridParams_" + itr->first, &itr->second, itr->first + "/F");
+  if(_tree.GetBranch("eventNumber")) _tree.SetBranchAddress("eventNumber", &eventNumber);
+  else _tree.Branch("eventNumber", &eventNumber, "eventNumber/i");
+
+  if(_tree.GetBranch("luminosityBlockNumber")) _tree.SetBranchAddress("luminosityBlockNumber", &luminosityBlockNumber);
+  else _tree.Branch("luminosityBlockNumber", &luminosityBlockNumber, "luminosityBlockNumber/i");
+
+  if(_tree.GetBranch("bunchCrossing")) _tree.SetBranchAddress("bunchCrossing", &bunchCrossing);
+  else _tree.Branch("bunchCrossing", &bunchCrossing, "bunchCrossing/s");
+
+  if(_tree.GetBranch("cosmicFlag")) _tree.SetBranchAddress("cosmicFlag", &cosmicFlag);
+  else _tree.Branch("cosmicFlag", &cosmicFlag, "cosmicFlag/b");
+
+  if(_tree.GetBranch("avgInsRecLumi")) _tree.SetBranchAddress("avgInsRecLumi", &avgInsRecLumi);
+  else _tree.Branch("avgInsRecLumi", &avgInsRecLumi, "avgInsRecLumi/F");
+
+  if(_tree.GetBranch("intgRecLumi")) _tree.SetBranchAddress("intgRecLumi", &intgRecLumi);
+  else _tree.Branch("intgRecLumi", &intgRecLumi, "intgRecLumi/F");
+
+  if(_tree.GetBranch("rho")) _tree.SetBranchAddress("rho", &rho);
+  else _tree.Branch("rho", &rho, "rho/F");
+
+  if(_tree.GetBranch("rhoBarrel")) _tree.SetBranchAddress("rhoBarrel", &rhoBarrel);
+  else _tree.Branch("rhoBarrel", &rhoBarrel, "rhoBarrel/F");
+
+  if(_tree.GetBranch("rho25")) _tree.SetBranchAddress("rho25", &rho25);
+  else _tree.Branch("rho25", &rho25, "rho25/F");
+
+  if(_tree.GetBranch("metFilterBit")) _tree.SetBranchAddress("metFilterBit", &metFilterBit);
+  else _tree.Branch("metFilterBit", &metFilterBit, "metFilterBit/I");
+
+  if(_tree.GetBranch("metFilterMask")) _tree.SetBranchAddress("metFilterMask", &metFilterMask);
+  else _tree.Branch("metFilterMask", &metFilterMask, "metFilterMask/I");
+
+  if(_tree.GetBranch("beamSpot.")) _tree.SetBranchAddress("beamSpot.", new TVector3*(&beamSpot));
+  else _tree.Branch("beamSpot.", "TVector3", new TVector3*(&beamSpot));
+
+  if(_tree.GetBranch("vertices")) _tree.SetBranchAddress("vertices", new VertexCollection*(&vertices));
+  else _tree.Branch("vertices", "std::vector<susy::Vertex>", new VertexCollection*(&vertices));
+
+  if(_tree.GetBranch("tracks")) _tree.SetBranchAddress("tracks", new TrackCollection*(&tracks));
+  else _tree.Branch("tracks", "std::vector<susy::Track>", new TrackCollection*(&tracks));
+
+  if(_tree.GetBranch("superClusters")) _tree.SetBranchAddress("superClusters", new SuperClusterCollection*(&superClusters));
+  else _tree.Branch("superClusters", "std::vector<susy::SuperCluster>", new SuperClusterCollection*(&superClusters));
+
+  if(_tree.GetBranch("clusters")) _tree.SetBranchAddress("clusters", new ClusterCollection*(&clusters));
+  else _tree.Branch("clusters", "std::vector<susy::Cluster>", new ClusterCollection*(&clusters));
+
+  if(_tree.GetBranch("pfParticles")) _tree.SetBranchAddress("pfParticles", new PFParticleCollection*(&pfParticles));
+  else _tree.Branch("pfParticles", "std::vector<susy::PFParticle>", new PFParticleCollection*(&pfParticles));
+
+  if(_tree.GetBranch("pu")) _tree.SetBranchAddress("pu", new PUSummaryInfoCollection*(&pu));
+  else _tree.Branch("pu", "std::vector<susy::PUSummaryInfo>", new PUSummaryInfoCollection*(&pu));
+
+  if(_tree.GetBranch("genParticles")) _tree.SetBranchAddress("genParticles", new ParticleCollection*(&genParticles));
+  else _tree.Branch("genParticles", "std::vector<susy::Particle>", new ParticleCollection*(&genParticles));
+
+  for(METMap::iterator itr(metMap.begin()); itr != metMap.end(); ++itr){
+    if(_tree.GetBranch("met_" + itr->first + ".")) _tree.SetBranchAddress("met_" + itr->first + ".", new MET*(&itr->second));
+    else _tree.Branch("met_" + itr->first + ".", "susy::MET", new MET*(&itr->second));
+  }
+  for(MuonCollectionMap::iterator itr(muons.begin()); itr != muons.end(); ++itr){
+    if(_tree.GetBranch("muons_" + itr->first)) _tree.SetBranchAddress("muons_" + itr->first, new MuonCollection*(&itr->second));
+    else _tree.Branch("muons_" + itr->first, "std::vector<susy::Muon>", new MuonCollection*(&itr->second));
+  }
+  for(ElectronCollectionMap::iterator itr(electrons.begin()); itr != electrons.end(); ++itr){
+    if(_tree.GetBranch("electrons_" + itr->first)) _tree.SetBranchAddress("electrons_" + itr->first, new ElectronCollection*(&itr->second));
+    else _tree.Branch("electrons_" + itr->first, "std::vector<susy::Electron>", new ElectronCollection*(&itr->second));
+  }
+  for(PhotonCollectionMap::iterator itr(photons.begin()); itr != photons.end(); ++itr){
+    if(_tree.GetBranch("photons_" + itr->first)) _tree.SetBranchAddress("photons_" + itr->first, new PhotonCollection*(&itr->second));
+    else _tree.Branch("photons_" + itr->first, "std::vector<susy::Photon>", new PhotonCollection*(&itr->second));
+  }
+  for(CaloJetCollectionMap::iterator itr(caloJets.begin()); itr != caloJets.end(); ++itr){
+    if(_tree.GetBranch("caloJets_" + itr->first)) _tree.SetBranchAddress("caloJets_" + itr->first, new CaloJetCollection*(&itr->second));
+    else _tree.Branch("caloJets_" + itr->first, "std::vector<susy::CaloJet>", new CaloJetCollection*(&itr->second));
+  }
+  for(PFJetCollectionMap::iterator itr(pfJets.begin()); itr != pfJets.end(); ++itr){
+    if(_tree.GetBranch("pfJets_" + itr->first)) _tree.SetBranchAddress("pfJets_" + itr->first, new PFJetCollection*(&itr->second));
+    else _tree.Branch("pfJets_" + itr->first, "std::vector<susy::PFJet>", new PFJetCollection*(&itr->second));
+  }
+  for(JPTJetCollectionMap::iterator itr(jptJets.begin()); itr != jptJets.end(); ++itr){
+    if(_tree.GetBranch("jptJets_" + itr->first)) _tree.SetBranchAddress("jptJets_" + itr->first, new JPTJetCollection*(&itr->second));
+    else _tree.Branch("jptJets_" + itr->first, "std::vector<susy::JPTJet>", new JPTJetCollection*(&itr->second));
+  }
+  for(std::map<TString, Float_t>::iterator itr(gridParams.begin()); itr != gridParams.end(); ++itr){
+    if(_tree.GetBranch("gridParams_" + itr->first)) _tree.SetBranchAddress("gridParams_" + itr->first, &itr->second);
+    else _tree.Branch("gridParams_" + itr->first, &itr->second, itr->first + "/F");
+  }
 
   outputTrees_.push_back(&_tree);
   hltMap.addOutput(_tree);

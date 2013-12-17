@@ -8,10 +8,6 @@
  Implementation:
 
 */
-//
-// Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer_LinkDef.h,v 1.9 2012/11/28 12:01:04 yiiyama Exp $
-//
 
 #include "../src/SusyEvent.h"
 

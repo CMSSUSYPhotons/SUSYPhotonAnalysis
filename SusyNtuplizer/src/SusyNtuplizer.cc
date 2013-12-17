@@ -11,11 +11,6 @@
    Putting all header files in src area violates CMS coding rule,
    but it is convenient for later use in standalone mode.
 */
-//
-// Original Author:  Dongwook Jang
-// $Id: SusyNtuplizer.cc,v 1.63 2013/07/03 15:47:07 yiiyama Exp $
-//
-//
 
 // user include files
 #include "FWCore/Framework/interface/Frameworkfwd.h"
