@@ -1238,162 +1238,164 @@ SusyNtuplizer::fillGenParticles(edm::Event const& _event, edm::EventSetup const&
   if(!storeGenInfo_ || _event.isRealData()) return;
 
   // Store the skimmed full decay tree
-  // Only the ancestors of final state (status == 1) particles with pt > 2 GeV will be stored
-  // Hadronic "blobs" are cleaned out
+  // Only the ancestors of final state (status == 1) particles with pt > genParticleThreshold will be stored
+  // Pruning removes intermediate light-flavor hadrons (particles with non-zero third digit, gluon,
+  // light quark decaying from another light quark, and pythia blob) unless:
+  //  - It is a first heavy-flavor to appear in the decay branch
+  //  - It is the direct mother of a final-state non-hadronic particle
   // In case of loops (a particle has multiple mothers), arbitration based on the particle species and Pt is performed
-
-  // The following algorithm will be much easier if we have a couple of auxiliary recursive functions..
+  // Anonymous struct is used extensively in this function for recursions
+  // Use lambda for release with C++11
 
   if(debugLevel_ > 0) edm::LogInfo(name()) << "fillGenParticles";
 
   edm::Handle<reco::GenParticleCollection> gpH;
   _event.getByLabel(edm::InputTag(genCollectionTag_), gpH);
 
-  std::set<reco::GenParticle const*> gps;
+  typedef std::map<reco::GenParticle const*, reco::GenParticle const*> PartToPart;
+  typedef std::list<reco::GenParticle const*> List;
+  typedef std::map<reco::GenParticle const*, List> PartToList;
 
-  // Save all particles that might appear in the final decay tree
-  for(reco::GenParticleCollection::const_iterator it(gpH->begin()); it != gpH->end(); it++){
-    if(it->status() == 1 && it->pt() < genParticleThreshold_) continue;
-    if(it->numberOfDaughters() == 0 && it->status() != 1) continue;
-    gps.insert(&*it);
-  }
+  PartToPart motherMap;
+  PartToList daughterMap;
 
-  std::map<reco::GenParticle const*, reco::GenParticle const*> motherMap;
-  std::map<reco::GenParticle const*, std::list<reco::GenParticle const*> > daughterMap;
+  struct {
+    bool operator() (reco::GenParticle const& _part, double _threshold)
+    {
+      return
+        (_part.status() == 1 && _part.pt() < _threshold) ||
+        (_part.status() != 1 && _part.numberOfDaughters() == 0);
+    }
+  } isInvalid;
 
-  // Loop over gps, establish mother-daughter relationships + perform arbitration when necessary
-  std::set<reco::GenParticle const*>::const_iterator gpend(gps.end());
-  std::list<reco::GenParticle const*> rootNodes;
-  for(std::set<reco::GenParticle const*>::const_iterator gItr(gps.begin()); gItr != gpend; ++gItr){
-    reco::GenParticle const* part(*gItr);
-    if(part->numberOfMothers() == 0){
-      rootNodes.push_back(part);
-      motherMap[part] = 0;
+  List rootNodes;
+  for(reco::GenParticleCollection::const_iterator gItr(gpH->begin()); gItr != gpH->end(); ++gItr){
+    if(isInvalid(*gItr, genParticleThreshold_)) continue;
+
+    reco::GenParticle const& part(*gItr);
+
+    if(part.numberOfMothers() == 0){
+      rootNodes.push_back(&part);
+      motherMap[&part] = 0;
     }
 
-    unsigned nD(part->numberOfDaughters());
+    unsigned nD(part.numberOfDaughters());
     for(unsigned iD(0); iD < nD; iD++){
-      reco::GenParticle const* daughter(static_cast<reco::GenParticle const*>(part->daughter(iD)));
-      if(gps.find(daughter) == gpend) continue;
+      reco::GenParticle const* daughter(static_cast<reco::GenParticle const*>(part.daughter(iD)));
+      if(isInvalid(*daughter, genParticleThreshold_)) continue;
 
       if(motherMap.find(daughter) != motherMap.end()){
         // the daughter is claimed by some other mother - arbtrate
         reco::GenParticle const* existing(motherMap[daughter]);
 
-        int thispdg(std::abs(part->pdgId()));
+        int thispdg(std::abs(part.pdgId()));
         bool thishad((thispdg / 100) % 10 != 0 || thispdg == 21 || (thispdg > 80 && thispdg < 101));
         int pdg(std::abs(existing->pdgId()));
         bool had((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101));
 
         bool takeAway(false);
         if((thishad && had) || (!thishad && !had))
-          takeAway = part->pt() > existing->pt();
+          takeAway = part.pt() > existing->pt();
         else if(!thishad && had)
           takeAway = true;
 
         if(!takeAway) continue;
 
-        std::list<reco::GenParticle const*>& daughters(daughterMap[existing]);
-        daughters.remove(daughter);
+        daughterMap[existing].remove(daughter);
       }
 
-      motherMap[daughter] = part;
-      daughterMap[part].push_back(daughter);
+      motherMap[daughter] = &part;
+      daughterMap[&part].push_back(daughter);
     }
   }
 
-  if(rootNodes.size() == 0) return;
+  struct {
+    struct {
+      bool operator() (unsigned _pdg) { return (_pdg / 100) % 10 != 0 || _pdg == 21 || (_pdg > 80 && _pdg < 101); }
+    } isHadronic;
 
-  // flag: whether subtree with the particle as the root node is already cleaned
-  std::map<reco::GenParticle const*, bool> cleanMap;
-  for(std::set<reco::GenParticle const*>::const_iterator gpItr(gps.begin()); gpItr != gpend; ++gpItr)
-    cleanMap[*gpItr] = false;
+    void operator() (List& _list, PartToPart& _motherMap, PartToList& _daughterMap)
+    {
+      List::iterator lItr(_list.begin());
+      while(lItr != _list.end()){
+        List& daughters(_daughterMap[*lItr]);
+        this->operator()(daughters, _motherMap, _daughterMap);
 
-  std::list<reco::GenParticle const*>* sisters(&rootNodes);
-  std::list<reco::GenParticle const*>::iterator pItr(sisters->begin());
-  std::list<reco::GenParticle const*>::iterator pEnd(sisters->end());
+        reco::GenParticle const& part(**lItr);
+        reco::GenParticle const* mother(_motherMap[&part]);
 
-  // start from the root node list, recursively clean the full tree
-  // strategy: 1. clean the daughters (recursive); 2. once no daughters are left or all are cleaned, clean myself; 3. go up
-  while(true){
-    reco::GenParticle const* part(*pItr);
-    reco::GenParticle const* mother(motherMap[part]);
-    std::list<reco::GenParticle const*>* daughters(&daughterMap[part]);
-    while(!cleanMap[part] && daughters->size() > 0){
-      mother = part;
-      sisters = daughters;
-      pItr = sisters->begin();
-      pEnd = sisters->end();
-      part = *pItr;
-      daughters = &daughterMap[part];
-    }
+        unsigned pdg(std::abs(part.pdgId()));
+        unsigned motherPdg(mother ? std::abs(mother->pdgId()) : 0);
 
-    unsigned nD(daughters->size());
-    unsigned pdg(std::abs(part->pdgId()));
-    unsigned motherPdg(mother ? std::abs(mother->pdgId()) : 0);
+        bool intermediateTerminal(daughters.size() == 0 && part.status() != 1);
+        bool lightFromLight(motherPdg < 4 && pdg < 4);
 
-    bool intermediateTerminal(nD == 0 && part->status() != 1);
-    bool noDecay(nD == 1 && part->pdgId() == daughters->front()->pdgId());
-    bool hadronicIntermediate(mother && part->status() != 1 && ((pdg / 100) % 10 != 0 || pdg == 21 || (pdg > 80 && pdg < 101)));
-    bool firstHeavyHadron((motherPdg / 1000) % 10 < 4 && (motherPdg / 100) % 10 < 4 && ((pdg / 1000) % 10 >= 4 || (pdg / 100) % 10 >= 4));
-    bool lightFromLight(motherPdg < 4 && pdg < 4);
+        bool hadronicIntermediate(false);
+        if(!intermediateTerminal && !lightFromLight){
+          hadronicIntermediate = mother && part.status() != 1 && isHadronic(pdg);
+          if(hadronicIntermediate){
+            if((motherPdg / 1000) % 10 < 4 && (motherPdg / 100) % 10 < 4 && ((pdg / 1000) % 10 >= 4 || (pdg / 100) % 10 >= 4))
+              // first heavy flavor
+              hadronicIntermediate = false;
+            else{
+              List::iterator dItr(daughters.begin());
+              for(; dItr != daughters.end(); ++dItr)
+                if((*dItr)->status() == 1 && !isHadronic(std::abs((*dItr)->pdgId()))) break;
+              if(dItr != daughters.end()) hadronicIntermediate = false;
+            }
+          }
+        }
 
-    if(intermediateTerminal || noDecay || (hadronicIntermediate && !firstHeavyHadron) || lightFromLight){
-      // The particle should be removed, its daughters appended to its siblings list, and their mothers set to particle's mother
-      std::list<reco::GenParticle const*>::iterator dEnd(daughters->end());
-      for(std::list<reco::GenParticle const*>::iterator dItr(daughters->begin()); dItr != dEnd; ++dItr){
-        sisters->push_back(*dItr);
-        motherMap[*dItr] = mother;
+        if(intermediateTerminal || hadronicIntermediate || lightFromLight){
+          // This particle should be removed, its daughters appended to its siblings list, and their mothers set to the particle's mother
+
+          for(List::iterator dItr(daughters.begin()); dItr != daughters.end(); ++dItr){
+            _list.push_back(*dItr);
+            _motherMap[*dItr] = mother;
+          }
+
+          lItr = _list.erase(lItr);
+          _daughterMap.erase(&part);
+          _motherMap.erase(&part);
+        }
+        else
+          ++lItr;
       }
-      gps.erase(part);
-      --pItr;
-      sisters->remove(part);
-      pEnd = sisters->end();
     }
+  } pruneDecayTree;
 
-    ++pItr;
+  pruneDecayTree(rootNodes, motherMap, daughterMap);
 
-    if(pItr == pEnd){
-      // reached the end of the list of siblings; go up one level in hierarchy
-
-      if(!mother) break; // we were already in the list of root nodes; cleaning is done
-
-      part = mother;
-      mother = motherMap[part];
-      if(mother)
-        sisters = &daughterMap[mother];
-      else // I am a root node
-        sisters = &rootNodes;
-
-      pItr = std::find(sisters->begin(), sisters->end(), part);
-      pEnd = sisters->end();
-      cleanMap[part] = true;
+  struct {
+    void operator() (List& _list, PartToList& _daughterMap, std::vector<reco::GenParticle const*>& _particles)
+    {
+      for(List::iterator lItr(_list.begin()); lItr != _list.end(); ++lItr){
+        _particles.push_back(*lItr);
+        this->operator()(_daughterMap[*lItr], _daughterMap, _particles);
+      }
     }
-  }
+  } linearize;
 
-  // serialize the particle list
-  std::vector<reco::GenParticle const*> gpv;
-  gpend = gps.end();
-  for(std::set<reco::GenParticle const*>::const_iterator gItr(gps.begin()); gItr != gpend; ++gItr)
-    gpv.push_back(*gItr);
+  std::vector<reco::GenParticle const*> particles;
 
-  unsigned nP(gpv.size());
-  susyEvent_->genParticles.resize(nP);
+  linearize(rootNodes, daughterMap, particles);
 
-  for(unsigned iP(0); iP < nP; iP++){
-    reco::GenParticle const* gp(gpv[iP]);
-    susy::Particle& susyPart(susyEvent_->genParticles[iP]);
+  for(unsigned iP(0); iP != particles.size(); ++iP){
+    reco::GenParticle const& part(*particles[iP]);
+    susy::Particle susyPart;
 
-    short iM(-1);
-    std::vector<reco::GenParticle const*>::const_iterator mItr(std::find(gpv.begin(), gpv.end(), motherMap[gp]));
-    if(mItr != gpv.end()) iM = mItr - gpv.begin();
+    std::vector<reco::GenParticle const*>::iterator mItr(std::find(particles.begin(), particles.end(), motherMap[&part]));
+    if(mItr == particles.end()) 
+      susyPart.motherIndex = -1;
+    else
+      susyPart.motherIndex = short(mItr - particles.begin());
+    susyPart.status = part.status();
+    susyPart.pdgId = part.pdgId();
+    susyPart.charge = part.charge();
+    susyPart.vertex.SetXYZ(part.vx(), part.vy(), part.vz());
+    susyPart.momentum.SetXYZT(part.px(), part.py(), part.pz(), part.energy());
 
-    susyPart.motherIndex = iM;
-    susyPart.status = gp->status();
-    susyPart.pdgId = gp->pdgId();
-    susyPart.charge = gp->charge();
-    susyPart.vertex.SetXYZ(gp->vx(), gp->vy(), gp->vz());
-    susyPart.momentum.SetXYZT(gp->px(), gp->py(), gp->pz(), gp->energy());
+    susyEvent_->genParticles.push_back(susyPart);
   }
 }
 
