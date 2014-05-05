@@ -216,6 +216,7 @@ susyNtuplizer = cms.EDAnalyzer('SusyNtuplizer',
             default = cms.bool(False)
         )
     ),
+    hltFilterTags = cms.vstring(),
     photonSCRegressionWeights = cms.FileInPath("SUSYPhotonAnalysis/SusyNtuplizer/data/gbrv3ph_52x.root"),
     muonThreshold = cms.double(2.0),
     electronThreshold = cms.double(2.0),

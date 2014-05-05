@@ -153,6 +153,9 @@ namespace susy {
   void
   TriggerEvent::fillObject(TriggerObject const& _obj)
   {
+    // must be called right after fillFilter
+    // better implementationally if this was a part of fillFilter, but we don't want CMSSW dependence in this code
+
     if(!writeMode_){
       if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::fillFilter: Not in write mode" << std::endl;
       return;
@@ -163,16 +166,16 @@ namespace susy {
   }
 
   void
-  TriggerEvent::fillFilter(TString const& _filterName, std::vector<Int_t> const& _vids, std::vector<UShort_t> const& _keys)
+  TriggerEvent::fillFilter(TString const& _filterName, std::vector<Int_t> const& _vids, std::vector<UShort_t> const& _keys, std::map<UShort_t, UShort_t> const& _keyMap)
   {
     if(!writeMode_){
       if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::fillFilter: Not in write mode" << std::endl;
       return;
     }
 
-    UInt_t nKey(_keys.size());
-    if(nKey == 0){
-      if(verbosity_ > 1) std::cerr << "susy::TriggerEvent::fillFilter: Key vector size is 0 for filter " << _filterName << std::endl;
+    UInt_t nVid(_vids.size());
+    if(nVid == 0){
+      if(verbosity_ > 1) std::cerr << "susy::TriggerEvent::fillFilter: Vid vector size is 0 for filter " << _filterName << std::endl;
       return;
     }
 
@@ -185,13 +188,15 @@ namespace susy {
       filter_.id = fItr->second;
 
     filter_.filterObjectBegin = filterObjectTree_->GetEntries();
-    filter_.filterObjectEnd = filterObjectTree_->GetEntries() + nKey;
+    filter_.filterObjectEnd = filterObjectTree_->GetEntries() + nVid;
 
     filterTree_->Fill();
 
-    for(UInt_t iKey(0); iKey != nKey; ++iKey){
-      filterObject_.vid = _vids[iKey];
-      filterObject_.key = _keys[iKey];
+    // key must exist in keymap
+
+    for(UInt_t iVid(0); iVid != nVid; ++iVid){
+      filterObject_.vid = _vids[iVid];
+      filterObject_.key = _keyMap.find(_keys[iVid])->second;
       filterObjectTree_->Fill();
     }
 
@@ -200,8 +205,8 @@ namespace susy {
                 << " ID " << filter_.id << " FilterObjectIndices " << filter_.filterObjectBegin << "-" << filter_.filterObjectEnd << std::endl;
       if(verbosity_ > 3){
         std::cerr << " FilterObjects:" << std::endl;
-        for(UInt_t iKey(0); iKey < nKey; ++iKey)
-          std::cerr << "  vid=" << _vids[iKey] << ", key=" << _keys[iKey] << std::endl;
+        for(UInt_t iVid(0); iVid < nVid; ++iVid)
+          std::cerr << "  vid=" << _vids[iVid] << ", key=" << _keyMap.find(_keys[iVid])->second << std::endl;
       }
     }
   }
@@ -435,7 +440,10 @@ namespace susy {
   void
   TriggerEvent::reset()
   {
-    if(susyTree_ && susyTree_->GetFriend("triggerEvent") == eventTree_) susyTree_->RemoveFriend(eventTree_);
+    if(susyTree_ && susyTree_->GetFriend("triggerEvent") == eventTree_){
+      susyTree_->RemoveFriend(eventTree_);
+      if(susyTree_->InheritsFrom(TChain::Class())) susyTree_->LoadTree(susyTree_->GetReadEntry());
+    }
 
     susyTree_ = 0;
     ordered_ = kTRUE;

@@ -223,6 +223,7 @@ private:
   std::string pfPUCandidatesTag_;
   std::string photonSCRegressionWeights_;
   std::map<unsigned, std::string> metFilterTags_;
+  std::set<std::string> hltFilterTags_;
 
   // for HLT prescales
   HLTConfigProvider* hltConfig_;
@@ -342,6 +343,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   pfPUCandidatesTag_(iConfig.getParameter<std::string>("pfPUCandidatesTag")),
   photonSCRegressionWeights_(iConfig.getParameter<edm::FileInPath>("photonSCRegressionWeights").fullPath()),
   metFilterTags_(),
+  hltFilterTags_(),
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
@@ -551,7 +553,7 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
 
   outF->cd();    
   susyTree_ = new TTree("susyTree", "SUSY Event");
-  susyTree_->SetAutoSave(10000000); // 10MB
+  susyTree_->SetAutoSave(10000000); // 10M events
 
   /*
     Construct an Event object and tell it what collections it should expect.
@@ -638,6 +640,9 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     Create a trigger tree if configured.
   */
   if(storeTriggerEvents_){
+    VString hltFiltersList(iConfig.getParameter<VString>("hltFilterTags"));
+    hltFilterTags_.insert(hltFiltersList.begin(), hltFiltersList.end());
+
     TString triggerFileName(iConfig.getParameter<std::string>("triggerFileName"));
 
     triggerEvent_ = new susy::TriggerEvent;
@@ -1413,17 +1418,27 @@ SusyNtuplizer::fillTriggerEvent(edm::Event const& _event, edm::EventSetup const&
     _event.getByLabel(triggerEventTag_, teH);
 
     trigger::TriggerObjectCollection const& objects(teH->getObjects());
-    unsigned nObj(objects.size());
-    for(unsigned iObj(0); iObj < nObj; ++iObj){
-      trigger::TriggerObject const& obj(objects.at(iObj));
-      triggerEvent_->fillObject(susy::TriggerObject(obj.pt(), obj.eta(), obj.phi(), obj.mass()));
-    }
+
+    std::map<unsigned short, unsigned short> keyMap; // key used in CMSSW -> key used in ntuples
 
     unsigned nF(teH->sizeFilters());
     for(unsigned iF(0); iF < nF; ++iF){
-      trigger::Vids const& vids(teH->filterIds(iF));
+      if(hltFilterTags_.size() != 0 && hltFilterTags_.find(teH->filterTag(iF).label()) == hltFilterTags_.end()) continue;
+
       trigger::Keys const& keys(teH->filterKeys(iF));
-      triggerEvent_->fillFilter(teH->filterTag(iF).label(), vids, keys);
+
+      for(unsigned iK(0); iK != keys.size(); ++iK){
+        unsigned short key(keys[iK]);
+
+        if(keyMap.find(key) != keyMap.end()) continue;
+
+        trigger::TriggerObject const& obj(objects.at(key));
+        triggerEvent_->fillObject(susy::TriggerObject(obj.pt(), obj.eta(), obj.phi(), obj.mass()));
+
+        keyMap[key] = keyMap.size();
+      }
+
+      triggerEvent_->fillFilter(teH->filterTag(iF).label(), teH->filterIds(iF), keys, keyMap);
     }
   }
   catch(...){

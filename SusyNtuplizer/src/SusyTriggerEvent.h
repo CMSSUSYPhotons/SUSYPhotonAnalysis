@@ -35,7 +35,7 @@ namespace susy {
     Bool_t bookTrees(TFile*);
     void initializeEvent(UInt_t, UInt_t);
     void fillObject(TriggerObject const&);
-    void fillFilter(TString const&, std::vector<Int_t> const&, std::vector<UShort_t> const&);
+    void fillFilter(TString const&, std::vector<Int_t> const&, std::vector<UShort_t> const&, std::map<UShort_t, UShort_t> const&);
     void fillEvent();
     void write();
     void copyEvent(TriggerEvent&);
@@ -69,8 +69,9 @@ namespace susy {
       UShort_t id; // within the current file
     } filter_;
     struct FilterObject {
-      Short_t vid;
-      UShort_t key;
+      Short_t vid; // particle ID assigned within HLT
+      UShort_t key; // index of the object in event
+      //e.g. index of object 1 of filter A: event.objectBegin + filterObject[filter[event.filterBegin + offsetA].filterObjectBegin + 1].key)
     } filterObject_;
     TriggerObject object_;
 
