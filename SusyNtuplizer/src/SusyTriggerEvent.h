@@ -4,6 +4,7 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <iostream>
 
 #include "TLorentzVector.h"
 #include "TString.h"
@@ -50,6 +51,7 @@ namespace susy {
     UInt_t getRunNumber() const { return event_.runNumber; }
     UInt_t getEventNumber() const { return event_.eventNumber; }
 
+    void Print(std::ostream& = std::cout);
     void setVerbosity(Int_t _v) { verbosity_ = _v; }
 
   private:

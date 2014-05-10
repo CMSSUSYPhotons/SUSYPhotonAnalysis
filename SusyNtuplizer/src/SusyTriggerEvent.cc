@@ -243,8 +243,7 @@ namespace susy {
     TFile* eventFile(eventTree_->GetCurrentFile());
     eventFile->cd();
     eventTree_->Write();
-    delete eventTree_;
-    eventTree_ = 0;
+    // eventTree and the file will be deleted in reset() at the end of this function
 
     if(verbosity_ > 1) std::cerr << "susy::TriggerEvent::write: Writing filters" << std::endl;
 
@@ -591,6 +590,8 @@ namespace susy {
       return result;
     }
 
+    if(_filter == "") return result;
+
     std::map<TString, UShort_t>::const_iterator idItr(filterIdMap_.find(_filter));
     if(idItr == filterIdMap_.end()){
       if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::getFilterObjects: Filter " << _filter << " not found in table" << std::endl;
@@ -652,6 +653,25 @@ namespace susy {
       if(filterObjects[iObj].deltaR(_momentum) < _dR) return kTRUE;
 
     return kFALSE;
+  }
+
+  void
+  TriggerEvent::Print(std::ostream& os/* = std::cout*/)
+  {
+    getFilterObjects(""); // initialize read
+
+    os << "Trigger Event ======>" << std::endl;
+    for(std::map<TString, UShort_t>::const_iterator fItr(filterIdMap_.begin()); fItr != filterIdMap_.end(); ++fItr){
+      TriggerObjectCollection filterObjects(getFilterObjects(fItr->first));
+      if(filterObjects.size() == 0) continue;
+      os << "\t" << fItr->first << ": ";
+      for(unsigned iO(0); iO != filterObjects.size(); ++iO){
+        TriggerObject& obj(filterObjects[iO]);
+        os << "(" << obj.pt << "," << obj.eta << "," << obj.phi << "," << obj.mass << ")[" << obj.vid << "] ";
+      }
+      os << std::endl;
+    }
+    os << std::endl;
   }
 
   Bool_t

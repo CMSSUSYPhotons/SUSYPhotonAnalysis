@@ -73,7 +73,7 @@ SusyTriggerNtuplizer::analyze(edm::Event const& _evt, edm::EventSetup const&)
         trigger::TriggerObject const& obj(objects.at(key));
         triggerEvent_.fillObject(susy::TriggerObject(obj.pt(), obj.eta(), obj.phi(), obj.mass()));
 
-        keyMap[key] = keyMap.size();
+        keyMap[key] = keyMap.size() - 1;
       }
 
       triggerEvent_.fillFilter(teH->filterTag(iF).label(), teH->filterIds(iF), keys, keyMap);
