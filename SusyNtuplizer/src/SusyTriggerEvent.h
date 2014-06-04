@@ -39,7 +39,7 @@ namespace susy {
     void fillFilter(TString const&, std::vector<Int_t> const&, std::vector<UShort_t> const&, std::map<UShort_t, UShort_t> const&);
     void fillEvent();
     void write();
-    void copyEvent(TriggerEvent&);
+    bool copyEvent(TriggerEvent&);
 
     void reset();
 

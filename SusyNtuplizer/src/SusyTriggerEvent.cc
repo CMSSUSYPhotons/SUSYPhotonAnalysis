@@ -373,17 +373,17 @@ namespace susy {
     reset();
   }
 
-  void
+  bool
   TriggerEvent::copyEvent(TriggerEvent& _orig)
   {
     if(!writeMode_){
       if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::copyEvent: Not in write mode" << std::endl;
-      return;
+      return false;
     }
 
     if(_orig.currentTreeNumber_ != _orig.eventTree_->GetTreeNumber() && !_orig.loadTrees()){
       if(verbosity_ > 0) std::cerr << "susy::TriggerEvent::copyEvent: File transition failed" << std::endl;
-      return;
+      return false;
     }
 
     event_.runNumber = _orig.event_.runNumber;
@@ -394,7 +394,7 @@ namespace susy {
     Long64_t objectIndex(_orig.event_.objectBegin);
     while(objectIndex != _orig.event_.objectEnd && _orig.objectTree_->GetEntry(objectIndex++) != 0){
       object_ = _orig.object_;
-      objectTree_->Fill();
+      if(objectTree_->Fill() < 0) return false;
     }
 
     event_.objectEnd = objectTree_->GetEntries();
@@ -423,17 +423,17 @@ namespace susy {
       Long64_t filterObjectIndex(_orig.filter_.filterObjectBegin);
       while(filterObjectIndex != _orig.filter_.filterObjectEnd && _orig.filterObjectTree_->GetEntry(filterObjectIndex++) != 0){
 	filterObject_ = _orig.filterObject_;
-	filterObjectTree_->Fill();
+	if(filterObjectTree_->Fill() < 0) return false;
       }
 
       filter_.filterObjectEnd = filterObjectTree_->GetEntries();
 
-      filterTree_->Fill();
+      if(filterTree_->Fill() < 0) return false;
     }
 
     event_.filterEnd = filterTree_->GetEntries();
 
-    eventTree_->Fill();
+    return eventTree_->Fill() >= 0;
   }
 
   void
