@@ -21,7 +21,7 @@
 <use name="Geometry/CaloGeometry"/>
 <use name="Geometry/CaloTopology"/>
 <use name="Calibration/IsolatedParticles"/>
-<use name="EGamma/EGammaAnalysisTools"/>
+<use name="EgammaAnalysis/ElectronTools"/>
 <use name="JetMETCorrections/Objects"/>
 <use name="CondFormats/JetMETObjects"/>
 <use name="HLTrigger/HLTcore"/>

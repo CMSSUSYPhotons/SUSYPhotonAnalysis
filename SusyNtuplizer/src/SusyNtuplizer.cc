@@ -26,6 +26,7 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 
 #include "DataFormats/Common/interface/RefToPtr.h"
+#include "DataFormats/Common/interface/FwdPtr.h"
 
 #include "DataFormats/Math/interface/Point3D.h"
 #include "DataFormats/Math/interface/deltaR.h"
@@ -116,13 +117,12 @@
 #include "DataFormats/JetReco/interface/PileupJetIdentifier.h"
 
 // PFIsolation
-#include "EGamma/EGammaAnalysisTools/interface/PFIsolationEstimator.h"
+#include "EgammaAnalysis/ElectronTools/interface/PFIsolationEstimator.h"
 
 // Photon SC energy MVA regression
 #include "RecoEgamma/EgammaTools/interface/EGEnergyCorrector.h"
 
 // MET filters
-#include "PhysicsTools/Utilities/interface/EventFilterFromListStandAlone.h"
 #include "DataFormats/METReco/interface/BeamHaloSummary.h"
 
 
@@ -205,6 +205,9 @@ private:
   std::string genCollectionTag_;
   std::string puSummaryInfoTag_;
   std::string triggerEventTag_;
+  std::string conversionCollectionTag_;
+  std::string vetoElectronCollectionTag_;
+  std::string bsConstrainedVtxCollectionTag_;
   VString muonCollectionTags_;
   VString electronCollectionTags_;
   VString photonCollectionTags_;
@@ -233,9 +236,6 @@ private:
 
   // PFIsolator
   PFIsolationEstimator* isolator03_;
-
-  // text-based event veto for HcalLaserEventList MET filter
-  EventFilterFromListStandAlone* hcalLaserEventListFilter_;
 
   // debugLevel
   // 0 : default (no printout from this module)
@@ -325,6 +325,9 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   genCollectionTag_(iConfig.getParameter<std::string>("genCollectionTag")),
   puSummaryInfoTag_(iConfig.getParameter<std::string>("puSummaryInfoTag")),
   triggerEventTag_(iConfig.getParameter<std::string>("triggerEventTag")),
+  conversionCollectionTag_(iConfig.getParameter<std::string>("conversionCollectionTag")),
+  vetoElectronCollectionTag_(iConfig.getParameter<std::string>("vetoElectronCollectionTag")),
+  bsConstrainedVtxCollectionTag_(iConfig.getParameter<std::string>("bsConstrainedVtxCollectionTag")),
   muonCollectionTags_(iConfig.getParameter<VString>("muonCollectionTags")),
   electronCollectionTags_(iConfig.getParameter<VString>("electronCollectionTags")),
   photonCollectionTags_(iConfig.getParameter<VString>("photonCollectionTags")),
@@ -347,7 +350,6 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
   hltConfig_(0),
   l1GtUtils_(0),
   isolator03_(0),
-  hcalLaserEventListFilter_(0),
   debugLevel_(iConfig.getParameter<int>("debugLevel")),
   processName_(""),
   selectEvents_(iConfig.getParameter<VString>("selectEvents")),
@@ -675,15 +677,6 @@ SusyNtuplizer::beginJob()
   l1GtUtils_ = new L1GtUtils;
 
   hltConfig_ = new HLTConfigProvider;
-
-  if(metFilterTags_.find(susy::kHcalLaserEventList) != metFilterTags_.end()){
-    edm::FileInPath listPath("EventFilter/HcalRawToDigi/data/HCALLaser2012AllDatasets.txt.gz");
-    gzFile dummyFP(gzopen(listPath.fullPath().c_str(), "r"));
-    if(dummyFP != 0){
-      gzclose(dummyFP);
-      hcalLaserEventListFilter_ = new EventFilterFromListStandAlone(listPath.fullPath());
-    }
-  }
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
@@ -1080,11 +1073,9 @@ SusyNtuplizer::fillMetFilters(edm::Event const& _event, edm::EventSetup const& _
     pass[susy::kCSCBeamHalo] = !(beamHaloSummary->CSCTightHaloId());
   }
 
-  if(metFilterTags_.find(susy::kHcalLaserEventList) != metFilterTags_.end() && hcalLaserEventListFilter_){
-    if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter based on an event list (Run2012ABC)";
-
-    pass[susy::kHcalLaserEventList] = hcalLaserEventListFilter_->filter(_event.id().run(), _event.luminosityBlock(), _event.id().event());
-  }
+  // The newest recipe for event list-based HCAL laser filter (for Run2012ABC prompt / 2012 rerecoes) does not run in tagging mode
+  // i.e. events failing the filter are thrown away and are never recorded in the ntuples.
+  pass[susy::kHcalLaserEventList] = true;
 
   if(metFilterTags_.find(susy::kHcalLaserRECOUserStep) != metFilterTags_.end()){
     if(debugLevel_ > 1) edm::LogInfo(name()) << "fillMetFilters: Hcal laser filter run at RECO (Run2012 2013 rerecos)";
@@ -1113,9 +1104,6 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
   edm::Handle<reco::PFCandidateCollection> pfH;
   _event.getByLabel(edm::InputTag(pfCandidateCollectionTag_), pfH);
 
-  edm::Handle<reco::PFCandidateCollection> pfPUH;
-  _event.getByLabel(edm::InputTag(pfPUCandidatesTag_), pfPUH);
-
   if(debugLevel_ > 1) edm::LogInfo(name()) << "fillPFParticles: size of PFCandidateCollection = " << pfH->size();
 
   unsigned long iPart(0);
@@ -1128,15 +1116,42 @@ SusyNtuplizer::fillPFParticles(edm::Event const& _event, edm::EventSetup const&)
   }
 
   std::set<reco::Candidate const*> puCands;
-  for(reco::PFCandidateCollection::const_iterator puItr(pfPUH->begin()); puItr != pfPUH->end(); ++puItr){
-    reco::Candidate const* cand(&*puItr);
-    reco::CandidatePtr sourcePtr;
-    while((sourcePtr = cand->sourceCandidatePtr(0)).isNonnull()){
-      if(sourcePtr.id() == pfH.id()){
-        puCands.insert(sourcePtr.get());
-        break;
+
+  try{
+    edm::Handle<reco::PFCandidateCollection> pfPUH;
+    _event.getByLabel(edm::InputTag(pfPUCandidatesTag_), pfPUH);
+    for(reco::PFCandidateCollection::const_iterator puItr(pfPUH->begin()); puItr != pfPUH->end(); ++puItr){
+      reco::Candidate const* cand(&*puItr);
+      reco::CandidatePtr sourcePtr;
+      while((sourcePtr = cand->sourceCandidatePtr(0)).isNonnull()){
+        if(sourcePtr.id() == pfH.id()){
+          puCands.insert(sourcePtr.get());
+          break;
+        }
+        cand = sourcePtr.get();
       }
-      cand = sourcePtr.get();
+    }
+  }
+  catch(cms::Exception&){
+    // > 70X
+    edm::Handle<std::vector<edm::FwdPtr<reco::PFCandidate> > > pfPUPtrH;
+    _event.getByLabel(edm::InputTag(pfPUCandidatesTag_), pfPUPtrH);
+    unsigned nPU(pfPUPtrH->size());
+    for(unsigned iPU(0); iPU != nPU; ++iPU){
+      edm::FwdPtr<reco::PFCandidate> const& ptr(pfPUPtrH->at(iPU));
+      reco::Candidate const* cand(ptr.get());
+      if(ptr.id() == pfH.id()){
+        puCands.insert(cand);
+        continue;
+      }
+      reco::CandidatePtr sourcePtr;
+      while((sourcePtr = cand->sourceCandidatePtr(0)).isNonnull()){
+        if(sourcePtr.id() == pfH.id()){
+          puCands.insert(sourcePtr.get());
+          break;
+        }
+        cand = sourcePtr.get();
+      }
     }
   }
 
@@ -1575,19 +1590,19 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
   _event.getByLabel("reducedEcalRecHitsEB", barrelRecHitsHandle);
   _event.getByLabel("reducedEcalRecHitsEE", endcapRecHitsHandle);
 
-  edm::ESHandle<CaloGeometry> cgH;
-  _eventSetup.get<CaloGeometryRecord>().get(cgH);
-  CaloGeometry const* caloGeometry(cgH.product());
+  // edm::ESHandle<CaloGeometry> cgH;
+  // _eventSetup.get<CaloGeometryRecord>().get(cgH);
+  // CaloGeometry const* caloGeometry(cgH.product());
 
   edm::ESHandle<CaloTopology> ctH;
   _eventSetup.get<CaloTopologyRecord>().get(ctH);
   CaloTopology const* caloTopology(ctH.product());
 
   edm::Handle<reco::ConversionCollection> hVetoConversions;
-  _event.getByLabel("allConversions", hVetoConversions);
+  _event.getByLabel(conversionCollectionTag_, hVetoConversions);
 
   edm::Handle<reco::GsfElectronCollection> hVetoElectrons;
-  _event.getByLabel("gsfElectrons", hVetoElectrons);
+  _event.getByLabel(vetoElectronCollectionTag_, hVetoElectrons);
 
   edm::Handle<reco::PFCandidateCollection> pfH;
   _event.getByLabel(pfCandidateCollectionTag_, pfH);
@@ -1597,13 +1612,10 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
   reco::VertexRef primVtxRef(vtxH, 0);
 
   edm::Handle<reco::VertexCollection> vtxWithBSH;
-  _event.getByLabel("offlinePrimaryVerticesWithBS", vtxWithBSH);
+  _event.getByLabel(bsConstrainedVtxCollectionTag_, vtxWithBSH);
 
   edm::Handle<reco::TrackCollection> trkH;
   _event.getByLabel(edm::InputTag(trackCollectionTag_), trkH);
-
-  edm::Handle<edm::ValueMap<PFCandidatePtr> > pfTranslationH;
-  _event.getByLabel("particleFlow", "photons", pfTranslationH);
 
   math::XYZPoint beamSpot(susyEvent_->beamSpot.X(), susyEvent_->beamSpot.Y(), susyEvent_->beamSpot.Z());
 
@@ -1645,8 +1657,6 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
 
       susy::Photon pho;
 
-      bool isPF(it->photonCore()->isPFlowPhoton());
-
       // pack fiducial bits
       pho.fidBit |= (it->isEB()          << 0);
       pho.fidBit |= (it->isEE()          << 1);
@@ -1655,7 +1665,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       pho.fidBit |= (it->isEERingGap()   << 4);
       pho.fidBit |= (it->isEEDeeGap()    << 5);
       pho.fidBit |= (it->isEBEEGap()     << 6);
-      pho.fidBit |= (isPF                << 7);
+      pho.fidBit |= (it->photonCore()->isPFlowPhoton() << 7);
 
       pho.hadronicOverEm                    = it->hadronicOverEm();
       pho.hadronicDepth1OverEm              = it->hadronicDepth1OverEm();
@@ -1700,13 +1710,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       if(nhIsoMap) pho.neutralHadronIsoDeposit = (*nhIsoMap)[phoRef];
       if(phIsoMap) pho.photonIsoDeposit        = (*phIsoMap)[phoRef];
 
-      if(isPF){
-        // InvalidReference here would imply a fatal problem of AOD - throw
-        reco::PFCandidate const* pfPhoton((*pfTranslationH)[phoRef].get());
-        isolator03_->fGetIsolation(pfPhoton, pfH.product(), primVtxRef, vtxH);
-      }
-      else
-        isolator03_->fGetIsolation(&*it, pfH.product(), primVtxRef, vtxH);
+      isolator03_->fGetIsolation(&*it, pfH.product(), primVtxRef, vtxH);
 
       pho.chargedHadronIso                  = isolator03_->getIsolationCharged();
       pho.neutralHadronIso                  = isolator03_->getIsolationNeutral();
@@ -1734,14 +1738,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
         for (unsigned int ivx=1;ivx<vtxH->size();++ivx) {
           reco::VertexRef tmpVxRef(vtxH,ivx);
           // this is going to look very familiar -- some degree of laziness here...
-          if (isPF) {
-            // InvalidReference here would imply a fatal problem of AOD - throw
-            reco::PFCandidate const* pfPhoton((*pfTranslationH)[phoRef].get());
-            isolator03_->fGetIsolation(pfPhoton, pfH.product(), tmpVxRef, vtxH);
-          }  
-          else {
-            isolator03_->fGetIsolation(&*it, pfH.product(), tmpVxRef, vtxH);
-          }
+          isolator03_->fGetIsolation(&*it, pfH.product(), tmpVxRef, vtxH);
 
           Float_t thischIso=isolator03_->getIsolationCharged();
 
@@ -1768,7 +1765,7 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
 
       // Cluster informations
       // Photon without a SuperClusterRef implies a fatal error - throw if scRef is null
-      reco::SuperClusterRef scRef(isPF ? it->pfSuperCluster() : it->superCluster());
+      reco::SuperClusterRef scRef(it->superCluster());
       pho.hcalIsoConeDR04_2012 = it->hcalTowerSumEtConeDR04() + (it->hadronicOverEm() - it->hadTowOverEm()) * scRef->energy() / cosh(scRef->eta());
       pho.hcalIsoConeDR03_2012 = it->hcalTowerSumEtConeDR03() + (it->hadronicOverEm() - it->hadTowOverEm()) * scRef->energy() / cosh(scRef->eta());
 
@@ -1782,12 +1779,13 @@ SusyNtuplizer::fillPhotons(edm::Event const& _event, edm::EventSetup const& _eve
       if(seedClusterPtr.isNonnull()){
         seedId = seedClusterPtr->seed();
         if(!seedId.null()){
-          double e1000 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 1, 0, 0, 0);
-          double e0100 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 1, 0, 0);
-          double e0010 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 1, 0);
-          double e0001 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 0, 1);
+          // eECALmatrix observed to cause crashes in some unknown cases (Jun 12 2014, Y.I.)
+          // double e1000 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 1, 0, 0, 0);
+          // double e0100 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 1, 0, 0);
+          // double e0010 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 1, 0);
+          // double e0001 = spr::eECALmatrix(seedId, barrelRecHitsHandle, endcapRecHitsHandle, caloGeometry, caloTopology, 0, 0, 0, 1);
 
-          pho.e1x2 = std::max(std::max(e1000,e0100), std::max(e0010, e0001));
+          // pho.e1x2 = std::max(std::max(e1000,e0100), std::max(e0010, e0001));
 
           std::vector<float> crysCov = EcalClusterTools::localCovariances(*seedClusterPtr, barrelRecHitsHandle.product(), caloTopology);
           pho.sigmaIphiIphi = std::sqrt(crysCov[2]);
@@ -2072,7 +2070,7 @@ SusyNtuplizer::fillElectrons(edm::Event const& _event, edm::EventSetup const& _e
       ele.trackMomentumError                = it->trackMomentumError();
 
       ele.electronClusterIndex = fillCluster(it->electronCluster().get());
-      ele.superClusterIndex    = isPF ? fillSuperCluster(it->pflowSuperCluster().get()) : fillSuperCluster(it->superCluster().get());
+      ele.superClusterIndex    = fillSuperCluster(it->superCluster().get());
 
       ele.closestCtfTrackIndex = fillTrack(it->closestCtfTrackRef().get());
       ele.gsfTrackIndex        = fillGsfTrack(it->gsfTrack().get());
@@ -2959,8 +2957,6 @@ SusyNtuplizer::finalize()
   l1GtUtils_ = 0;
   delete isolator03_;
   isolator03_ = 0;
-  delete hcalLaserEventListFilter_;
-  hcalLaserEventListFilter_ = 0;
 
   if(storeTriggerEvents_)
     triggerEvent_->write();
