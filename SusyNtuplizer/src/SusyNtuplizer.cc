@@ -604,18 +604,22 @@ SusyNtuplizer::SusyNtuplizer(const edm::ParameterSet& iConfig) :
     else if(metFilterNames[iF] == "HcalNoise") bitPosition = susy::kHcalNoise;
     else if(metFilterNames[iF] == "EcalDeadCellTP") bitPosition = susy::kEcalDeadCellTP;
     else if(metFilterNames[iF] == "EcalDeadCellBE") bitPosition = susy::kEcalDeadCellBE;
-    else if(metFilterNames[iF] == "HcalLaserOccupancy") bitPosition = susy::kHcalLaserOccupancy;
     else if(metFilterNames[iF] == "TrackingFailure") bitPosition = susy::kTrackingFailure;
     else if(metFilterNames[iF] == "EEBadSC") bitPosition = susy::kEEBadSC;
+    else if(metFilterNames[iF] == "HcalLaserOccupancy") bitPosition = susy::kHcalLaserOccupancy;
     else if(metFilterNames[iF] == "HcalLaserEventList") bitPosition = susy::kHcalLaserEventList;
+    else if(metFilterNames[iF] == "HcalLaserRECOUserStep") bitPosition = susy::kHcalLaserRECOUserStep;
     else if(metFilterNames[iF] == "EcalLaserCorr") bitPosition = susy::kEcalLaserCorr;
     else if(metFilterNames[iF] == "ManyStripClus53X") bitPosition = susy::kManyStripClus53X;
     else if(metFilterNames[iF] == "TooManyStripClus53X") bitPosition = susy::kTooManyStripClus53X;
     else if(metFilterNames[iF] == "LogErrorTooManyClusters") bitPosition = susy::kLogErrorTooManyClusters;
+    else if(metFilterNames[iF] == "LogErrorTooManyTripletsPairs") bitPosition = susy::kLogErrorTooManyTripletsPairs;
+    else if(metFilterNames[iF] == "LogErrorTooManySeeds") bitPosition = susy::kLogErrorTooManySeeds;
     else if(metFilterNames[iF] == "EERingOfFire") bitPosition = susy::kEERingOfFire;
     else if(metFilterNames[iF] == "InconsistentMuon") bitPosition = susy::kInconsistentMuon;
     else if(metFilterNames[iF] == "GreedyMuon") bitPosition = susy::kGreedyMuon;
-    else if(metFilterNames[iF] == "HcalLaserRECOUserStep") bitPosition = susy::kHcalLaserRECOUserStep;
+    else
+      throw cms::Exception("ConfigError") << "Undefined MET filter " << metFilterNames[iF];
 
     metFilterTags_[bitPosition] = filterConfig.getParameter<std::string>("tag");
     if(filterConfig.getParameter<bool>("default")) susyEvent_->metFilterMask |= (1 << bitPosition);
