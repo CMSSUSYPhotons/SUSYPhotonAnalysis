@@ -24,7 +24,8 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         '52xFullSim',
         '52xFastSim',
         '53xFullSim',
-        '53xFastSim'
+        '53xFastSim',
+        '70xFullSim'
     ]
 
     isRealData = dataset in collisionDatasets
@@ -32,6 +33,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     isFastSim = isMC and 'FastSim' in dataset
     is53x = '53x' in dataset
     is52x = '52x' in dataset
+    is70x = '70x' in dataset
 
     if not isRealData and not isMC:
         raise RuntimeError("Dataset " + dataset + " not defined")
@@ -103,6 +105,8 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         process.GlobalTag.globaltag = 'START52_V16::All'
     elif isMC and is53x:
         process.GlobalTag.globaltag = 'START53_V25::All'
+    elif isMC and is70x:
+        process.GlobalTag.globaltag = 'POSTLS170_V6::All'
 
     #####################
     ### SusyNtuplizer ###
@@ -122,6 +126,15 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         process.hltHighLevel.HLTPaths = hltPaths
     else:
         process.hltHighLevel = cms.Sequence() # placeholder
+
+    ###################################
+    ### HCAL laser pollution filter ###
+    ###################################
+    # A fraction of 2012 data had HCAL lasers firing coincident with bunch crossing
+    # Unlike other MET filters (see below), the filter provided by the HCAL DPG does
+    # not allow to run on "tagging mode", i.e. saving the result of the filter but
+    # not actually filtering out the event.
+    process.load('EventFilter.HcalRawToDigi.hcallasereventfilter2012_cfi')
 
     ##########################################
     ### Good vertex collection (transient) ###
@@ -147,6 +160,14 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     ###########################
     from RecoJets.JetProducers.kt4PFJets_cfi import kt4PFJets
 
+    # 70X does not come with kt PF jets any more - rho correction will not be used in the future..
+    process.kt6PFJets = kt4PFJets.clone(
+        rParam = cms.double(0.6),
+        doRhoFastjet = cms.bool(True),
+        doAreaFastjet = cms.bool(True),
+        voronoiRfact = cms.double(0.9)
+    )
+
     #Calculate rho restricted to barrel for photon pileup subtraction
     process.kt6PFJetsRhoBarrelOnly = kt4PFJets.clone(
         src = cms.InputTag('particleFlow'),
@@ -170,6 +191,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     )
 
     process.puRhoSequence = cms.Sequence(
+        process.kt6PFJets +
         process.kt6PFJetsRhoBarrelOnly +
         process.kt6PFJetsRho25
     )
@@ -185,6 +207,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     process.pfPileUp.checkClosestZVertex = False
 
     process.pfBasedRecoSequence = cms.Sequence(
+        process.particleFlowPtrs +
         process.pfNoPileUpSequence +
         process.pfParticleSelectionSequence +
         process.pfPhotonSequence +
@@ -197,50 +220,19 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     ####################################
     ### Photon & electron isoDeposit ###
     ####################################
-    # Runs PU identificaton over particleFlow, then calculates isodeposits around
-    # the given particles using the NoPU collection.
-    # The end product is equivalent to running setupPFIso in
-    # CommonTools.ParticleFlow.Tools.pfIsolation, just with fewer modules to run.
-
-    process.photonPFIsoDepositCharged = process.phPFIsoDepositCharged.clone(src = 'photons')
-    process.photonPFIsoDepositNeutral = process.phPFIsoDepositNeutral.clone(src = 'photons')
-    process.photonPFIsoDepositGamma = process.phPFIsoDepositGamma.clone(src = 'photons')
-    process.gsfElectronPFIsoDepositCharged = process.elPFIsoDepositCharged.clone(src = 'gsfElectrons')
-    process.gsfElectronPFIsoDepositNeutral = process.elPFIsoDepositNeutral.clone(src = 'gsfElectrons')
-    process.gsfElectronPFIsoDepositGamma = process.elPFIsoDepositGamma.clone(src = 'gsfElectrons')
-    process.photonPFIsoValueCharged03 = process.phPFIsoValueCharged03PFId.clone()
-    process.photonPFIsoValueCharged03.deposits[0].src = cms.InputTag('photonPFIsoDepositCharged')
-    process.photonPFIsoValueNeutral03 = process.phPFIsoValueNeutral03PFId.clone()
-    process.photonPFIsoValueNeutral03.deposits[0].src = cms.InputTag('photonPFIsoDepositNeutral')
-    process.photonPFIsoValueGamma03 = process.phPFIsoValueGamma03PFId.clone()
-    process.photonPFIsoValueGamma03.deposits[0].src = cms.InputTag('photonPFIsoDepositGamma')
-    process.gsfElectronPFIsoValueCharged03 = process.elPFIsoValueCharged03PFId.clone()
-    process.gsfElectronPFIsoValueCharged03.deposits[0].src = cms.InputTag('gsfElectronPFIsoDepositCharged')
-    process.gsfElectronPFIsoValueNeutral03 = process.elPFIsoValueNeutral03PFId.clone()
-    process.gsfElectronPFIsoValueNeutral03.deposits[0].src = cms.InputTag('gsfElectronPFIsoDepositNeutral')
-    process.gsfElectronPFIsoValueGamma03 = process.elPFIsoValueGamma03PFId.clone()
-    process.gsfElectronPFIsoValueGamma03.deposits[0].src = cms.InputTag('gsfElectronPFIsoDepositGamma')
-
-    process.photonIsoDepositSequence = cms.Sequence(
-        process.photonPFIsoDepositCharged +
-        process.photonPFIsoDepositNeutral +
-        process.photonPFIsoDepositGamma +
-        process.photonPFIsoValueCharged03 +
-        process.photonPFIsoValueNeutral03 +
-        process.photonPFIsoValueGamma03
-    )
-    process.gsfElectronIsoDepositSequence = cms.Sequence(
-        process.gsfElectronPFIsoDepositCharged +
-        process.gsfElectronPFIsoDepositNeutral +
-        process.gsfElectronPFIsoDepositGamma +
-        process.gsfElectronPFIsoValueCharged03 +
-        process.gsfElectronPFIsoValueNeutral03 +
-        process.gsfElectronPFIsoValueGamma03
-    )
+    # pf isolation tools seems broken in 70X (Jun 12 2014, Y.I.)
+#    import CommonTools.ParticleFlow.Tools.pfIsolation as pfIsolation
+#    process.load('CommonTools.ParticleFlow.Isolation.pfElectronIsolation_cff')
+#    process.load('CommonTools.ParticleFlow.Isolation.pfPhotonIsolation_cff')
+#
+#    process.eleIsoSequence = pfIsolation.setupPFElectronIso(process, 'gedGsfElectrons', newpostfix = 'GedEle')
+#    process.phoIsoSequence = pfIsolation.setupPFPhotonIso(process, 'photons', newpostfix = 'OldPh')
+#    process.gedPhoIsoSequence = pfIsolation.setupPFPhotonIso(process, 'gedPhotons', newpostfix = 'GedPh')
 
     process.pfIsolationSequence = cms.Sequence(
-        process.photonIsoDepositSequence +
-        process.gsfElectronIsoDepositSequence
+#        process.eleIsoSequence +
+#        process.phoIsoSequence +
+#        process.gedPhoIsoSequence
     )
 
     ###############################################
@@ -248,11 +240,11 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     ###############################################
     # pfJets comes from PFBRECO.
 
-    process.ak5PFchsJets = process.pfJets.clone()
-    process.ak5PFchsJets.doAreaFastjet = True
+    process.ak5PFJetsCHS = process.pfJets.clone()
+    process.ak5PFJetsCHS.doAreaFastjet = True
 
     process.pfCHSJetSequence = cms.Sequence(
-        process.ak5PFchsJets
+        process.ak5PFJetsCHS
     )
 
     ###########
@@ -368,37 +360,29 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     #############################
     ### MVA-based electron ID ###
     #############################
-    process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi')
+    # ELECTRON MVA NOT MEANINGFUL FOR A WHILE
+#    process.load('EGamma.EGammaAnalysisTools.electronIdMVAProducer_cfi')
     process.eidMVASequence = cms.Sequence(
-        process.mvaTrigV0 *
-        process.mvaNonTrigV0
+#        process.mvaTrigV0 *
+#        process.mvaNonTrigV0
     )
 
     #################
     ### PU jet ID ###
     #################
-    from RecoJets.JetProducers.PileupJetIDParams_cfi import full_5x, full_5x_chs, cutbased
-    from RecoJets.JetProducers.PileupJetID_cfi import pileupJetIdProducer, pileupJetIdProducerChs
-
-    process.recoPuJetId = pileupJetIdProducer.clone(
-        jets = cms.InputTag("ak5PFJets"),
-        algos = cms.VPSet(full_5x, cutbased),
-        applyJec = cms.bool(True),
-        inputIsCorrected = cms.bool(False),
-        residualsTxt = cms.FileInPath("RecoJets/JetProducers/data/mva_JetID_v1.weights.xml") # not used, but has to point to an existing file
-    )
-
-    process.recoPuJetIdChs = pileupJetIdProducerChs.clone(
-        jets = cms.InputTag("ak5PFchsJets"),
-        algos = cms.VPSet(full_5x_chs, cutbased),
-        applyJec = cms.bool(True),
-        inputIsCorrected = cms.bool(False),
-        residualsTxt = cms.FileInPath("RecoJets/JetProducers/data/mva_JetID_v1.weights.xml") # not used, but has to point to an existing file
-    )
+#    from RecoJets.JetProducers.PileupJetIDParams_cfi import full_5x_chs, cutbased
+#    from RecoJets.JetProducers.PileupJetID_cfi import pileupJetIdProducer, pileupJetIdProducerChs
+#
+#    process.recoPuJetIdChs = pileupJetIdProducerChs.clone(
+#        jets = cms.InputTag("ak5PFJetsCHS"),
+#        algos = cms.VPSet(full_5x_chs, cutbased),
+#        applyJec = cms.bool(True),
+#        inputIsCorrected = cms.bool(False),
+#        residualsTxt = cms.FileInPath("SUSYPhotonAnalysis/SusyNtuplizer/python/runOverAOD.py") # not used, but has to point to an existing file
+#    )
 
     process.recoPuJetIdSequence = cms.Sequence(
-        process.recoPuJetId +
-        process.recoPuJetIdChs
+#        process.recoPuJetIdChs
     )
 
     ##################################
@@ -423,7 +407,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
             physicsDefinition = cms.bool(True)
         )
         process.flavourByRefCHS = cms.EDProducer("JetPartonMatcher",
-            jets = cms.InputTag("ak5PFchsJets"),
+            jets = cms.InputTag("ak5PFJetsCHS"),
             coneSizeToAssociate = cms.double(0.3),
             partons = cms.InputTag("myPartons")
         )
@@ -463,7 +447,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         tracks = cms.InputTag("generalTracks")
         )
     process.chsJetTracksAssociatorAtVertex = process.ic5PFJetTracksAssociatorAtVertex.clone(
-        jets = cms.InputTag("ak5PFchsJets"),
+        jets = cms.InputTag("ak5PFJetsCHS"),
         tracks = cms.InputTag("generalTracks")
         )
 
@@ -540,42 +524,42 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
             )
         )
     # soft electron b-tag
-    process.newSoftElectronTagInfos = process.softElectronTagInfos.clone(
+    process.newSoftPFElectronsTagInfos = process.softPFElectronsTagInfos.clone(
         jets = "ak5PFJets"
         )
-    process.newSoftElectronBJetTags = process.softElectronBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("newSoftElectronTagInfos") )
+    process.newSoftPFElectronBJetTags = process.softPFElectronBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("newSoftPFElectronsTagInfos") )
         )
-    process.chsSoftElectronTagInfos = process.softElectronTagInfos.clone(
-        jets = "ak5PFchsJets"
+    process.chsSoftPFElectronsTagInfos = process.softPFElectronsTagInfos.clone(
+        jets = "ak5PFJetsCHS"
         )
-    process.chsSoftElectronBJetTags = process.softElectronBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("chsSoftElectronTagInfos") )
+    process.chsSoftPFElectronBJetTags = process.softPFElectronBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("chsSoftPFElectronsTagInfos") )
         )
     # soft muon b-tag
-    process.newSoftMuonTagInfos = process.softMuonTagInfos.clone(
+    process.newSoftPFMuonsTagInfos = process.softPFMuonsTagInfos.clone(
         jets = "ak5PFJets"
         )
-    process.newSoftMuonBJetTags = process.softMuonBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    process.newSoftPFMuonBJetTags = process.softPFMuonBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("newSoftPFMuonsTagInfos") )
         )
-    process.newSoftMuonByIP3dBJetTags = process.softMuonByIP3dBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    process.newSoftPFMuonByIP3dBJetTags = process.softPFMuonByIP3dBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("newSoftPFMuonsTagInfos") )
         )
-    process.newSoftMuonByPtBJetTags = process.softMuonByPtBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("newSoftMuonTagInfos") )
+    process.newSoftPFMuonByPtBJetTags = process.softPFMuonByPtBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("newSoftPFMuonsTagInfos") )
         )
-    process.chsSoftMuonTagInfos = process.softMuonTagInfos.clone(
-        jets = "ak5PFchsJets"
+    process.chsSoftPFMuonsTagInfos = process.softPFMuonsTagInfos.clone(
+        jets = "ak5PFJetsCHS"
         )
-    process.chsSoftMuonBJetTags = process.softMuonBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    process.chsSoftPFMuonBJetTags = process.softPFMuonBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("chsSoftPFMuonsTagInfos") )
         )
-    process.chsSoftMuonByIP3dBJetTags = process.softMuonByIP3dBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    process.chsSoftPFMuonByIP3dBJetTags = process.softPFMuonByIP3dBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("chsSoftPFMuonsTagInfos") )
         )
-    process.chsSoftMuonByPtBJetTags = process.softMuonByPtBJetTags.clone(
-        tagInfos = cms.VInputTag( cms.InputTag("chsSoftMuonTagInfos") )
+    process.chsSoftPFMuonByPtBJetTags = process.softPFMuonByPtBJetTags.clone(
+        tagInfos = cms.VInputTag( cms.InputTag("chsSoftPFMuonsTagInfos") )
         )
 
     process.newJetTracksAssociator = cms.Sequence(
@@ -620,28 +604,26 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     )
 
     process.newJetBtaggingEle = cms.Sequence(
-        process.softElectronCands *
-        process.newSoftElectronTagInfos *
-        process.newSoftElectronBJetTags
+        process.newSoftPFElectronsTagInfos *
+        process.newSoftPFElectronBJetTags
     )
     process.chsJetBtaggingEle = cms.Sequence(
-        process.softElectronCands *
-        process.chsSoftElectronTagInfos *
-        process.chsSoftElectronBJetTags
+        process.chsSoftPFElectronsTagInfos *
+        process.chsSoftPFElectronBJetTags
     )
 
     process.newJetBtaggingMu = cms.Sequence(
-        process.newSoftMuonTagInfos * (
-            process.newSoftMuonBJetTags +
-            process.newSoftMuonByIP3dBJetTags +
-            process.newSoftMuonByPtBJetTags
+        process.newSoftPFMuonsTagInfos * (
+            process.newSoftPFMuonBJetTags +
+            process.newSoftPFMuonByIP3dBJetTags +
+            process.newSoftPFMuonByPtBJetTags
         )
     )
     process.chsJetBtaggingMu = cms.Sequence(
-        process.chsSoftMuonTagInfos * (
-            process.chsSoftMuonBJetTags +
-            process.chsSoftMuonByIP3dBJetTags +
-            process.chsSoftMuonByPtBJetTags
+        process.chsSoftPFMuonsTagInfos * (
+            process.chsSoftPFMuonBJetTags +
+            process.chsSoftPFMuonByIP3dBJetTags +
+            process.chsSoftPFMuonByPtBJetTags
         )
     )
 
@@ -688,33 +670,33 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     ###########################
     ### Quark-gluon tagging ###
     ###########################
-    from QuarkGluonTagger.EightTeV.QGTagger_RecoJets_cff import goodOfflinePrimaryVerticesQG, QGTagger
-
-    process.goodOfflinePrimaryVerticesQG = goodOfflinePrimaryVerticesQG
-
-    process.QGTaggerAK5 = QGTagger.clone(
-        srcJets = cms.InputTag('ak5PFJets'),
-        srcRho = cms.InputTag('kt6PFJets', 'rho'),
-        srcRhoIso = cms.InputTag('kt6PFJetsRho25', 'rho')
-    )
-    process.QGTaggerAK5chs = QGTagger.clone(
-        srcJets = cms.InputTag('ak5PFchsJets'),
-        useCHS = cms.untracked.bool(True),
-        srcRho = cms.InputTag('kt6PFJets', 'rho'),
-        srcRhoIso = cms.InputTag('kt6PFJetsRho25', 'rho')
-    )
-
-    if isRealData:
-        process.QGTaggerAK5.jec = cms.untracked.string('ak5PFL1FastL2L3Residual')
-        process.QGTaggerAK5chs.jec = cms.untracked.string('ak5PFchsL1FastL2L3Residual')
-    else:
-        process.QGTaggerAK5.jec = cms.untracked.string('ak5PFL1FastL2L3')
-        process.QGTaggerAK5chs.jec = cms.untracked.string('ak5PFchsL1FastL2L3')
+#    from QuarkGluonTagger.EightTeV.QGTagger_RecoJets_cff import goodOfflinePrimaryVerticesQG, QGTagger
+#
+#    process.goodOfflinePrimaryVerticesQG = goodOfflinePrimaryVerticesQG
+#
+#    process.QGTaggerAK5 = QGTagger.clone(
+#        srcJets = cms.InputTag('ak5PFJets'),
+#        srcRho = cms.InputTag('kt6PFJets', 'rho'),
+#        srcRhoIso = cms.InputTag('kt6PFJetsRho25', 'rho')
+#    )
+#    process.QGTaggerAK5chs = QGTagger.clone(
+#        srcJets = cms.InputTag('ak5PFJetsCHS'),
+#        useCHS = cms.untracked.bool(True),
+#        srcRho = cms.InputTag('kt6PFJets', 'rho'),
+#        srcRhoIso = cms.InputTag('kt6PFJetsRho25', 'rho')
+#    )
+#
+#    if isRealData:
+#        process.QGTaggerAK5.jec = cms.untracked.string('ak5PFL1FastL2L3Residual')
+#        process.QGTaggerAK5chs.jec = cms.untracked.string('ak5PFchsL1FastL2L3Residual')
+#    else:
+#        process.QGTaggerAK5.jec = cms.untracked.string('ak5PFL1FastL2L3')
+#        process.QGTaggerAK5chs.jec = cms.untracked.string('ak5PFchsL1FastL2L3')
 
     process.QGTaggingSequence = cms.Sequence(
-        process.goodOfflinePrimaryVerticesQG +
-        process.QGTaggerAK5 +
-        process.QGTaggerAK5chs
+#        process.goodOfflinePrimaryVerticesQG +
+#        process.QGTaggerAK5 +
+#        process.QGTaggerAK5chs
     )
 
     ###################
@@ -723,7 +705,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     # HBHENoiseFilterResultProducer
     process.load('CommonTools.RecoAlgos.HBHENoiseFilterResultProducer_cfi')
 
-    # HCAL laser events filter
+    # HCAL laser events filter (for 2011 data and 2012D prompt)
     process.load("RecoMET.METFilters.hcalLaserEventFilter_cfi")
     process.hcalLaserEventFilter.taggingMode = cms.bool(True)
 
@@ -845,6 +827,44 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
     else:
         process.noPUMVAMetSequence = cms.Sequence() # placeholder
 
+    #####################
+    ### Finalize path ###
+    #####################
+    process.standard_step = cms.Path(
+        process.hltHighLevel +
+        process.hcallasereventfilter2012 +
+        process.vertexSelectionSequence +
+        process.puRhoSequence +
+        process.pfBasedRecoSequence +
+        process.pfIsolationSequence +
+        process.pfCHSJetSequence +
+        process.correctedMetSequence +
+        process.eidMVASequence +
+        process.recoPuJetIdSequence +
+        process.JetFlavourMatchingSequence +
+        process.newJetTracksAssociator +
+        process.chsJetTracksAssociator +
+        process.newJetBtagging +
+        process.chsJetBtagging +
+        process.QGTaggingSequence +
+        process.metFiltersSequence
+    )
+
+    process.optional_step = cms.Path(
+        process.hltHighLevel +
+        process.hcallasereventfilter2012 +
+        process.noPUMVAMetSequence
+    )
+
+    process.ntuplizer_step = cms.Path(
+        process.hltHighLevel +
+        process.hcallasereventfilter2012 +
+        process.susyNtuplizer
+    )
+
+    process.schedule = cms.Schedule(process.standard_step,process.optional_step,process.ntuplizer_step)
+
+
     ###################################################################
     ### Dataset-dependent sequence and event content configurations ###
     ###################################################################
@@ -881,6 +901,7 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
 
     if dataset in ['52xPrompt', '52x23May2012', '53xPromptC', '53x13July2012', '53x06Aug2012', '53x24Aug2012', '53x11Dec2013']:
         process.susyNtuplizer.metFilters.HcalLaserEventList.default = True
+        # The filter is actually applied at the sequence level; all events saved in the ntuples would have passed it
 
     if dataset in ['53xPromptD', '53x16Jan2013']:
         process.susyNtuplizer.metFilters.HcalLaserOccupancy.default = True
@@ -900,37 +921,9 @@ def configure( dataset, sourceNames=[], hltPaths=[], maxEvents = -1, outputName 
         process.susyNtuplizer.metCollectionTags.remove('pfSysShiftCorrectedMet')
         process.susyNtuplizer.metCollectionTags.remove('pfType01SysShiftCorrectedMet')
 
-    #####################
-    ### Finalize path ###
-    #####################
-    process.standard_step = cms.Path(
-        process.hltHighLevel +
-        process.vertexSelectionSequence +
-        process.puRhoSequence +
-        process.pfBasedRecoSequence +
-        process.pfIsolationSequence +
-        process.pfCHSJetSequence +
-        process.correctedMetSequence +
-        process.eidMVASequence +
-        process.recoPuJetIdSequence +
-        process.JetFlavourMatchingSequence +
-        process.newJetTracksAssociator +
-        process.chsJetTracksAssociator +
-        process.newJetBtagging +
-        process.chsJetBtagging +
-        process.QGTaggingSequence +
-        process.metFiltersSequence
-    )
+    if is70x:
+        process.standard_step.remove(process.pfCHSJetSequence)
+    else:
+        process.puRhoSequence.remove(process.kt6PFJets)
 
-    process.optional_step = cms.Path(
-        process.hltHighLevel +
-        process.noPUMVAMetSequence
-    )
-
-    process.ntuplizer_step = cms.Path(
-        process.hltHighLevel +
-        process.susyNtuplizer
-    )
-
-    process.schedule = cms.Schedule(process.standard_step,process.optional_step,process.ntuplizer_step)
     return process

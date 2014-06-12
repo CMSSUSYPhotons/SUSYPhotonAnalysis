@@ -1,3 +1,5 @@
+import FWCore.ParameterSet.Config as cms
+
 from SUSYPhotonAnalysis.SusyNtuplizer.runOverAOD import configure
 from FWCore.ParameterSet.VarParsing import VarParsing
 # Call by e.g. "cmsRun runOverAOD_CommandLine.py dataset=53x22Jan2013 inputFiles=file1.root file2.root"
