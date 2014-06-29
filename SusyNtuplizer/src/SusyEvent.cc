@@ -100,6 +100,7 @@ susy::Particle::Print(std::ostream& os/* = std::cout*/) const
 void
 susy::Particle::fillRefs(Event const* _evt)
 {
+  mother = 0;
   if(unsigned(motherIndex) < _evt->genParticles.size())
     mother = &_evt->genParticles[motherIndex];
 }
@@ -211,6 +212,7 @@ susy::SuperCluster::Print(std::ostream& os/* = std::cout*/) const
 void
 susy::SuperCluster::fillRefs(Event const* _evt)
 {
+  seedCluster = 0;
   if(unsigned(seedClusterIndex) < _evt->clusters.size())
     seedCluster = &_evt->clusters[seedClusterIndex];
 
@@ -268,6 +270,7 @@ susy::Track::Print(std::ostream& os/* = std::cout*/) const
 void
 susy::Track::fillRefs(Event const* _evt)
 {
+  assignedVertex = 0;
   if(unsigned(vertexIndex) < _evt->vertices.size())
     assignedVertex = &_evt->vertices[vertexIndex];
 }
@@ -474,9 +477,11 @@ susy::Photon::Print(std::ostream& os/* = std::cout*/) const
 void
 susy::Photon::fillRefs(Event const* _evt)
 {
+  superCluster = 0;
   if(unsigned(superClusterIndex) < _evt->superClusters.size())
     superCluster = &_evt->superClusters[superClusterIndex];
 
+  worstOtherVtxChargedHadronIsoVtx = 0;
   if(unsigned(worstOtherVtxChargedHadronIsoVtxIdx) < _evt->vertices.size())
     worstOtherVtxChargedHadronIsoVtx = &_evt->vertices[worstOtherVtxChargedHadronIsoVtxIdx];
 }
@@ -665,12 +670,16 @@ susy::Electron::fillRefs(Event const* _evt)
 {
   unsigned nT(_evt->tracks.size());
 
+  gsfTrack = 0;
   if(unsigned(gsfTrackIndex) < nT)
     gsfTrack = &_evt->tracks[gsfTrackIndex];
+  closestCtfTrack = 0;
   if(unsigned(closestCtfTrackIndex) < nT)
     closestCtfTrack = &_evt->tracks[closestCtfTrackIndex];
+  electronCluster = 0;
   if(unsigned(electronClusterIndex) < _evt->clusters.size())
     electronCluster = &_evt->clusters[electronClusterIndex];
+  superCluster = 0;
   if(unsigned(superClusterIndex) < _evt->superClusters.size())
     superCluster = &_evt->superClusters[superClusterIndex];
 }
@@ -809,20 +818,28 @@ susy::Muon::fillRefs(Event const* _evt)
 {
   unsigned nT(_evt->tracks.size());
 
+  innerTrack = 0;
   if(unsigned(trackIndex) < nT)
     innerTrack = &_evt->tracks[trackIndex];
+  outerTrack = 0;
   if(unsigned(standAloneTrackIndex) < nT)
     outerTrack = &_evt->tracks[standAloneTrackIndex];
+  combinedTrack = 0;
   if(unsigned(combinedTrackIndex) < nT)
     globalTrack = &_evt->tracks[combinedTrackIndex];
+  tpfmsTrack = 0;
   if(unsigned(tpfmsTrackIndex) < nT)
     tpfmsTrack = &_evt->tracks[tpfmsTrackIndex];
+  pickyTrack = 0;
   if(unsigned(pickyTrackIndex) < nT)
     pickyTrack = &_evt->tracks[pickyTrackIndex];
+  dytTrack = 0;
   if(unsigned(dytTrackIndex) < nT)
     dytTrack = &_evt->tracks[dytTrackIndex];
+  bestTrack = 0;
   if(unsigned(bestTrackIndex()) < nT)
     bestTrack = &_evt->tracks[bestTrackIndex()];
+  highPtBestTrack = 0;
   if(unsigned(highPtBestTrackIndex()) < nT)
     highPtBestTrack = &_evt->tracks[highPtBestTrackIndex()];
 }
