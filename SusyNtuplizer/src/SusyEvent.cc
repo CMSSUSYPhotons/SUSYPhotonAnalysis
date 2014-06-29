@@ -824,7 +824,7 @@ susy::Muon::fillRefs(Event const* _evt)
   outerTrack = 0;
   if(unsigned(standAloneTrackIndex) < nT)
     outerTrack = &_evt->tracks[standAloneTrackIndex];
-  combinedTrack = 0;
+  globalTrack = 0;
   if(unsigned(combinedTrackIndex) < nT)
     globalTrack = &_evt->tracks[combinedTrackIndex];
   tpfmsTrack = 0;
